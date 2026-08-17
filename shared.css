@@ -1483,38 +1483,38 @@ button.dd-btn {
   pointer-events:none;
 }
 .my-balance.pos{
-  background:linear-gradient(135deg, #2E8E4F 0%, #1E6B37 100%);
+  background:linear-gradient(135deg, #30D158 0%, #1FB44A 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.2);
-  box-shadow:0 4px 16px rgba(46,142,79,.22), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 4px 16px rgba(48,209,88,.28), 0 2px 6px rgba(0,0,0,.15);
 }
 .my-balance.neg{
-  background:linear-gradient(135deg, #D44B65 0%, #A3283E 100%);
+  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.2);
-  box-shadow:0 4px 16px rgba(212,75,101,.22), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 4px 16px rgba(255,69,106,.28), 0 2px 6px rgba(0,0,0,.15);
 }
 .my-balance.zero{
-  background:linear-gradient(135deg, #5C576E 0%, #433F52 100%);
+  background:linear-gradient(135deg, #6B677E 0%, #4E4A5C 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.18);
   box-shadow:0 4px 14px rgba(0,0,0,.25);
 }
-.my-balance-label{ font-size:12.5px; font-weight:600; letter-spacing:.02em; color:rgba(255,255,255,.9); }
+.my-balance-label{ font-size:12.5px; font-weight:600; letter-spacing:.02em; color:rgba(255,255,255,.95); }
 
 :root[data-theme="dark"] .my-balance.pos{
-  background:linear-gradient(135deg, #2A7342 0%, #1B4D2B 100%);
-  border-color:rgba(255,255,255,.18);
-  box-shadow:0 6px 20px rgba(42,115,66,.3), 0 2px 6px rgba(0,0,0,.4);
+  background:linear-gradient(135deg, #2ED158 0%, #1AA842 100%);
+  border-color:rgba(255,255,255,.25);
+  box-shadow:0 6px 20px rgba(46,209,88,.35), 0 2px 6px rgba(0,0,0,.4);
 }
 :root[data-theme="dark"] .my-balance.neg{
-  background:linear-gradient(135deg, #A8364C 0%, #751F30 100%);
-  border-color:rgba(255,255,255,.18);
-  box-shadow:0 6px 20px rgba(168,54,76,.3), 0 2px 6px rgba(0,0,0,.4);
+  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
+  border-color:rgba(255,255,255,.25);
+  box-shadow:0 6px 20px rgba(255,69,106,.35), 0 2px 6px rgba(0,0,0,.4);
 }
 :root[data-theme="dark"] .my-balance.zero{
-  background:linear-gradient(135deg, #423F4D 0%, #2E2B38 100%);
-  border-color:rgba(255,255,255,.15);
+  background:linear-gradient(135deg, #504D60 0%, #383546 100%);
+  border-color:rgba(255,255,255,.18);
   box-shadow:0 6px 18px rgba(0,0,0,.4);
 }
 .sb-confetti{
@@ -2212,22 +2212,22 @@ button.dd-btn {
 }
 .my-mini-balance:active{ transform:scale(.98); }
 .my-mini-balance.pos{
-  background:linear-gradient(135deg, #2E8E4F 0%, #1E6B37 100%);
+  background:linear-gradient(135deg, #30D158 0%, #1FB44A 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.2);
-  box-shadow:0 4px 16px rgba(46,142,79,.22), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 4px 16px rgba(48,209,88,.28), 0 2px 6px rgba(0,0,0,.15);
 }
 .my-mini-balance.pos:hover{
-  box-shadow:0 6px 22px rgba(46,142,79,.35), 0 3px 8px rgba(0,0,0,.25);
+  box-shadow:0 7px 24px rgba(48,209,88,.42), 0 3px 8px rgba(0,0,0,.25);
 }
 .my-mini-balance.neg{
-  background:linear-gradient(135deg, #D44B65 0%, #A3283E 100%);
+  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.2);
-  box-shadow:0 4px 16px rgba(212,75,101,.22), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 4px 16px rgba(255,69,106,.28), 0 2px 6px rgba(0,0,0,.15);
 }
 .my-mini-balance.neg:hover{
-  box-shadow:0 6px 22px rgba(212,75,101,.35), 0 3px 8px rgba(0,0,0,.25);
+  box-shadow:0 7px 24px rgba(255,69,106,.42), 0 3px 8px rgba(0,0,0,.25);
 }
 .my-mini-balance.zero{
   background:var(--paper);
@@ -2260,24 +2260,24 @@ button.dd-btn {
 }
 
 :root[data-theme="dark"] .my-mini-balance.pos{
-  background:linear-gradient(135deg, #2A7342 0%, #1B4D2B 100%);
-  border-color:rgba(255,255,255,.18);
-  box-shadow:0 5px 18px rgba(42,115,66,.28), 0 2px 6px rgba(0,0,0,.35);
+  background:linear-gradient(135deg, #2ED158 0%, #1AA842 100%);
+  border-color:rgba(255,255,255,.25);
+  box-shadow:0 5px 18px rgba(46,209,88,.35), 0 2px 6px rgba(0,0,0,.35);
 }
 :root[data-theme="dark"] .my-mini-balance.pos:hover{
-  box-shadow:0 7px 24px rgba(42,115,66,.42), 0 3px 8px rgba(0,0,0,.5);
+  box-shadow:0 8px 26px rgba(46,209,88,.5), 0 3px 8px rgba(0,0,0,.5);
 }
 :root[data-theme="dark"] .my-mini-balance.neg{
-  background:linear-gradient(135deg, #A8364C 0%, #751F30 100%);
-  border-color:rgba(255,255,255,.18);
-  box-shadow:0 5px 18px rgba(168,54,76,.28), 0 2px 6px rgba(0,0,0,.35);
+  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
+  border-color:rgba(255,255,255,.25);
+  box-shadow:0 5px 18px rgba(255,69,106,.35), 0 2px 6px rgba(0,0,0,.35);
 }
 :root[data-theme="dark"] .my-mini-balance.neg:hover{
-  box-shadow:0 7px 24px rgba(168,54,76,.42), 0 3px 8px rgba(0,0,0,.5);
+  box-shadow:0 8px 26px rgba(255,69,106,.5), 0 3px 8px rgba(0,0,0,.5);
 }
 :root[data-theme="dark"] .my-mini-balance.zero{
   background:#2E2E32;
-  border-color:rgba(255,255,255,.12);
+  border-color:rgba(255,255,255,.14);
   box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 
