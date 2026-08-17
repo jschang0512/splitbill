@@ -1468,25 +1468,55 @@ button.dd-btn {
   display:flex;
   align-items:center;
   justify-content:space-between;
-  border-radius:16px;
+  border-radius:18px;
   padding:16px 20px;
   margin-bottom:16px;
-  box-shadow:0 2px 8px rgba(0,0,0,.15);
-  transition:background .25s ease, transform .15s ease;
   position:relative;
   overflow:hidden;
+  transition:all .25s ease;
 }
 .my-balance::after{
-  display:none !important;
+  content:"";
+  position:absolute;
+  top:0; right:0; bottom:0; left:0;
+  background:linear-gradient(135deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 60%);
+  pointer-events:none;
 }
-.my-balance.pos{ background:#2E7D47; color:#FFFFFF; border:1px solid rgba(255,255,255,.15); }
-.my-balance.neg{ background:#A83248; color:#FFFFFF; border:1px solid rgba(255,255,255,.15); }
-.my-balance.zero{ background:#4A4858; color:#FFFFFF; border:1px solid rgba(255,255,255,.15); }
+.my-balance.pos{
+  background:linear-gradient(135deg, #2E8E4F 0%, #1E6B37 100%);
+  color:#FFFFFF;
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 4px 16px rgba(46,142,79,.22), 0 2px 6px rgba(0,0,0,.15);
+}
+.my-balance.neg{
+  background:linear-gradient(135deg, #D44B65 0%, #A3283E 100%);
+  color:#FFFFFF;
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 4px 16px rgba(212,75,101,.22), 0 2px 6px rgba(0,0,0,.15);
+}
+.my-balance.zero{
+  background:linear-gradient(135deg, #5C576E 0%, #433F52 100%);
+  color:#FFFFFF;
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 4px 14px rgba(0,0,0,.25);
+}
 .my-balance-label{ font-size:12.5px; font-weight:600; letter-spacing:.02em; color:rgba(255,255,255,.9); }
 
-:root[data-theme="dark"] .my-balance.pos{ background:#265A35; border-color:rgba(255,255,255,.12); box-shadow:0 2px 8px rgba(0,0,0,.35); }
-:root[data-theme="dark"] .my-balance.neg{ background:#7E2638; border-color:rgba(255,255,255,.12); box-shadow:0 2px 8px rgba(0,0,0,.35); }
-:root[data-theme="dark"] .my-balance.zero{ background:#38383D; border-color:rgba(255,255,255,.12); box-shadow:0 2px 8px rgba(0,0,0,.35); }
+:root[data-theme="dark"] .my-balance.pos{
+  background:linear-gradient(135deg, #2A7342 0%, #1B4D2B 100%);
+  border-color:rgba(255,255,255,.18);
+  box-shadow:0 6px 20px rgba(42,115,66,.3), 0 2px 6px rgba(0,0,0,.4);
+}
+:root[data-theme="dark"] .my-balance.neg{
+  background:linear-gradient(135deg, #A8364C 0%, #751F30 100%);
+  border-color:rgba(255,255,255,.18);
+  box-shadow:0 6px 20px rgba(168,54,76,.3), 0 2px 6px rgba(0,0,0,.4);
+}
+:root[data-theme="dark"] .my-balance.zero{
+  background:linear-gradient(135deg, #423F4D 0%, #2E2B38 100%);
+  border-color:rgba(255,255,255,.15);
+  box-shadow:0 6px 18px rgba(0,0,0,.4);
+}
 .sb-confetti{
   position:fixed;
   inset:0;
@@ -2173,32 +2203,40 @@ button.dd-btn {
   font-weight:600;
   color:var(--ink);
   text-decoration:none;
-  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
   cursor:pointer;
-  transition:all .18s ease;
+  transition:all .2s cubic-bezier(.34,1.2,.4,1);
 }
 .my-mini-balance:hover{
-  transform:translateY(-1px);
-  box-shadow:0 4px 12px rgba(0,0,0,.15);
+  transform:translateY(-1.5px);
 }
 .my-mini-balance:active{ transform:scale(.98); }
 .my-mini-balance.pos{
-  background:#2E7D47;
+  background:linear-gradient(135deg, #2E8E4F 0%, #1E6B37 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.15);
-  box-shadow:0 2px 6px rgba(0,0,0,.12);
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 4px 16px rgba(46,142,79,.22), 0 2px 6px rgba(0,0,0,.15);
+}
+.my-mini-balance.pos:hover{
+  box-shadow:0 6px 22px rgba(46,142,79,.35), 0 3px 8px rgba(0,0,0,.25);
 }
 .my-mini-balance.neg{
-  background:#A83248;
+  background:linear-gradient(135deg, #D44B65 0%, #A3283E 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.15);
-  box-shadow:0 2px 6px rgba(0,0,0,.12);
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 4px 16px rgba(212,75,101,.22), 0 2px 6px rgba(0,0,0,.15);
+}
+.my-mini-balance.neg:hover{
+  box-shadow:0 6px 22px rgba(212,75,101,.35), 0 3px 8px rgba(0,0,0,.25);
 }
 .my-mini-balance.zero{
   background:var(--paper);
   color:var(--ink);
   border:1.5px solid var(--card-nested-border);
   box-shadow:var(--card-nested-shadow);
+}
+.my-mini-balance.zero:hover{
+  box-shadow:0 4px 14px rgba(0,0,0,.15);
 }
 .my-mini-balance .amt{
   font-family:"JetBrains Mono",monospace;
@@ -2222,18 +2260,24 @@ button.dd-btn {
 }
 
 :root[data-theme="dark"] .my-mini-balance.pos{
-  background:#265A35;
-  border-color:rgba(255,255,255,.12);
-  box-shadow:0 2px 8px rgba(0,0,0,.35);
+  background:linear-gradient(135deg, #2A7342 0%, #1B4D2B 100%);
+  border-color:rgba(255,255,255,.18);
+  box-shadow:0 5px 18px rgba(42,115,66,.28), 0 2px 6px rgba(0,0,0,.35);
+}
+:root[data-theme="dark"] .my-mini-balance.pos:hover{
+  box-shadow:0 7px 24px rgba(42,115,66,.42), 0 3px 8px rgba(0,0,0,.5);
 }
 :root[data-theme="dark"] .my-mini-balance.neg{
-  background:#7E2638;
-  border-color:rgba(255,255,255,.12);
-  box-shadow:0 2px 8px rgba(0,0,0,.35);
+  background:linear-gradient(135deg, #A8364C 0%, #751F30 100%);
+  border-color:rgba(255,255,255,.18);
+  box-shadow:0 5px 18px rgba(168,54,76,.28), 0 2px 6px rgba(0,0,0,.35);
+}
+:root[data-theme="dark"] .my-mini-balance.neg:hover{
+  box-shadow:0 7px 24px rgba(168,54,76,.42), 0 3px 8px rgba(0,0,0,.5);
 }
 :root[data-theme="dark"] .my-mini-balance.zero{
   background:#2E2E32;
-  border-color:rgba(255,255,255,.1);
+  border-color:rgba(255,255,255,.12);
   box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 
