@@ -1476,46 +1476,42 @@ button.dd-btn {
   transition:all .25s ease;
 }
 .my-balance::after{
-  content:"";
-  position:absolute;
-  top:0; right:0; bottom:0; left:0;
-  background:linear-gradient(135deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 60%);
-  pointer-events:none;
+  display:none !important;
 }
 .my-balance.pos{
-  background:linear-gradient(135deg, #30D158 0%, #1FB44A 100%);
+  background:linear-gradient(135deg, #2ECC71 0%, #229954 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.25);
-  box-shadow:0 4px 16px rgba(48,209,88,.28), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 3px 10px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15);
 }
 .my-balance.neg{
-  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
+  background:linear-gradient(135deg, #E74C68 0%, #C0392B 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.25);
-  box-shadow:0 4px 16px rgba(255,69,106,.28), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 3px 10px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15);
 }
 .my-balance.zero{
-  background:linear-gradient(135deg, #6B677E 0%, #4E4A5C 100%);
+  background:linear-gradient(135deg, #5C576E 0%, #433F52 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.18);
-  box-shadow:0 4px 14px rgba(0,0,0,.25);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
 }
-.my-balance-label{ font-size:12.5px; font-weight:600; letter-spacing:.02em; color:rgba(255,255,255,.95); }
+.my-balance-label{ font-size:12.5px; font-weight:600; letter-spacing:.02em; color:rgba(255,255,255,.9); }
 
 :root[data-theme="dark"] .my-balance.pos{
-  background:linear-gradient(135deg, #2ED158 0%, #1AA842 100%);
-  border-color:rgba(255,255,255,.25);
-  box-shadow:0 6px 20px rgba(46,209,88,.35), 0 2px 6px rgba(0,0,0,.4);
+  background:linear-gradient(135deg, #27AE60 0%, #1E8449 100%);
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 3px 12px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.2);
 }
 :root[data-theme="dark"] .my-balance.neg{
-  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
-  border-color:rgba(255,255,255,.25);
-  box-shadow:0 6px 20px rgba(255,69,106,.35), 0 2px 6px rgba(0,0,0,.4);
+  background:linear-gradient(135deg, #D93856 0%, #A9263E 100%);
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 3px 12px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.2);
 }
 :root[data-theme="dark"] .my-balance.zero{
-  background:linear-gradient(135deg, #504D60 0%, #383546 100%);
-  border-color:rgba(255,255,255,.18);
-  box-shadow:0 6px 18px rgba(0,0,0,.4);
+  background:linear-gradient(135deg, #4A4656 0%, #34313D 100%);
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 3px 12px rgba(0,0,0,.35);
 }
 .sb-confetti{
   position:fixed;
@@ -2212,22 +2208,22 @@ button.dd-btn {
 }
 .my-mini-balance:active{ transform:scale(.98); }
 .my-mini-balance.pos{
-  background:linear-gradient(135deg, #30D158 0%, #1FB44A 100%);
+  background:linear-gradient(135deg, #2ECC71 0%, #229954 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.25);
-  box-shadow:0 4px 16px rgba(48,209,88,.28), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 3px 10px rgba(0,0,0,.2), 0 1px 3px rgba(0,0,0,.1);
 }
 .my-mini-balance.pos:hover{
-  box-shadow:0 7px 24px rgba(48,209,88,.42), 0 3px 8px rgba(0,0,0,.25);
+  box-shadow:0 5px 16px rgba(0,0,0,.3), 0 2px 5px rgba(0,0,0,.15);
 }
 .my-mini-balance.neg{
-  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
+  background:linear-gradient(135deg, #E74C68 0%, #C0392B 100%);
   color:#FFFFFF;
-  border:1px solid rgba(255,255,255,.25);
-  box-shadow:0 4px 16px rgba(255,69,106,.28), 0 2px 6px rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 3px 10px rgba(0,0,0,.2), 0 1px 3px rgba(0,0,0,.1);
 }
 .my-mini-balance.neg:hover{
-  box-shadow:0 7px 24px rgba(255,69,106,.42), 0 3px 8px rgba(0,0,0,.25);
+  box-shadow:0 5px 16px rgba(0,0,0,.3), 0 2px 5px rgba(0,0,0,.15);
 }
 .my-mini-balance.zero{
   background:var(--paper);
@@ -2260,24 +2256,24 @@ button.dd-btn {
 }
 
 :root[data-theme="dark"] .my-mini-balance.pos{
-  background:linear-gradient(135deg, #2ED158 0%, #1AA842 100%);
-  border-color:rgba(255,255,255,.25);
-  box-shadow:0 5px 18px rgba(46,209,88,.35), 0 2px 6px rgba(0,0,0,.35);
+  background:linear-gradient(135deg, #27AE60 0%, #1E8449 100%);
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 3px 12px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.2);
 }
 :root[data-theme="dark"] .my-mini-balance.pos:hover{
-  box-shadow:0 8px 26px rgba(46,209,88,.5), 0 3px 8px rgba(0,0,0,.5);
+  box-shadow:0 5px 18px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
 }
 :root[data-theme="dark"] .my-mini-balance.neg{
-  background:linear-gradient(135deg, #FF456A 0%, #E61E4D 100%);
-  border-color:rgba(255,255,255,.25);
-  box-shadow:0 5px 18px rgba(255,69,106,.35), 0 2px 6px rgba(0,0,0,.35);
+  background:linear-gradient(135deg, #D93856 0%, #A9263E 100%);
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 3px 12px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.2);
 }
 :root[data-theme="dark"] .my-mini-balance.neg:hover{
-  box-shadow:0 8px 26px rgba(255,69,106,.5), 0 3px 8px rgba(0,0,0,.5);
+  box-shadow:0 5px 18px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
 }
 :root[data-theme="dark"] .my-mini-balance.zero{
   background:#2E2E32;
-  border-color:rgba(255,255,255,.14);
+  border-color:rgba(255,255,255,.1);
   box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 
