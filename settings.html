@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("splitbill-theme");
+    if(t !== "dark" && t !== "light"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+
+    // 防閃爍機制：session 看起來已經過期，直接導去 index.html 補登入，
+    // 帶著 redirect 記住「回來要到設定頁」。
+    var loginTime = Number(localStorage.getItem("sb_login_time"));
+    var isExpired = !loginTime || (Date.now() - loginTime > 12 * 60 * 60 * 1000);
+    if (isExpired) {
+      location.replace("index.html?redirect=settings.html");
+    }
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>設定 - Splitbill</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7A6B9E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="帳務系統">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+<style>
+.hidden{display:none !important;}
+.app-logo{width:38px;height:38px;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
+<script src="currencies.js"></script>
+<script src="version.js"></script>
+<script src="theme.js" defer></script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    // 這一頁「載入當下」有沒有已經被某個 SW 控制——只有原本就有在
+    // 控制、後來換了一顆新的，才算是「真的更新了」；如果這頁一開始
+    // 就還沒有 SW 控制（例如第一次連上、或剛清過資料），那接下來的
+    // controllerchange 只是「第一次接手」，不是版本更新，不用重整，
+    // 不然一般换頁瀏覽也會被誤判成改版、多閃一次載入畫面。
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("sw.js").then((reg)=>{
+      // 每次開啟都主動檢查一次，不然瀏覽器預設的背景檢查間隔可能長達
+      // 24 小時——尤其是 TWA/APK 那種很少真的整個關掉重開的情況，
+      // 使用者要等很久才會看到新版內容。新版接手後自動重新整理一次。
+      reg.update();
+      if(hadController){
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+          if(refreshing) return;
+          refreshing = true;
+          location.reload();
+        });
+      }
+    }).catch(()=>{});
+  });
+}
+</script>
+</head>
+<body>
+<div id="pwaSplash" class="pwa-splash">
+  <div class="pwa-splash-content">
+    <svg class="pwa-splash-logo" viewBox="0 0 512 512" aria-hidden="true">
+      <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+      <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+      <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+    </svg>
+  </div>
+</div>
+<script>
+(function(){
+  const splashEl = document.getElementById("pwaSplash");
+  if(!splashEl) return;
+  const splashStartTime = performance.now();
+  const hasSplashed = sessionStorage.getItem("sb_splashed_in_session") === "1";
+  let splashTimer = null;
+
+  if(!hasSplashed){
+    splashEl.classList.add("pwa-splash-visible");
+    sessionStorage.setItem("sb_splashed_in_session", "1");
+  } else {
+    splashTimer = setTimeout(()=>{
+      if(splashEl) splashEl.classList.add("pwa-splash-visible");
+    }, 300);
+  }
+
+  window.hidePwaSplash = function(){
+    if(splashTimer) clearTimeout(splashTimer);
+    const elapsed = performance.now() - splashStartTime;
+    const minDisplay = (!hasSplashed) ? 380 : 0;
+    const remaining = Math.max(0, minDisplay - elapsed);
+    setTimeout(()=>{
+      splashEl.classList.add("pwa-splash-out");
+      setTimeout(()=>{ if(splashEl.parentNode) splashEl.remove(); }, 350);
+    }, remaining);
+  };
+  setTimeout(window.hidePwaSplash, 2000);
+})();
+</script>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop class="logo-stop-a" offset="0%"/>
+      <stop class="logo-stop-b" offset="100%"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="app-header">
+    <div class="eyebrow">SETTINGS</div>
+    <div class="title-row">
+      <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
+        <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+        <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+        <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+      </svg>
+      <h1>設定</h1>
+    </div>
+    <div class="nav-links" id="navLinks"></div>
+  </div>
+
+  <div id="configWarning" class="card hidden">
+    <h2>⚠️ 尚未設定 Supabase</h2>
+    <p class="config-warning-text">
+      打開這個檔案，把最下面 <code>&lt;script&gt;</code> 區塊裡的
+      <code>SUPABASE_URL</code> 跟 <code>SUPABASE_ANON_KEY</code>
+      換成你自己 Supabase 專案的值，存檔後重新整理即可。
+    </p>
+  </div>
+
+  <div id="appScreen">
+    <div class="topbar">
+      <div class="whoami">登入身份：<b id="whoamiName"></b></div>
+      <div class="topbar-actions">
+        <button type="button" class="btn secondary small" id="backBtn">‹ 返回</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="app-tabs" id="settingsTabs">
+        <div class="tab-indicator" id="settingsTabIndicator"></div>
+        <button type="button" class="app-tab active" data-settings-tab="account">👤 帳號</button>
+        <button type="button" class="app-tab" data-settings-tab="group">👥 群組</button>
+        <button type="button" class="app-tab" data-settings-tab="prefs">⚙️ 偏好設定</button>
+      </div>
+
+      <div id="settingsTabAccount" class="settings-tab-panel">
+
+        <div class="settings-group">
+          <div class="settings-section-title">基本資料</div>
+
+          <label>帳戶姓名<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoAccountName">改了會同步套用到你所有群組——除非某個群組另外設定了暱稱，那個群組會繼續顯示暱稱，不受這裡影響。想改某個群組看到的名字，去「群組」分頁改那邊的暱稱。</p>
+          <div class="settings-field-row">
+            <input type="text" id="settingsName" placeholder="你的名字">
+            <button class="btn secondary small" id="saveNameBtn">儲存</button>
+          </div>
+          <div class="msg" id="nameMsg"></div>
+
+          <label>電子信箱<button type="button" class="info-btn" data-info-for="infoEmail" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoEmail">填了才能用忘記密碼救回帳號。</p>
+          <div class="settings-field-row">
+            <input type="email" id="settingsEmail" placeholder="例如 you@gmail.com">
+            <button class="btn secondary small" id="saveEmailBtn">儲存</button>
+          </div>
+          <p class="settings-hint" id="emailStatusHint"></p>
+          <div class="msg" id="emailMsg"></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">登入方式</div>
+
+          <div id="pwChangeSection">
+            <button type="button" class="btn-wide" id="pwChangeModalOpenBtn">🔑 重設密碼</button>
+          </div>
+          <p class="settings-hint hidden" id="pwChangeLockedHint">🔒 請先在上面設定並確認信箱，才能在這裡修改密碼——不然以後忘記密碼會沒辦法用忘記密碼功能救回帳號。</p>
+
+          <label>連結其他登入方式<button type="button" class="info-btn" data-info-for="infoLinkIdentity" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoLinkIdentity">把不同信箱的 Google/Discord 帳號連結到這個帳號，以後不管用哪一種方式登入，都是同一個帳號、同一批群組資料。建議現在就先連結起來，之後才不會因為信箱不一樣，不小心用 Google/Discord 登入又建立出一個新帳號。</p>
+          <div class="settings-row">
+            <span>Google</span>
+            <button class="btn secondary small" id="linkGoogleBtn">連結</button>
+          </div>
+          <div class="settings-row">
+            <span>Discord</span>
+            <button class="btn secondary small" id="linkDiscordBtn">連結</button>
+          </div>
+          <div class="msg" id="linkIdentityMsg"></div>
+        </div>
+
+        <div class="settings-group settings-group-danger">
+          <div class="settings-section-title">危險區域</div>
+
+          <label>銷毀帳號</label>
+          <p class="settings-hint" id="infoDeleteAccount">會讓這個帳號沒辦法再登入，並讓你離開所有群組（歷史支出/還款紀錄會保留，其他人還是看得到）。如果你在任何群組裡還有沒結清的款項，沒辦法銷毀。</p>
+          <button class="btn-wide" id="deleteAccountBtn">銷毀帳號</button>
+          <div class="msg" id="deleteAccountMsg"></div>
+        </div>
+
+      </div>
+
+      <div id="settingsTabGroup" class="settings-tab-panel hidden">
+
+        <div class="settings-group">
+          <div class="settings-section-title">這個群組</div>
+
+          <label>目前所在的群組<button type="button" class="info-btn" data-info-for="infoGroupSelect" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoGroupSelect">切換群組後頁面會重新整理，只會看到那個群組的資料。</p>
+          <div class="settings-field-row">
+            <select id="settingsGroupSelect"></select>
+          </div>
+          <div class="msg" id="settingsGroupMsg"></div>
+
+          <label>在這個群組顯示的暱稱<button type="button" class="info-btn" data-info-for="infoNickname" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoNickname">只影響這個群組看到的名字，不影響「帳號」分頁的姓名、也不影響你在其他群組的名字。留空表示不特別設定，跟著帳號姓名走。</p>
+          <div class="settings-field-row">
+            <input type="text" id="settingsNickname" placeholder="這個群組看到的名字">
+            <button class="btn secondary small" id="saveNicknameBtn">儲存</button>
+          </div>
+          <div class="msg" id="nicknameMsg"></div>
+
+          <label>目前的群組名稱<button type="button" class="info-btn" data-info-for="infoGroupName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoGroupName">任何成員都可以改，不限建立者。</p>
+          <div class="settings-field-row">
+            <input type="text" id="settingsGroupName" placeholder="群組名稱">
+            <button class="btn secondary small" id="saveGroupNameBtn">儲存</button>
+          </div>
+          <div class="msg" id="groupNameMsg"></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">邀請與加入</div>
+
+          <label>邀請碼（給朋友，讓他們加入這個群組）</label>
+          <div class="settings-field-row">
+            <input type="text" id="settingsInviteCode" readonly>
+            <button class="btn secondary small" id="copyInviteCodeBtn">複製</button>
+          </div>
+          <div class="msg" id="copyInviteCodeMsg"></div>
+          <button type="button" class="btn-wide" id="qrModalOpenBtn">📱 顯示 QR Code</button>
+
+          <label>用邀請碼加入<button type="button" class="info-btn" data-info-for="infoJoinGroup" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoJoinGroup">會用「帳號」分頁設定的姓名加入，加入後自動切換過去，之後可以隨時用上面的下拉選單換回來，或是在這個群組另外設定暱稱。</p>
+          <div class="settings-field-row">
+            <input type="text" id="settingsJoinCode" placeholder="邀請碼">
+            <button class="btn secondary small" id="settingsJoinGroupBtn">加入</button>
+          </div>
+          <div class="msg" id="settingsJoinGroupMsg"></div>
+
+          <label>建立新群組</label>
+          <button type="button" class="btn-wide" id="createGroupModalOpenBtn">➕ 建立新群組</button>
+        </div>
+
+        <div class="settings-group settings-group-danger">
+          <div class="settings-section-title">危險區域</div>
+
+          <label>退出目前這個群組</label>
+          <p class="settings-hint" id="infoLeaveGroup">退出後這個群組的資料就看不到了，歷史紀錄會保留（別人還是看得到你之前的支出/還款），之後可以再用邀請碼加回來。</p>
+          <button class="btn-wide" id="leaveGroupBtn">退出目前群組</button>
+          <div class="msg" id="leaveGroupMsg"></div>
+
+          <div id="groupManageSection" class="hidden">
+            <div class="settings-divider"></div>
+
+            <label>建立者專屬：管理成員</label>
+            <div class="checks" id="groupMemberManageList"></div>
+            <div class="msg" id="groupMemberManageMsg"></div>
+
+            <label>刪除整個群組</label>
+            <p class="settings-hint" id="infoDeleteGroup">會把這個群組所有支出、還款、留言、成員都一起清掉，沒辦法復原。</p>
+            <button class="btn secondary small" id="deleteGroupBtn">刪除整個群組</button>
+            <div class="msg" id="deleteGroupMsg"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="settingsTabPrefs" class="settings-tab-panel hidden">
+
+        <div class="settings-group">
+          <div class="settings-section-title">顯示內容</div>
+
+          <label>顯示幣別<button type="button" class="info-btn" data-info-for="infoCurrency" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoCurrency">勾選的幣別才會出現在總覽的導覽列、總表、我的款項；取消勾選不會刪除紀錄。</p>
+          <button type="button" class="btn-wide" id="currencyModalOpenBtn">
+            <span id="currencyToggleSummary">選擇要顯示的幣別</span>
+          </button>
+
+          <div class="settings-row" style="margin-top:6px;">
+            <span style="display:flex;align-items:center;gap:4px;">
+              顯示已退出／已銷毀成員
+              <button type="button" class="info-btn" data-info-for="infoShowLeft" aria-label="說明"><span class="info-btn-i">i</span></button>
+            </span>
+            <label class="switch-toggle" for="showLeftMembersToggle">
+              <input type="checkbox" id="showLeftMembersToggle">
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+          <p class="settings-hint hidden" id="infoShowLeft">關閉後，總表、成員清單等畫面就不會再出現已經退出群組或帳號已銷毀的人（歷史支出/還款紀錄上的名字不受影響）。</p>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">通知與外觀</div>
+
+          <div class="settings-row" id="notifyRow" style="cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🔔</span>
+              <div>
+                <div style="font-weight:600;">異動通知</div>
+                <div class="settings-hint" id="notifyHint" style="margin:2px 0 0;font-size:11px;">有相關支出或還款異動就通知你</div>
+              </div>
+            </div>
+            <button class="icon-btn" id="notifyBtn" title="開啟通知" aria-label="通知">🔔</button>
+          </div>
+
+          <div class="settings-divider" style="margin:8px 0;"></div>
+
+          <div class="settings-row" id="themeRow" style="cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;" id="themeRowIcon">🌙</span>
+              <div>
+                <div style="font-weight:600;">深色模式</div>
+                <div class="settings-hint" style="margin:2px 0 0;font-size:11px;">切換深色與淺色視覺主題</div>
+              </div>
+            </div>
+            <button class="icon-btn" id="settingsThemeBtn" aria-label="切換深色淺色模式">🌙</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">下載 App</div>
+
+          <label>Android APK</label>
+          <p class="settings-hint" id="infoApk">這不是 Google Play 上架版，安裝時手機會提示「不明來源」，需要手動允許才能安裝——這是側載 APK 本來就會有的正常警告，跟 App 本身無關。<br>如果是 iOS 使用者請點擊分享後新增至主螢幕，以擁有似應用程式的使用體驗。</p>
+          <a class="btn-wide" href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk">下載 APK</a>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">版本資訊</div>
+
+          <div class="settings-row">
+            <span>目前版本</span>
+            <span class="version-badge" id="settingsVerNum"></span>
+          </div>
+          <div class="settings-changelog-wrap" style="margin-top:10px;">
+            <div style="font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:6px;">✨ 最新更新項目：</div>
+            <ul class="settings-changelog" style="margin:0;padding-left:18px;">
+              <li>全站介面排版升級：橫向幣別滑動導覽、債務關係表十字高亮定位、分攤成員頭像膠囊</li>
+              <li>設定頁面升級：iOS 風格平滑開關、Segmented Capsule 分頁切換、優化列表互動熱區</li>
+              <li>安全與登入優化：支援 Passkey / 生物辨識快速登入，區隔 Turnstile 避免攔截衝突，大幅提升載入速度</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="app-footer" id="appFooter"></div>
+  </div>
+</div>
+
+<div class="calc-modal" id="currencyModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name">選擇要顯示的幣別</span>
+      <button type="button" class="calc-close" id="currencyModalCloseBtn">✕</button>
+    </div>
+    <div class="checks checks-wide" id="settingsCurrencyList"></div>
+  </div>
+</div>
+
+<div class="calc-modal" id="pwChangeModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name">重設密碼</span>
+      <button type="button" class="calc-close" id="pwChangeModalCloseBtn">✕</button>
+    </div>
+    <label>新密碼（至少 6 碼）</label>
+    <div class="pw-input-wrap">
+      <input type="password" id="newPassword" placeholder="留空表示不變更">
+      <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+    </div>
+    <div class="pw-input-wrap">
+      <input type="password" id="newPasswordConfirm" placeholder="再輸入一次新密碼">
+      <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+    </div>
+    <button class="btn-wide" id="savePwBtn">儲存</button>
+    <div class="msg" id="pwMsg"></div>
+  </div>
+</div>
+
+<div class="calc-modal" id="qrModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name">邀請 QR Code</span>
+      <button type="button" class="calc-close" id="qrModalCloseBtn">✕</button>
+    </div>
+    <div class="invite-qr-wrap">
+      <div id="inviteQrCanvas"></div>
+      <p class="invite-qr-hint">用手機掃描，對方登入或註冊後會自動幫他填好這組邀請碼</p>
+    </div>
+  </div>
+</div>
+
+<div class="calc-modal" id="createGroupModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name">建立新群組</span>
+      <button type="button" class="calc-close" id="createGroupModalCloseBtn">✕</button>
+    </div>
+    <label>群組名稱</label>
+    <input type="text" id="settingsCreateGroupName" placeholder="例如：日本旅遊團">
+    <label>建團授權碼<button type="button" class="info-btn" data-info-for="infoCreateGroup" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+    <p class="settings-hint hidden" id="infoCreateGroup">避免帳號被拿去亂開群組，需要跟開發者索取授權碼才能建立新群組。建立後會自動切換過去，之後可以隨時用上面的下拉選單換回來。</p>
+    <input type="text" id="settingsCreateGroupCode" placeholder="跟開發者索取">
+    <button class="btn-wide" id="settingsCreateGroupBtn">建立</button>
+    <div class="msg" id="settingsCreateGroupMsg"></div>
+  </div>
+</div>
+
+<script>
+document.getElementById("appFooter").textContent = "--菘.v" + APP_VERSION + "--";
+document.getElementById("settingsVerNum").textContent = "ver. " + APP_VERSION;
+</script>
+
+<script>
+const SUPABASE_URL = "https://ofevarwtqzvzrvhbanmf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX";
+
+let shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || ["TWD"];
+let showLeftMembers = localStorage.getItem("splitbill-show-left-members") !== "0";
+
+function renderNavLinks(){
+  renderSplitbillNav("navLinks", "SETTINGS", shownCurrencies);
+}
+renderNavLinks();
+
+const backBtn = document.getElementById("backBtn");
+if(backBtn){
+  backBtn.addEventListener("click", ()=>{
+    if(history.length > 1) history.back();
+    else location.href = "summary.html";
+  });
+}
+
+(function(){
+  if(SUPABASE_URL.startsWith("YOUR_") || SUPABASE_ANON_KEY.startsWith("YOUR_")){
+    hidePwaSplash();
+    document.getElementById("configWarning").classList.remove("hidden");
+    return;
+  }
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function friendlyAuthErr(error){
+    const msg = (error && error.message) || "";
+    if(/captcha/i.test(msg)) return "安全驗證失敗，請稍後再試一次";
+    if(/already linked|already exists/i.test(msg)) return "這個帳號已經連結到另一個 Splitbill 帳號了，要先去那邊解除連結（或銷毀那個帳號）才能連過來這裡";
+    return null;
+  }
+
+  // ---------- 所有 .msg 狀態訊息（成功/失敗提示）5 秒後自動消失 ----------
+  (function(){
+    const timers = new WeakMap();
+    function scheduleClear(el){
+      if(!el.textContent) return;
+      if(timers.has(el)) clearTimeout(timers.get(el));
+      timers.set(el, setTimeout(()=>{ el.textContent = ""; timers.delete(el); }, 5000));
+    }
+    new MutationObserver(muts=>{
+      const seen = new Set();
+      muts.forEach(m=>{
+        let el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+        while(el && el !== document.body){
+          if(el.classList && el.classList.contains("msg")){
+            if(!seen.has(el)){ seen.add(el); scheduleClear(el); }
+            break;
+          }
+          el = el.parentElement;
+        }
+      });
+    }).observe(document.body, { childList: true, characterData: true, subtree: true });
+  })();
+
+  // ---------- 說明按鈕、密碼小眼睛 ----------
+  document.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".info-btn");
+    if(!btn) return;
+    const target = document.getElementById(btn.dataset.infoFor);
+    if(target) target.classList.toggle("hidden");
+  });
+  document.querySelectorAll(".pw-toggle-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const input = btn.closest(".pw-input-wrap").querySelector("input");
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "🙈" : "👁️";
+      btn.setAttribute("aria-label", show ? "隱藏密碼" : "顯示密碼");
+    });
+  });
+
+  let currentUser = null;
+  let myMember = null;
+  let memberRows = [];
+  let memberById = {};
+  let MEMBERS = [];
+
+  function isRealEmail(email){
+    return !!email && !email.endsWith("@splitbill.local");
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  // 跟 app.js 帳務更動通知同一套小提示卡元件，這裡拿來當切換/建立/加入
+  // 群組成功的明顯回饋——inline 的 .msg 文字太不顯眼，容易被當成沒反應。
+  function showToast(title, body){
+    let container = document.getElementById("sbToastContainer");
+    if(!container){
+      container = document.createElement("div");
+      container.id = "sbToastContainer";
+      container.className = "sb-toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = "sb-toast";
+    toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body)}`;
+    container.appendChild(toast);
+    setTimeout(()=>{
+      toast.classList.add("sb-toast-out");
+      setTimeout(()=> toast.remove(), 250);
+    }, 4000);
+  }
+  // ---------- 全站統一的自訂下拉選單：外觀跟債務趨勢圖的日/週/月/年選單一致。
+  // 把真正的 <select> 包一層視覺隱藏起來當資料來源，.value/innerHTML 這些既有
+  // 邏輯完全不用改；每次選項或值有變動，呼叫 enhanceSelect(選到的 select) 讓
+  // 畫面上顯示的按鈕/選單重新同步一次即可（第一次呼叫時才會真的建立包裝）。----------
+  function enhanceSelect(selectEl){
+    if(!selectEl) return;
+    if(!selectEl._ddSync){
+      const wrap = document.createElement("div");
+      wrap.className = "dd-select";
+      selectEl.parentNode.insertBefore(wrap, selectEl);
+      wrap.appendChild(selectEl);
+      selectEl.tabIndex = -1; // 視覺隱藏的原生 select 不該再佔用 Tab 鍵順序，交給下面的 .dd-btn
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dd-btn";
+      btn.innerHTML = '<span class="dd-btn-text"></span><span class="dd-caret">▾</span>';
+      const textEl = btn.querySelector(".dd-btn-text");
+      const menu = document.createElement("div");
+      menu.className = "dd-menu hidden";
+      wrap.appendChild(btn);
+      wrap.appendChild(menu);
+
+      const closeMenu = () => { menu.classList.add("hidden"); btn.classList.remove("open"); };
+      const openMenu = () => { menu.classList.remove("hidden"); btn.classList.add("open"); };
+      btn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(selectEl.disabled) return;
+        menu.classList.contains("hidden") ? openMenu() : closeMenu();
+      });
+      document.addEventListener("click", (e)=>{ if(!wrap.contains(e.target)) closeMenu(); });
+
+      selectEl._ddSync = function(){
+        menu.innerHTML = "";
+        Array.from(selectEl.options).forEach((o, i)=>{
+          const optBtn = document.createElement("button");
+          optBtn.type = "button";
+          optBtn.className = "dd-option" + (o.selected ? " active" : "");
+          optBtn.textContent = o.textContent;
+          optBtn.disabled = o.disabled;
+          optBtn.addEventListener("click", ()=>{
+            selectEl.selectedIndex = i;
+            closeMenu();
+            selectEl._ddSync();
+            selectEl.dispatchEvent(new Event("change", { bubbles:true }));
+          });
+          menu.appendChild(optBtn);
+        });
+        const cur = selectEl.selectedOptions[0];
+        textEl.textContent = cur ? cur.textContent : "";
+        btn.classList.toggle("disabled", !!selectEl.disabled);
+        closeMenu();
+      };
+    }
+    selectEl._ddSync();
+  }
+
+  async function loadMembers(){
+    let activeGroupId = null;
+    if(currentUser){
+      try{
+        const { data: gid } = await sb.rpc("my_group_id");
+        activeGroupId = gid;
+      }catch(e){
+        console.warn("讀取目前群組失敗：", e);
+      }
+    }
+    try{
+      let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+      if(activeGroupId) query = query.eq("group_id", activeGroupId);
+      const { data, error } = await query;
+      if(error || !data || data.length === 0){
+        const { data: allUserMembers } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,shown_currencies,left_at,account_deleted_at,groups(name)").eq("user_id", currentUser.id);
+        MEMBERS = allUserMembers || [];
+      } else {
+        MEMBERS = data || [];
+      }
+    }catch(e){
+      console.error("讀取成員清單異常：", e);
+      MEMBERS = [];
+    }
+    MEMBERS.forEach(m=>{
+      m.accountName = m.name;
+      if(m.nickname) m.name = m.nickname;
+      if(m.account_deleted_at) m.name = m.name + " (銷毀)";
+      else if(m.left_at) m.name = m.name + " (退出)";
+    });
+    memberById = {};
+    MEMBERS.forEach(m => memberById[m.id] = m.name);
+    myMember = currentUser ? (MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) || MEMBERS.find(m => m.user_id === currentUser.id)) : null;
+    memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
+  }
+
+  // ---------- 12-hour auto-logout（滑動式：詳見 refreshLoginTime） ----------
+  const LOGIN_TIME_KEY = "sb_login_time";
+  const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
+  function isSessionExpired(){
+    const loginTime = Number(localStorage.getItem(LOGIN_TIME_KEY));
+    return !!loginTime && (Date.now() - loginTime > SESSION_DURATION_MS);
+  }
+  // 滑動式：只要在 12 小時內有繼續使用，時間就往後推，不會單純因為
+  // 帳號用得久就被踢出；真的超過 12 小時完全沒有任何動作才會被登出。
+  function refreshLoginTime(){
+    localStorage.setItem(LOGIN_TIME_KEY, String(Date.now()));
+  }
+  async function forceLogout(){
+    try{ await sb.auth.signOut(); }catch(e){}
+    localStorage.removeItem(LOGIN_TIME_KEY);
+    location.href = "index.html?redirect=settings.html";
+  }
+  setInterval(()=>{ if(isSessionExpired()) forceLogout(); else refreshLoginTime(); }, 5 * 60 * 1000);
+
+  // ---------- 分頁切換 ----------
+  const SETTINGS_TAB_IDS = { account: "settingsTabAccount", group: "settingsTabGroup", prefs: "settingsTabPrefs" };
+  function updateSettingsTabIndicator(){
+    const tabsContainer = document.getElementById("settingsTabs");
+    const indicator = document.getElementById("settingsTabIndicator");
+    const activeBtn = tabsContainer ? tabsContainer.querySelector(".app-tab.active") : null;
+    if(tabsContainer && indicator && activeBtn){
+      const left = activeBtn.offsetLeft;
+      const width = activeBtn.offsetWidth;
+      indicator.style.transform = `translateX(${left}px)`;
+      indicator.style.width = `${width}px`;
+    }
+  }
+  function switchSettingsTab(tabKey){
+    document.querySelectorAll('[data-settings-tab]').forEach(b=>b.classList.toggle("active", b.dataset.settingsTab === tabKey));
+    Object.entries(SETTINGS_TAB_IDS).forEach(([key, id])=>{
+      const panel = document.getElementById(id);
+      if(panel) panel.classList.toggle("hidden", key !== tabKey);
+    });
+    updateSettingsTabIndicator();
+  }
+  document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
+    btn.addEventListener("click", ()=> switchSettingsTab(btn.dataset.settingsTab));
+  });
+  window.addEventListener("resize", updateSettingsTabIndicator);
+  setTimeout(updateSettingsTabIndicator, 60);
+
+  // ---------- 幣別偏好 ----------
+  function updateCurrencyToggleSummary(){
+    const summary = document.getElementById("currencyToggleSummary");
+    if(summary) summary.textContent = shownCurrencies.length ? `已選擇 ${shownCurrencies.length} 種幣別` : "選擇要顯示的幣別";
+  }
+  const currencyModal = document.getElementById("currencyModal");
+  const currencyModalOpenBtn = document.getElementById("currencyModalOpenBtn");
+  const currencyModalCloseBtn = document.getElementById("currencyModalCloseBtn");
+  if(currencyModalOpenBtn && currencyModal){
+    currencyModalOpenBtn.addEventListener("click", ()=> currencyModal.classList.add("show"));
+  }
+  if(currencyModalCloseBtn && currencyModal){
+    currencyModalCloseBtn.addEventListener("click", ()=> currencyModal.classList.remove("show"));
+  }
+  if(currencyModal){
+    currencyModal.addEventListener("click", (e)=>{ if(e.target === currencyModal) currencyModal.classList.remove("show"); });
+  }
+  function renderSettingsCurrencyList(){
+    const list = document.getElementById("settingsCurrencyList");
+    if(!list) return;
+    list.innerHTML = CURRENCIES.map(c=>{
+      const checked = shownCurrencies.includes(c.code);
+      return `<label class="check-pill${checked ? " checked" : ""}">
+        <input type="checkbox" value="${c.code}"${checked ? " checked" : ""}>
+        <span class="check-pill-name">${c.flag} ${c.label}</span>
+      </label>`;
+    }).join("");
+    updateCurrencyToggleSummary();
+    list.querySelectorAll("input[type=checkbox]").forEach(inp=>{
+      inp.addEventListener("change", async ()=>{
+        const prevShown = shownCurrencies;
+        inp.closest(".check-pill").classList.toggle("checked", inp.checked);
+        const nextShown = CURRENCIES
+          .map(c => c.code)
+          .filter(code => list.querySelector(`input[value="${code}"]`).checked);
+        shownCurrencies = nextShown;
+        localStorage.setItem("splitbill-shown-currencies", JSON.stringify(nextShown));
+        updateCurrencyToggleSummary();
+        renderNavLinks();
+        const { error } = await sb.from("members").update({ shown_currencies: nextShown }).eq("id", myMember.id);
+        if(error){
+          // 存到伺服器失敗就把畫面跟本機快取都退回去，不然下次載入時會被
+          // 伺服器端的舊值悄悄蓋回來，使用者卻完全不知道發生什麼事。
+          console.error("儲存顯示幣別失敗：", error);
+          shownCurrencies = prevShown;
+          localStorage.setItem("splitbill-shown-currencies", JSON.stringify(prevShown));
+          renderSettingsCurrencyList();
+          renderNavLinks();
+          alert("儲存失敗，請再試一次。");
+        }
+      });
+    });
+  }
+
+  // ---------- 群組切換／邀請碼／退出／管理成員／刪除群組 ----------
+  function friendlyGroupErr(msg){
+    if(!msg) return "發生錯誤";
+    if(msg.includes("unsettled balance")) return "還有人沒結清（欠款或被欠款），沒辦法這麼做";
+    if(msg.includes("invalid creation code")) return "建團授權碼不對";
+    if(msg.includes("invalid invite code")) return "邀請碼不對";
+    if(msg.includes("already in this group")) return "已經在這個群組裡了";
+    if(msg.includes("only the group creator")) return "只有群組建立者能做這個動作";
+    if(msg.includes("duplicate name in group")) return "這個名稱已經有人用了，請改用其他名稱";
+    if(msg.includes("group name already taken")) return "這個群組名稱已經有人用了，請換一個";
+    if(msg.includes("group name required")) return "請輸入群組名稱";
+    return msg;
+  }
+  let myGroups = [];
+  async function renderSettingsGroupSection(){
+    const sel = document.getElementById("settingsGroupSelect");
+    const inviteInp = document.getElementById("settingsInviteCode");
+    if(!sel || !myMember) return;
+    const { data } = await sb.from("members").select("group_id, groups(name, invite_code, created_by)").eq("user_id", currentUser.id).is("left_at", null);
+    myGroups = data || [];
+    sel.innerHTML = myGroups.map(r =>
+      `<option value="${r.group_id}"${r.group_id === myMember.group_id ? " selected" : ""}>${escapeHtml((r.groups && r.groups.name) || "?")}</option>`
+    ).join("");
+    enhanceSelect(sel);
+    const activeRow = myGroups.find(r => r.group_id === myMember.group_id);
+    if(inviteInp) inviteInp.value = (activeRow && activeRow.groups && activeRow.groups.invite_code) || "";
+    const nameInp = document.getElementById("settingsGroupName");
+    if(nameInp) nameInp.value = (activeRow && activeRow.groups && activeRow.groups.name) || "";
+
+    const isCreator = !!(activeRow && activeRow.groups && activeRow.groups.created_by === currentUser.id);
+    const manageSection = document.getElementById("groupManageSection");
+    if(manageSection) manageSection.classList.toggle("hidden", !isCreator);
+    if(isCreator) await renderGroupMemberManageList();
+  }
+
+  async function renderGroupMemberManageList(){
+    const list = document.getElementById("groupMemberManageList");
+    if(!list || !myMember) return;
+    const { data } = await sb.from("members").select("id,name").eq("group_id", myMember.group_id).is("left_at", null).order("name");
+    const others = (data || []).filter(m => m.id !== myMember.id);
+    if(!others.length){
+      list.innerHTML = `<p class="filter-hint">目前沒有其他成員</p>`;
+      return;
+    }
+    list.innerHTML = others.map(m => `
+      <label class="check-pill">
+        <span class="check-pill-name">${escapeHtml(memberById[m.id] || m.name)}</span>
+        <button type="button" class="exp-del member-remove-btn" data-id="${m.id}" data-name="${escapeHtml(memberById[m.id] || m.name)}" title="移除">✕</button>
+      </label>
+    `).join("");
+    list.querySelectorAll(".member-remove-btn").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const msg = document.getElementById("groupMemberManageMsg");
+        if(!confirm(`確定要把「${btn.dataset.name}」移出這個群組嗎？他的歷史紀錄會保留，但要重新用邀請碼才能加回來。`)) return;
+        const { error } = await sb.rpc("remove_member", { p_member_id: btn.dataset.id });
+        if(error){ msg.textContent = "移除失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+        msg.textContent = "已移除"; msg.className = "msg ok";
+        await renderGroupMemberManageList();
+      });
+    });
+  }
+
+  const settingsGroupSelect = document.getElementById("settingsGroupSelect");
+  if(settingsGroupSelect){
+    settingsGroupSelect.addEventListener("change", async ()=>{
+      const msg = document.getElementById("settingsGroupMsg");
+      const targetGroupId = settingsGroupSelect.value;
+      const targetGroupName = settingsGroupSelect.selectedOptions[0] ? settingsGroupSelect.selectedOptions[0].textContent : "";
+      msg.textContent = "切換中…"; msg.className = "msg";
+      const { error } = await sb.rpc("switch_active_group", { p_group_id: targetGroupId });
+      if(error){ msg.textContent = "切換失敗：" + error.message; msg.className = "msg error"; return; }
+      msg.textContent = "已切換！"; msg.className = "msg ok";
+      showToast("已切換群組", targetGroupName);
+      setTimeout(()=> location.reload(), 900);
+    });
+  }
+
+  const saveGroupNameBtn = document.getElementById("saveGroupNameBtn");
+  if(saveGroupNameBtn){
+    saveGroupNameBtn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("groupNameMsg");
+      const newName = document.getElementById("settingsGroupName").value.trim();
+      if(!newName){ msg.textContent = "請輸入群組名稱"; msg.className = "msg error"; return; }
+      msg.textContent = "儲存中…"; msg.className = "msg";
+      const { error } = await sb.rpc("rename_group", { p_group_id: myMember.group_id, p_new_name: newName });
+      if(error){ msg.textContent = "儲存失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      msg.textContent = "已更新！"; msg.className = "msg ok";
+      await renderSettingsGroupSection();
+    });
+  }
+
+  const copyInviteCodeBtn = document.getElementById("copyInviteCodeBtn");
+  if(copyInviteCodeBtn){
+    copyInviteCodeBtn.addEventListener("click", async ()=>{
+      const inviteInp = document.getElementById("settingsInviteCode");
+      const msg = document.getElementById("copyInviteCodeMsg");
+      if(!inviteInp || !inviteInp.value) return;
+      try{
+        await navigator.clipboard.writeText(inviteInp.value);
+        msg.textContent = "已複製！"; msg.className = "msg ok";
+      }catch(e){
+        inviteInp.select();
+        msg.textContent = "自動複製失敗，已幫你選取文字，手動複製即可"; msg.className = "msg error";
+      }
+    });
+  }
+
+  // ---------- 邀請碼 QR code：掃了直接開登入頁，帶著 ?join= 邀請碼，
+  // 對方登入/註冊完、發現自己沒有群組時會自動幫他把邀請碼填好。----------
+  const qrModal = document.getElementById("qrModal");
+  const qrModalOpenBtn = document.getElementById("qrModalOpenBtn");
+  const qrModalCloseBtn = document.getElementById("qrModalCloseBtn");
+  let qrRendered = false;
+  if(qrModalOpenBtn && qrModal){
+    qrModalOpenBtn.addEventListener("click", ()=>{
+      qrModal.classList.add("show");
+      if(!qrRendered){
+        const code = document.getElementById("settingsInviteCode").value;
+        const container = document.getElementById("inviteQrCanvas");
+        if(code && container && typeof QRCode !== "undefined"){
+          const joinUrl = new URL("index.html", location.href).href + "?join=" + encodeURIComponent(code);
+          new QRCode(container, { text: joinUrl, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+          qrRendered = true;
+        }
+      }
+    });
+  }
+  if(qrModalCloseBtn && qrModal){
+    qrModalCloseBtn.addEventListener("click", ()=> qrModal.classList.remove("show"));
+  }
+  if(qrModal){
+    qrModal.addEventListener("click", (e)=>{ if(e.target === qrModal) qrModal.classList.remove("show"); });
+  }
+
+  const createGroupModal = document.getElementById("createGroupModal");
+  const createGroupModalOpenBtn = document.getElementById("createGroupModalOpenBtn");
+  const createGroupModalCloseBtn = document.getElementById("createGroupModalCloseBtn");
+  if(createGroupModalOpenBtn && createGroupModal){
+    createGroupModalOpenBtn.addEventListener("click", ()=> createGroupModal.classList.add("show"));
+  }
+  if(createGroupModalCloseBtn && createGroupModal){
+    createGroupModalCloseBtn.addEventListener("click", ()=> createGroupModal.classList.remove("show"));
+  }
+  if(createGroupModal){
+    createGroupModal.addEventListener("click", (e)=>{ if(e.target === createGroupModal) createGroupModal.classList.remove("show"); });
+  }
+
+  const settingsJoinGroupBtn = document.getElementById("settingsJoinGroupBtn");
+  if(settingsJoinGroupBtn){
+    settingsJoinGroupBtn.addEventListener("click", async ()=>{
+      const codeInp = document.getElementById("settingsJoinCode");
+      const msg = document.getElementById("settingsJoinGroupMsg");
+      const code = codeInp.value.trim();
+      if(!code){ msg.textContent = "請輸入邀請碼"; msg.className = "msg error"; return; }
+      settingsJoinGroupBtn.disabled = true;
+      msg.textContent = "加入中…"; msg.className = "msg";
+      const { error } = await sb.rpc("join_group", { p_invite_code: code, p_member_name: myMember.accountName });
+      if(error){
+        settingsJoinGroupBtn.disabled = false;
+        msg.textContent = "加入失敗：" + friendlyGroupErr(error.message); msg.className = "msg error";
+        return;
+      }
+      msg.textContent = "加入成功！正在切換過去…"; msg.className = "msg ok";
+      showToast("已加入群組", "正在切換過去…");
+      setTimeout(()=> location.reload(), 900);
+    });
+  }
+
+  const settingsCreateGroupBtn = document.getElementById("settingsCreateGroupBtn");
+  if(settingsCreateGroupBtn){
+    settingsCreateGroupBtn.addEventListener("click", async ()=>{
+      const groupName = document.getElementById("settingsCreateGroupName").value.trim();
+      const code = document.getElementById("settingsCreateGroupCode").value.trim();
+      const msg = document.getElementById("settingsCreateGroupMsg");
+      if(!groupName || !code){ msg.textContent = "請填寫所有欄位"; msg.className = "msg error"; return; }
+      settingsCreateGroupBtn.disabled = true;
+      msg.textContent = "建立中…"; msg.className = "msg";
+      const { error } = await sb.rpc("create_group", { p_group_name: groupName, p_member_name: myMember.accountName, p_creation_code: code });
+      if(error){
+        settingsCreateGroupBtn.disabled = false;
+        msg.textContent = "建立失敗：" + friendlyGroupErr(error.message); msg.className = "msg error";
+        return;
+      }
+      msg.textContent = "建立成功！正在切換過去…"; msg.className = "msg ok";
+      showToast("已建立群組", groupName);
+      setTimeout(()=> location.reload(), 900);
+    });
+  }
+
+  const leaveGroupBtn = document.getElementById("leaveGroupBtn");
+  if(leaveGroupBtn){
+    leaveGroupBtn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("leaveGroupMsg");
+      const groupName = (myGroups.find(r => r.group_id === myMember.group_id) || {}).groups;
+      const typed = prompt(`確定要退出「${(groupName && groupName.name) || "目前這個群組"}」嗎？你的歷史紀錄會保留，之後要用邀請碼才能加回來。\n\n請輸入「退出群組」來確認：`);
+      if(typed === null) return;
+      if(typed !== "退出群組"){ msg.textContent = "輸入不符，取消"; msg.className = "msg error"; return; }
+      msg.textContent = "退出中…"; msg.className = "msg";
+      const { error } = await sb.rpc("leave_group", { p_group_id: myMember.group_id });
+      if(error){ msg.textContent = "退出失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      msg.textContent = "已退出"; msg.className = "msg ok";
+      location.reload();
+    });
+  }
+
+  const deleteGroupBtn = document.getElementById("deleteGroupBtn");
+  if(deleteGroupBtn){
+    deleteGroupBtn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("deleteGroupMsg");
+      const groupName = ((myGroups.find(r => r.group_id === myMember.group_id) || {}).groups || {}).name || "這個群組";
+      const typed = prompt(`這個動作沒辦法復原，會刪掉「${groupName}」所有支出、還款、留言、成員資料。\n\n請輸入群組名稱「${groupName}」來確認：`);
+      if(typed === null) return;
+      if(typed !== groupName){ msg.textContent = "輸入的名稱不符，取消刪除"; msg.className = "msg error"; return; }
+      msg.textContent = "刪除中…"; msg.className = "msg";
+      const { error } = await sb.rpc("delete_group", { p_group_id: myMember.group_id });
+      if(error){ msg.textContent = "刪除失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      msg.textContent = "已刪除"; msg.className = "msg ok";
+      location.reload();
+    });
+  }
+
+  // ---------- 連結其他登入方式（Google／Discord）----------
+  let linkedIdentities = [];
+  async function renderLinkedIdentities(){
+    const { data } = await sb.auth.getUserIdentities();
+    linkedIdentities = (data && data.identities) || [];
+    [["google", "linkGoogleBtn"], ["discord", "linkDiscordBtn"]].forEach(([provider, btnId])=>{
+      const btn = document.getElementById(btnId);
+      if(!btn) return;
+      const linked = linkedIdentities.find(i => i.provider === provider);
+      btn.textContent = linked ? "解除連結" : "連結";
+    });
+  }
+  function wireLinkIdentityBtn(provider, btnId){
+    const btn = document.getElementById(btnId);
+    if(!btn) return;
+    btn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("linkIdentityMsg");
+      const linked = linkedIdentities.find(i => i.provider === provider);
+      if(linked){
+        if(linkedIdentities.length <= 1){ msg.textContent = "這是唯一的登入方式，沒辦法解除連結"; msg.className = "msg error"; return; }
+        if(!confirm(`確定要解除 ${provider === "google" ? "Google" : "Discord"} 的連結嗎？`)) return;
+        msg.textContent = "處理中…"; msg.className = "msg";
+        const { error } = await sb.auth.unlinkIdentity(linked);
+        if(error){ msg.textContent = friendlyAuthErr(error) || ("解除失敗：" + error.message); msg.className = "msg error"; return; }
+        msg.textContent = "已解除連結"; msg.className = "msg ok";
+        await renderLinkedIdentities();
+      } else {
+        const { error } = await sb.auth.linkIdentity({
+          provider,
+          options: { redirectTo: location.origin + location.pathname }
+        });
+        if(error){ msg.textContent = friendlyAuthErr(error) || ("連結失敗：" + error.message); msg.className = "msg error"; }
+      }
+    });
+  }
+  wireLinkIdentityBtn("google", "linkGoogleBtn");
+  wireLinkIdentityBtn("discord", "linkDiscordBtn");
+
+  // linkIdentity() 是導去 Google/Discord 再導回來這頁，導回來當下失敗
+  // （例如那個帳號已經連結別的 Splitbill 帳號了）沒辦法用一般的 try/catch
+  // 接到——Supabase 是把錯誤塞在導回來的網址參數裡，這裡要自己撈出來顯示，
+  // 不然使用者只會看到「什麼都沒發生」，完全不知道連結失敗了。
+  function checkLinkIdentityRedirectError(){
+    const hashParams = new URLSearchParams(location.hash.replace(/^#/, ""));
+    const searchParams = new URLSearchParams(location.search);
+    const errorDesc = hashParams.get("error_description") || searchParams.get("error_description")
+      || hashParams.get("error") || searchParams.get("error");
+    if(!errorDesc) return;
+    const msg = document.getElementById("linkIdentityMsg");
+    if(msg){
+      msg.textContent = friendlyAuthErr({ message: errorDesc }) || ("連結失敗：" + errorDesc);
+      msg.className = "msg error";
+    }
+    history.replaceState(null, "", location.pathname);
+  }
+
+  const deleteAccountBtn = document.getElementById("deleteAccountBtn");
+  if(deleteAccountBtn){
+    deleteAccountBtn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("deleteAccountMsg");
+      const typed = prompt(`這個動作沒辦法復原：會讓這個帳號沒辦法再登入，並讓你離開所有群組（歷史紀錄會保留）。如果有沒結清的款項會失敗。\n\n請輸入「銷毀帳號」來確認：`);
+      if(typed === null) return;
+      if(typed !== "銷毀帳號"){ msg.textContent = "輸入不符，取消"; msg.className = "msg error"; return; }
+      msg.textContent = "處理中…"; msg.className = "msg";
+      const { error } = await sb.rpc("delete_account");
+      if(error){ msg.textContent = "銷毀失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      await sb.auth.signOut();
+      location.href = "index.html";
+    });
+  }
+
+  const saveNameBtn = document.getElementById("saveNameBtn");
+  if(saveNameBtn){
+    saveNameBtn.addEventListener("click", async ()=>{
+      const newName = document.getElementById("settingsName").value.trim();
+      const msg = document.getElementById("nameMsg");
+      if(!newName){ msg.textContent = "請輸入帳戶姓名"; msg.className = "msg error"; return; }
+      // 帳號姓名存在 members.name（每個群組各一筆），要一次改掉這個帳號所有
+      // 群組的那一列才會同步，不然只改到目前這個群組，其他群組還是舊名字。
+      const { error } = await sb.from("members").update({ name: newName }).eq("user_id", currentUser.id);
+      if(error){ msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      await loadMembers();
+      msg.textContent = "帳戶姓名已更新！"; msg.className = "msg ok";
+    });
+  }
+
+  const saveNicknameBtn = document.getElementById("saveNicknameBtn");
+  if(saveNicknameBtn){
+    saveNicknameBtn.addEventListener("click", async ()=>{
+      const newNickname = document.getElementById("settingsNickname").value.trim();
+      const msg = document.getElementById("nicknameMsg");
+      // 留空表示清掉這個群組的暱稱，改回顯示帳號姓名。
+      const { error } = await sb.from("members").update({ nickname: newNickname || null }).eq("id", myMember.id);
+      if(error){ msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      await loadMembers();
+      msg.textContent = newNickname ? "暱稱已更新！" : "已清除暱稱，改用帳號姓名"; msg.className = "msg ok";
+    });
+  }
+
+  const saveEmailBtn = document.getElementById("saveEmailBtn");
+  if(saveEmailBtn){
+    saveEmailBtn.addEventListener("click", async ()=>{
+      const newEmail = document.getElementById("settingsEmail").value.trim();
+      const msg = document.getElementById("emailMsg");
+      if(!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){
+        msg.textContent = "請輸入正確的信箱格式"; msg.className = "msg error"; return;
+      }
+      const { error } = await sb.auth.updateUser({ email: newEmail });
+      if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
+      msg.textContent = "已寄出確認信到新信箱，請去收信、點連結完成確認！"; msg.className = "msg ok";
+    });
+  }
+
+  const settingsThemeBtn = document.getElementById("settingsThemeBtn");
+  const themeRowIcon = document.getElementById("themeRowIcon");
+  const themeRow = document.getElementById("themeRow");
+  const notifyRow = document.getElementById("notifyRow");
+  const notifyBtn = document.getElementById("notifyBtn");
+
+  function syncSettingsThemeIcon(){
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    if(settingsThemeBtn) settingsThemeBtn.textContent = isDark ? "☀️" : "🌙";
+    if(themeRowIcon) themeRowIcon.textContent = isDark ? "☀️" : "🌙";
+  }
+  if(settingsThemeBtn){
+    syncSettingsThemeIcon();
+    settingsThemeBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const realToggle = document.querySelector(".theme-toggle");
+      if(realToggle) realToggle.click();
+      syncSettingsThemeIcon();
+    });
+  }
+  if(themeRow){
+    themeRow.addEventListener("click", ()=>{
+      if(settingsThemeBtn) settingsThemeBtn.click();
+    });
+  }
+  if(notifyRow && notifyBtn){
+    notifyRow.addEventListener("click", (e)=>{
+      if(e.target !== notifyBtn) notifyBtn.click();
+    });
+  }
+
+  const showLeftMembersToggle = document.getElementById("showLeftMembersToggle");
+  if(showLeftMembersToggle){
+    showLeftMembersToggle.addEventListener("change", ()=>{
+      showLeftMembers = showLeftMembersToggle.checked;
+      localStorage.setItem("splitbill-show-left-members", showLeftMembers ? "1" : "0");
+    });
+  }
+
+  const savePwBtn = document.getElementById("savePwBtn");
+  if(savePwBtn){
+    savePwBtn.addEventListener("click", async ()=>{
+      const pw = document.getElementById("newPassword").value;
+      const pwConfirm = document.getElementById("newPasswordConfirm").value;
+      const msg = document.getElementById("pwMsg");
+      if(!pw || pw.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className="msg error"; return; }
+      if(pw !== pwConfirm){ msg.textContent = "兩次輸入的密碼不一樣"; msg.className = "msg error"; return; }
+      const { error } = await sb.auth.updateUser({ password: pw });
+      if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
+      msg.textContent = "密碼已更新！"; msg.className = "msg ok";
+      document.getElementById("newPassword").value = "";
+      document.getElementById("newPasswordConfirm").value = "";
+    });
+  }
+
+  const pwChangeModal = document.getElementById("pwChangeModal");
+  const pwChangeModalOpenBtn = document.getElementById("pwChangeModalOpenBtn");
+  const pwChangeModalCloseBtn = document.getElementById("pwChangeModalCloseBtn");
+  if(pwChangeModalOpenBtn && pwChangeModal){
+    pwChangeModalOpenBtn.addEventListener("click", ()=> pwChangeModal.classList.add("show"));
+  }
+  if(pwChangeModalCloseBtn && pwChangeModal){
+    pwChangeModalCloseBtn.addEventListener("click", ()=> pwChangeModal.classList.remove("show"));
+  }
+  if(pwChangeModal){
+    pwChangeModal.addEventListener("click", (e)=>{ if(e.target === pwChangeModal) pwChangeModal.classList.remove("show"); });
+  }
+
+  // ---------- 通知開關（完整訂閱/取消訂閱邏輯，跟總覽頁登入時自動訂閱
+  // 是同一套機制，這裡是使用者自己手動開關用的）----------
+  const VAPID_PUBLIC_KEY = "BNR-GFJ6UxpQWVk6ghTFNUl9RYncDp_WX9W6XNA1vqsyWk9zQ4WC5ghAGiuBqqXQhluRiVB7KsAPGxTWNl27JW4";
+  function urlBase64ToUint8Array(base64String){
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  }
+  const pushSupported = "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
+  const notifyHint = document.getElementById("notifyHint");
+  // 是不是「已安裝」的狀態（PWA 加到主畫面、或 Android APK）——這種情況下
+  // 沒有瀏覽器選單可以按，關閉通知的入口在手機系統設定的 App 權限裡，
+  // 跟一般瀏覽器分頁的關閉方式不一樣，提示文字要分開寫。
+  const isStandaloneApp = !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  const NOTIFY_HINT_DEFAULT = "開啟後，只要有跟你相關的支出或還款有異動就會通知你。";
+  const NOTIFY_HINT_BLOCKED = isStandaloneApp
+    ? "🔕 通知已經被關閉了，需要手動解除：\n手機系統設定 → App（應用程式）→ 帳務系統／Splitbill → 通知 → 改成允許\n改完後重新開啟這個 App 即可。\n\n提醒：用系統設定關閉通知後，這個開關不會馬上跟著變，要重新整理頁面才會抓到最新狀態。"
+    : "🔕 通知已經被瀏覽器封鎖了，需要手動解除：\n手機：瀏覽器選單 → 網站設定（或「這個網站的權限」）→ 通知 → 改成允許\n電腦：網址列左邊的鎖頭／ⓘ 圖示 → 通知 → 改成允許\n改完後重新整理網頁即可。";
+
+  async function updateNotifyBtnState(){
+    if(!notifyBtn) return;
+    if(!pushSupported){ notifyBtn.classList.add("hidden"); return; }
+    notifyBtn.classList.remove("hidden");
+    notifyBtn.disabled = false;
+    if(Notification.permission === "denied"){
+      notifyBtn.textContent = "🔕";
+      notifyBtn.title = "通知已被瀏覽器封鎖，點一下看怎麼打開";
+      notifyBtn.classList.remove("active");
+      if(notifyHint) notifyHint.textContent = NOTIFY_HINT_BLOCKED;
+      return;
+    }
+    if(notifyHint) notifyHint.textContent = NOTIFY_HINT_DEFAULT;
+    if(Notification.permission === "granted"){
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(sub){
+        notifyBtn.textContent = "🔔";
+        notifyBtn.title = "通知已開啟（點擊關閉）";
+        notifyBtn.classList.add("active");
+        return;
+      }
+    }
+    notifyBtn.textContent = "🔔";
+    notifyBtn.title = "點擊開啟通知";
+    notifyBtn.classList.remove("active");
+  }
+
+  async function ensurePushSubscribed(){
+    if(!pushSupported || !currentUser) return;
+    if(Notification.permission === "denied"){ await updateNotifyBtnState(); return; }
+
+    const permission = await Notification.requestPermission();
+    if(permission !== "granted"){ await updateNotifyBtnState(); return; }
+
+    try{
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if(!sub){
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+      const subJson = sub.toJSON();
+      const { error } = await sb.from("push_subscriptions").upsert({
+        member_id: myMember.id,
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh,
+        auth: subJson.keys.auth
+      }, { onConflict: "endpoint" });
+      if(error){
+        console.error("推播訂閱寫入失敗：", error);
+        await sub.unsubscribe();
+        alert("開啟通知失敗，請稍後再試一次。");
+      }
+    }catch(e){
+      console.error("推播訂閱失敗：", e);
+    }
+    await updateNotifyBtnState();
+  }
+
+  async function toggleNotify(){
+    if(!pushSupported || !currentUser) return;
+    if(Notification.permission === "denied"){ alert(NOTIFY_HINT_BLOCKED); return; }
+    if(Notification.permission === "granted"){
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(sub){
+        const { error } = await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        if(error) console.error("取消推播訂閱寫入失敗：", error);
+        await sub.unsubscribe();
+        await updateNotifyBtnState();
+        return;
+      }
+    }
+    await ensurePushSubscribed();
+  }
+
+  if(notifyBtn){
+    notifyBtn.addEventListener("click", toggleNotify);
+  }
+
+  // ---------- 主流程：確認登入狀態、載入資料、填入畫面 ----------
+  async function onLoggedIn(user){
+    if(isSessionExpired()){ await forceLogout(); return; }
+    refreshLoginTime();
+    currentUser = user;
+
+    // 第一時間顯示畫面與關閉 Splash 遮罩，保證 100% 不卡死
+    appScreen.style.display = "block";
+    hidePwaSplash();
+
+    try{
+      await loadMembers();
+
+      const whoamiEl = document.getElementById("whoamiName");
+      if(whoamiEl){
+        const groupName = myMember && myMember.groups && myMember.groups.name;
+        whoamiEl.textContent = (myMember ? (myMember.name || currentUser.email) : currentUser.email) + (groupName ? ` (${groupName})` : "");
+      }
+
+      const nameInp = document.getElementById("settingsName");
+      if(nameInp && myMember) nameInp.value = myMember.accountName || "";
+      const nicknameInp = document.getElementById("settingsNickname");
+      if(nicknameInp && myMember) nicknameInp.value = myMember.nickname || "";
+      const emailInp = document.getElementById("settingsEmail");
+      const currentEmail = isRealEmail(myMember && myMember.email) ? myMember.email : (isRealEmail(currentUser.email) ? currentUser.email : "");
+      if(emailInp) emailInp.value = currentEmail;
+      document.getElementById("pwChangeSection").classList.toggle("hidden", !currentEmail);
+      document.getElementById("pwChangeLockedHint").classList.toggle("hidden", !!currentEmail);
+      const showLeftInp = document.getElementById("showLeftMembersToggle");
+      if(showLeftInp) showLeftInp.checked = showLeftMembers;
+
+      const emailStatusHint = document.getElementById("emailStatusHint");
+      if(emailStatusHint){
+        emailStatusHint.textContent = currentEmail ? `目前信箱：${currentEmail}` : "目前無信箱資料";
+      }
+
+      renderSettingsCurrencyList();
+
+      // 其餘背景資料並行載入，不阻塞主畫面
+      Promise.allSettled([
+        renderSettingsGroupSection(),
+        renderLinkedIdentities(),
+        updateNotifyBtnState(),
+        (async ()=>{
+          if(emailStatusHint){
+            const { data } = await sb.auth.getUser();
+            const u = data && data.user;
+            if(u && u.new_email && u.new_email !== u.email){
+              emailStatusHint.textContent = `⏳ 待確認新信箱：${u.new_email}（請去信箱點擊確認連結才會生效，不然會一直卡在這裡）`;
+            }
+          }
+        })()
+      ]);
+      checkLinkIdentityRedirectError();
+    }catch(e){
+      console.warn("Settings 資料載入部分異常：", e);
+    }
+  }
+
+  const appScreen = document.getElementById("appScreen");
+
+  (async function boot(){
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      if(session && session.user){
+        await onLoggedIn(session.user);
+      } else {
+        localStorage.removeItem(LOGIN_TIME_KEY);
+        hidePwaSplash();
+        location.href = "index.html?redirect=settings.html";
+      }
+    } catch(e){
+      hidePwaSplash();
+      location.href = "index.html?redirect=settings.html";
+    }
+  })();
+})();
+</script>
+</body>
+</html>

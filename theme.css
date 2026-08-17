@@ -1,0 +1,75 @@
+/* ============================================================
+   theme.css — Ergonomic Eye-Comfort Frosted Glass Tokens
+   ============================================================ */
+:root{
+  --bg-canvas:radial-gradient(130% 90% at 50% 0%, #F8F6FA 0%, #EFEBF3 45%, #E7E2EC 100%);
+  --ink:#2A2633;
+  --ink-soft:#6E667A;
+  --paper:#FFFFFF;
+  --card:rgba(255, 255, 255, 0.68);
+  --card-border:rgba(255, 255, 255, 0.95);
+  --card-nested-border:rgba(122, 107, 158, 0.22);
+  --card-nested-shadow:0 4px 14px rgba(110, 95, 145, 0.09), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --menu-bg:#FFFFFF;
+  --menu-border:rgba(122, 107, 158, 0.25);
+  --menu-shadow:0 16px 40px rgba(70, 55, 105, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --line:rgba(122, 107, 158, 0.16);
+  --accent:#E07289;
+  --accent-text:#B83A55;
+  --positive-text:#2E8B4C;
+  --negative-text:#C03E58;
+  --input-bg:#FFFFFF;
+  --btn-primary:#746497;
+  --btn-primary-fg:#FFFFFF;
+  --gold:#8476A8;
+  --btn-solid:#26222B;
+  --btn-solid-fg:#FFFFFB;
+  --logo-1:#746497;
+  --logo-2:rgba(116,100,151,.78);
+  --logo-3:rgba(116,100,151,.56);
+  --logo-grad-a:#56458C;
+  --logo-grad-b:#BF74BF;
+  --hero-fg:#2A2633;
+  --hero-fg-soft:#6E667A;
+  --glass-shadow:0 16px 40px rgba(110, 95, 145, 0.1), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 1px 0 rgba(110, 95, 145, 0.04);
+  --glow-a:rgba(168, 120, 245, 0.35);
+  --glow-b:rgba(245, 130, 185, 0.3);
+  --glow-c:rgba(90, 215, 215, 0.25);
+}
+
+:root[data-theme="dark"]{
+  --bg-canvas:#242426;
+  --ink:#F5F5F7;
+  --ink-soft:#A8A8B0;
+  --paper:#2E2E32;
+  --card:rgba(42, 42, 46, 0.82);
+  --card-border:rgba(255, 255, 255, 0.09);
+  --card-nested-border:rgba(255, 255, 255, 0.08);
+  --card-nested-shadow:0 4px 16px rgba(0, 0, 0, 0.35);
+  --menu-bg:#2E2E32;
+  --menu-border:rgba(255, 255, 255, 0.12);
+  --menu-shadow:0 20px 50px rgba(0, 0, 0, 0.55), 0 3px 10px rgba(0, 0, 0, 0.3);
+  --line:rgba(255, 255, 255, 0.08);
+  --accent:#C4B5FD;
+  --accent-text:#C4B5FD;
+  --positive-text:#5ECB82;
+  --negative-text:#F27289;
+  --input-bg:#1C1C1E;
+  --btn-primary:#746497;
+  --btn-primary-fg:#FFFFFF;
+  --gold:#C4B5FD;
+  --logo-1:#C4B5FD;
+  --logo-2:rgba(196, 181, 253, 0.82);
+  --logo-3:rgba(196, 181, 253, 0.64);
+  --logo-grad-a:#8570BD;
+  --logo-grad-b:#584485;
+  --hero-fg:#F5F5F7;
+  --hero-fg-soft:rgba(245, 245, 247, 0.7);
+  --glass-shadow:0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+  --glow-a:transparent;
+  --glow-b:transparent;
+  --glow-c:transparent;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}

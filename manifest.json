@@ -1,0 +1,37 @@
+{
+  "id": "index.html",
+  "name": "帳務系統",
+  "short_name": "帳務系統",
+  "description": "旅費／團體分帳管理",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "categories": ["finance", "utilities"],
+  "orientation": "portrait",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#1C1C1C",
+  "theme_color": "#8A64AF",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-mono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "monochrome" }
+  ],
+  "shortcuts": [
+    {
+      "name": "新增支出",
+      "short_name": "新增支出",
+      "url": "./currency.html?c=TWD&tab=expense",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+
+    
+    {
+      "name": "記錄還款",
+      "short_name": "還款",
+      "url": "./currency.html?c=TWD&tab=repay",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

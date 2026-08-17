@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("splitbill-theme");
+    if(t !== "dark" && t !== "light"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+
+    // 防閃爍機制：session 看起來已經過期，直接導去 index.html 補登入，
+    // 帶著 redirect 記住「回來要到總覽頁」。
+    var loginTime = Number(localStorage.getItem("sb_login_time"));
+    var isExpired = !loginTime || (Date.now() - loginTime > 12 * 60 * 60 * 1000);
+    if (isExpired) {
+      location.replace("index.html?redirect=summary.html");
+    }
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>帳務總覽</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7A6B9E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="帳務系統">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+<style>
+.hidden{display:none !important;}
+.app-logo{width:38px;height:38px;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="currencies.js"></script>
+<script src="version.js"></script>
+<script src="theme.js" defer></script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    // 這一頁「載入當下」有沒有已經被某個 SW 控制——只有原本就有在
+    // 控制、後來換了一顆新的，才算是「真的更新了」；如果這頁一開始
+    // 就還沒有 SW 控制（例如第一次連上、或剛清過資料），那接下來的
+    // controllerchange 只是「第一次接手」，不是版本更新，不用重整，
+    // 不然一般换頁瀏覽也會被誤判成改版、多閃一次載入畫面。
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("sw.js").then((reg)=>{
+      // 每次開啟都主動檢查一次，不然瀏覽器預設的背景檢查間隔可能長達
+      // 24 小時——尤其是 TWA/APK 那種很少真的整個關掉重開的情況，
+      // 使用者要等很久才會看到新版內容。新版接手後自動重新整理一次。
+      reg.update();
+      if(hadController){
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+          if(refreshing) return;
+          refreshing = true;
+          location.reload();
+        });
+      }
+    }).catch(()=>{});
+  });
+}
+</script>
+</head>
+<body>
+<div id="pwaSplash" class="pwa-splash">
+  <div class="pwa-splash-content">
+    <svg class="pwa-splash-logo" viewBox="0 0 512 512" aria-hidden="true">
+      <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+      <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+      <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+    </svg>
+  </div>
+</div>
+<script>
+(function(){
+  const splashEl = document.getElementById("pwaSplash");
+  if(!splashEl) return;
+  const splashStartTime = performance.now();
+  const hasSplashed = sessionStorage.getItem("sb_splashed_in_session") === "1";
+  let splashTimer = null;
+
+  if(!hasSplashed){
+    splashEl.classList.add("pwa-splash-visible");
+    sessionStorage.setItem("sb_splashed_in_session", "1");
+  } else {
+    splashTimer = setTimeout(()=>{
+      if(splashEl) splashEl.classList.add("pwa-splash-visible");
+    }, 300);
+  }
+
+  window.hidePwaSplash = function(){
+    if(splashTimer) clearTimeout(splashTimer);
+    const elapsed = performance.now() - splashStartTime;
+    const minDisplay = (!hasSplashed) ? 380 : 0;
+    const remaining = Math.max(0, minDisplay - elapsed);
+    setTimeout(()=>{
+      splashEl.classList.add("pwa-splash-out");
+      setTimeout(()=>{ if(splashEl.parentNode) splashEl.remove(); }, 350);
+    }, remaining);
+  };
+  setTimeout(window.hidePwaSplash, 2000);
+})();
+</script>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop class="logo-stop-a" offset="0%"/>
+      <stop class="logo-stop-b" offset="100%"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="app-header">
+    <div class="eyebrow">OVERVIEW</div>
+    <div class="title-row">
+      <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
+        <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+        <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+        <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+      </svg>
+      <h1>帳務總覽</h1>
+    </div>
+    <div class="nav-links" id="navLinks"></div>
+  </div>
+
+  <div id="configWarning" class="card hidden">
+    <h2>⚠️ 尚未設定 Supabase</h2>
+    <p class="config-warning-text">
+      打開這個檔案，把最下面 <code>&lt;script&gt;</code> 區塊裡的
+      <code>SUPABASE_URL</code> 跟 <code>SUPABASE_ANON_KEY</code>
+      換成你自己 Supabase 專案的值，存檔後重新整理即可。
+    </p>
+  </div>
+
+  <div id="appScreen">
+    <div class="topbar">
+      <div class="whoami">登入身份：<b id="whoamiName"></b></div>
+      <div class="topbar-actions">
+        <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
+        <button class="btn secondary small" id="logoutBtn">登出</button>
+      </div>
+    </div>
+
+    <div class="card email-reminder hidden" id="emailReminderCard">
+      <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
+      <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+    </div>
+
+    <!-- 2. 我的餘額：只顯示有交易紀錄過的幣別 -->
+    <div class="card">
+      <h2>💰 我的款項</h2>
+      <div id="myAmtList">
+        <div class="my-mini-balance"><span class="skeleton skeleton-light skeleton-name"></span><span class="skeleton skeleton-light skeleton-mybalance"></span></div>
+        <div class="my-mini-balance"><span class="skeleton skeleton-light skeleton-name"></span><span class="skeleton skeleton-light skeleton-mybalance"></span></div>
+      </div>
+    </div>
+
+    <!-- 2. 淨餘額比較：長條圖，取代原本的文字總表 -->
+    <div class="card">
+      <div class="chart-title-row">
+        <h2>📊 淨餘額比較</h2>
+        <div class="chart-gran-select" id="balanceCurrencySelect">
+          <button type="button" class="chart-gran-btn" id="balanceCurrencyBtn">
+            <span id="balanceCurrencyText"></span>
+            <span class="chart-gran-caret">▾</span>
+          </button>
+          <div class="chart-gran-menu hidden" id="balanceCurrencyMenu"></div>
+        </div>
+      </div>
+      <div id="balanceChartWrap">
+        <p class="filter-hint">載入中…</p>
+      </div>
+    </div>
+
+    <!-- 3. 意見回饋：大家都看得到，只能刪自己寫的 -->
+    <div class="card">
+      <h2>💬 意見回饋</h2>
+      <textarea id="feedbackInput" placeholder="有什麼想法、建議、抱怨都可以打在這裡…" rows="3"></textarea>
+      <button class="btn secondary small" id="feedbackSubmitBtn">送出</button>
+      <div class="msg" id="feedbackMsg"></div>
+
+      <button type="button" class="filter-toggle-head" id="feedbackToggleHead">
+        <span>💭 查看留言</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="filter-body" id="feedbackBody">
+        <div id="feedbackList"></div>
+      </div>
+    </div>
+
+    <div class="app-footer" id="appFooter"></div>
+  </div>
+</div>
+
+<script>document.getElementById("appFooter").textContent = "--菘.v" + APP_VERSION + "--";</script>
+<script>
+const SUPABASE_URL = "https://ofevarwtqzvzrvhbanmf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX";
+
+let shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || ["TWD"];
+let showLeftMembers = localStorage.getItem("splitbill-show-left-members") !== "0";
+function renderNavLinks(){
+  renderSplitbillNav("navLinks", "SUMMARY", shownCurrencies);
+}
+renderNavLinks();
+
+(function(){
+  if(SUPABASE_URL.startsWith("YOUR_") || SUPABASE_ANON_KEY.startsWith("YOUR_")){
+    hidePwaSplash();
+    document.getElementById("configWarning").classList.remove("hidden");
+    return;
+  }
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // 帳密連結/解除連結 Google／Discord 失敗時的常見情況翻譯（登入本身已經搬去 index.html）。
+  function friendlyAuthErr(error){
+    const msg = (error && error.message) || "";
+    if(/captcha/i.test(msg)) return "安全驗證失敗，請稍後再試一次";
+    if(/already linked|already exists/i.test(msg)) return "這個帳號已經連結到另一個 Splitbill 帳號了，要先去那邊解除連結（或銷毀那個帳號）才能連過來這裡";
+    return null;
+  }
+
+  // ---------- 所有 .msg 狀態訊息（成功/失敗提示）5 秒後自動消失 ----------
+  // 用 MutationObserver 統一處理，不用每個 msg.textContent = "..." 的地方都手動加 setTimeout。
+  (function(){
+    const timers = new WeakMap();
+    function scheduleClear(el){
+      if(!el.textContent) return;
+      if(timers.has(el)) clearTimeout(timers.get(el));
+      timers.set(el, setTimeout(()=>{ el.textContent = ""; timers.delete(el); }, 5000));
+    }
+    new MutationObserver(muts=>{
+      const seen = new Set();
+      muts.forEach(m=>{
+        let el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+        while(el && el !== document.body){
+          if(el.classList && el.classList.contains("msg")){
+            if(!seen.has(el)){ seen.add(el); scheduleClear(el); }
+            break;
+          }
+          el = el.parentElement;
+        }
+      });
+    }).observe(document.body, { childList: true, characterData: true, subtree: true });
+  })();
+
+  // ---------- 設定頁裡的 ⓘ 說明按鈕：點了才展開對應的說明文字 ----------
+  document.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".info-btn");
+    if(!btn) return;
+    const target = document.getElementById(btn.dataset.infoFor);
+    if(target) target.classList.toggle("hidden");
+  });
+
+  // ---------- 密碼欄位的小眼睛（顯示/隱藏密碼） ----------
+  document.querySelectorAll(".pw-toggle-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const input = btn.closest(".pw-input-wrap").querySelector("input");
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "🙈" : "👁️";
+      btn.setAttribute("aria-label", show ? "隱藏密碼" : "顯示密碼");
+    });
+  });
+
+  let currentUser = null;
+  // myMember：目前登入的人在「目前啟用群組」裡對應的那一筆 members 資料。
+  // members.id 不等於 auth 的 user id（一人可能同時屬於多個群組，每個群組各一筆
+  // members 列），所有代表「我自己」的地方都要用 myMember.id，不能用 currentUser.id。
+  let myMember = null;
+  let memberRows = [];
+  let memberById = {};
+
+  function formatAmt(v){
+    if(v === undefined || v === null || isNaN(v) || Math.abs(v) < 0.001) return "0";
+    return Number(v).toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  const appScreen = document.getElementById("appScreen");
+
+  // ---------- 成員名單：直接從 Supabase members 表讀取，改人不用改程式碼 ----------
+  let MEMBERS = [];
+  function isRealEmail(email){
+    return !!email && !email.endsWith("@splitbill.local");
+  }
+  async function loadMembers(){
+    // 已登入時，先問清楚「目前啟用的群組是哪個」，查詢才只抓那個群組的
+    // 名單。不然 RLS 為了讓設定頁的群組切換器能看到「自己在其他群組的
+    // 那幾筆」，會連同其他群組、甚至已經退出的舊群組都一起回來，
+    // 混進下拉選單/勾選清單裡變成憑空多出來的怪成員。
+    let activeGroupId = null;
+    if(currentUser){
+      const { data: gid, error: gidError } = await sb.rpc("my_group_id");
+      // 查「目前群組」這步失敗的話，寧可名單暫時是空的，也不要往下用沒有
+      // group_id 篩選條件的查詢——那樣 RLS 會把使用者所有群組（包含已退出
+      // 的）的成員都撈出來，混進成員清單裡，等於洩漏跨群組資料。
+      if(gidError){
+        console.error("讀取目前群組失敗：", gidError);
+        MEMBERS = [];
+        memberById = {};
+        myMember = null;
+        memberRows = [];
+        return;
+      }
+      activeGroupId = gid;
+    }
+    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+    if(activeGroupId) query = query.eq("group_id", activeGroupId);
+    const { data } = await query;
+    MEMBERS = data || [];
+    // 已退出／帳號已銷毀的成員，名字後面加上小字標籤方便分辨；
+    // memberById 一律用完整名單建立，讓過去的支出/還款紀錄還是查得到名字。
+    MEMBERS.forEach(m=>{
+      m.accountName = m.name; // 保留帳號原始姓名（不含暱稱/標籤）
+      if(m.nickname) m.name = m.nickname; // 這個群組如果有另外設定暱稱，畫面上一律優先顯示暱稱
+      if(m.account_deleted_at) m.name = m.name + " (銷毀)";
+      else if(m.left_at) m.name = m.name + " (退出)";
+    });
+    memberById = {};
+    MEMBERS.forEach(m => memberById[m.id] = m.name);
+    myMember = currentUser ? MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) : null;
+    memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
+  }
+
+  // ---------- 12-hour auto-logout（滑動式：詳見 refreshLoginTime） ----------
+  const LOGIN_TIME_KEY = "sb_login_time";
+  const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
+  function isSessionExpired(){
+    const loginTime = Number(localStorage.getItem(LOGIN_TIME_KEY));
+    return !!loginTime && (Date.now() - loginTime > SESSION_DURATION_MS);
+  }
+  // 滑動式：只要在 12 小時內有繼續使用，時間就往後推，不會單純因為
+  // 帳號用得久就被踢出；真的超過 12 小時完全沒有任何動作才會被登出。
+  function refreshLoginTime(){
+    localStorage.setItem(LOGIN_TIME_KEY, String(Date.now()));
+  }
+  // 登入畫面已經搬去 index.html，這裡 session 一失效就直接導過去。
+  async function forceLogout(){
+    try{ await sb.auth.signOut(); }catch(e){}
+    localStorage.removeItem(LOGIN_TIME_KEY);
+    location.href = "index.html?redirect=summary.html";
+  }
+  setInterval(()=>{ if(isSessionExpired()) forceLogout(); else refreshLoginTime(); }, 5 * 60 * 1000);
+
+  document.getElementById("logoutBtn").addEventListener("click", async ()=>{
+    localStorage.removeItem(LOGIN_TIME_KEY);
+    await sb.auth.signOut();
+    location.href = "index.html";
+  });
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  // ---------- 意見回饋：大家都看得到，只能刪自己寫的 ----------
+  function formatFeedbackTime(iso){
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return "";
+    return d.toLocaleString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false });
+  }
+
+  function paginationHTML(page, totalPages){
+    if(totalPages <= 1) return "";
+    return `<div class="pagination">
+      <button type="button" class="btn secondary small pagination-prev" ${page <= 0 ? "disabled" : ""}>← 上一頁</button>
+      <span class="pagination-info">第 ${page + 1} / ${totalPages} 頁</span>
+      <button type="button" class="btn secondary small pagination-next" ${page >= totalPages - 1 ? "disabled" : ""}>下一頁 →</button>
+    </div>`;
+  }
+
+  const FEEDBACK_PAGE_SIZE = 5;
+  let cachedFeedback = [];
+  let feedbackPage = 0;
+  let editingFeedbackId = null;
+
+  // 展開狀態下，留言內容高度會變（分頁、進入/離開編輯模式都會），
+  // 每次重繪後都要重新量一次 #feedbackBody 的 max-height，
+  // 不然編輯用的文字框跟儲存按鈕會被舊的高度裁掉、也沒辦法滑動看到。
+  function syncFeedbackBodyHeight(){
+    const body = document.getElementById("feedbackBody");
+    if(body && body.classList.contains("open")){
+      body.style.maxHeight = body.scrollHeight + "px";
+    }
+  }
+
+  function renderFeedbackList(){
+    const el = document.getElementById("feedbackList");
+    const head = document.getElementById("feedbackToggleHead");
+    if(!el) return;
+    if(head) head.querySelector("span").textContent = `💭 查看留言（${cachedFeedback.length}）`;
+    if(!cachedFeedback.length){
+      el.innerHTML = `<p class="filter-hint">還沒有人留言，第一個說點什麼吧</p>`;
+      syncFeedbackBodyHeight();
+      return;
+    }
+    const totalPages = Math.ceil(cachedFeedback.length / FEEDBACK_PAGE_SIZE);
+    if(feedbackPage >= totalPages) feedbackPage = totalPages - 1;
+    if(feedbackPage < 0) feedbackPage = 0;
+    const pageItems = cachedFeedback.slice(feedbackPage * FEEDBACK_PAGE_SIZE, (feedbackPage + 1) * FEEDBACK_PAGE_SIZE);
+
+    el.innerHTML = pageItems.map(f=>{
+      const canEdit = myMember && f.created_by === myMember.id;
+
+      if(editingFeedbackId === f.id){
+        return `<div class="exp-item">
+          <div class="exp-main">
+            <textarea class="fb-edit-input" rows="3">${escapeHtml(f.content)}</textarea>
+            <div class="exp-actions fb-edit-actions">
+              <button type="button" class="btn secondary small fb-save" data-id="${f.id}">儲存</button>
+              <button type="button" class="btn secondary small fb-cancel">取消</button>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      return `<div class="exp-item">
+        <div class="exp-main">
+          <div class="exp-desc">${escapeHtml(f.content)}</div>
+          <div class="exp-meta">${escapeHtml(memberById[f.created_by] || "?")} ・ ${formatFeedbackTime(f.created_at)}</div>
+        </div>
+        ${canEdit ? `<div class="exp-right"><div class="exp-actions"><button class="exp-edit fb-edit" data-id="${f.id}" title="編輯">✎</button><button class="exp-del fb-del" data-id="${f.id}" title="刪除">✕</button></div></div>` : ""}
+      </div>`;
+    }).join("") + paginationHTML(feedbackPage, totalPages);
+
+    el.querySelectorAll(".fb-edit").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        editingFeedbackId = btn.dataset.id;
+        renderFeedbackList();
+      });
+    });
+    el.querySelectorAll(".fb-cancel").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        editingFeedbackId = null;
+        renderFeedbackList();
+      });
+    });
+    el.querySelectorAll(".fb-save").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const wrap = btn.closest(".exp-item");
+        const newContent = wrap.querySelector(".fb-edit-input").value.trim();
+        if(!newContent) return;
+        const { error } = await sb.from("feedback").update({ content: newContent }).eq("id", btn.dataset.id);
+        if(error){ alert("儲存失敗，請再試一次：" + error.message); return; }
+        editingFeedbackId = null;
+        await loadFeedback();
+      });
+    });
+    el.querySelectorAll(".fb-del").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        if(!confirm("確定要刪除這則留言嗎？")) return;
+        const { error } = await sb.from("feedback").delete().eq("id", btn.dataset.id);
+        if(error){ alert("刪除失敗，請再試一次：" + error.message); return; }
+        await loadFeedback();
+      });
+    });
+    const prevBtn = el.querySelector(".pagination-prev");
+    if(prevBtn) prevBtn.addEventListener("click", ()=>{ feedbackPage--; renderFeedbackList(); });
+    const nextBtn = el.querySelector(".pagination-next");
+    if(nextBtn) nextBtn.addEventListener("click", ()=>{ feedbackPage++; renderFeedbackList(); });
+
+    syncFeedbackBodyHeight();
+  }
+
+  async function loadFeedback(){
+    const { data } = await sb.from("feedback").select("*").order("created_at", { ascending:false });
+    cachedFeedback = data || [];
+    renderFeedbackList();
+  }
+
+  const feedbackToggleHead = document.getElementById("feedbackToggleHead");
+  if(feedbackToggleHead){
+    feedbackToggleHead.addEventListener("click", ()=>{
+      const body = document.getElementById("feedbackBody");
+      const open = feedbackToggleHead.classList.toggle("open");
+      body.classList.toggle("open", open);
+      body.style.maxHeight = open ? (body.scrollHeight + "px") : "0px";
+    });
+  }
+
+  const feedbackSubmitBtn = document.getElementById("feedbackSubmitBtn");
+  if(feedbackSubmitBtn){
+    feedbackSubmitBtn.addEventListener("click", async ()=>{
+      const input = document.getElementById("feedbackInput");
+      const msg = document.getElementById("feedbackMsg");
+      const content = input.value.trim();
+      if(!content){ msg.textContent = "請輸入內容"; msg.className = "msg error"; return; }
+      const { error } = await sb.from("feedback").insert({ content, created_by: myMember.id });
+      if(error){ msg.textContent = "送出失敗：" + error.message; msg.className = "msg error"; return; }
+      input.value = "";
+      msg.textContent = "已送出！"; msg.className = "msg ok";
+      feedbackPage = 0;
+      await loadFeedback();
+      const body = document.getElementById("feedbackBody");
+      if(body){
+        feedbackToggleHead.classList.add("open");
+        body.classList.add("open");
+        body.style.maxHeight = body.scrollHeight + "px";
+      }
+    });
+  }
+
+  // ---------- 帳務更動通知 ----------
+  function showToast(title, body){
+    let container = document.getElementById("sbToastContainer");
+    if(!container){
+      container = document.createElement("div");
+      container.id = "sbToastContainer";
+      container.className = "sb-toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = "sb-toast";
+    toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body)}`;
+    container.appendChild(toast);
+    setTimeout(()=>{
+      toast.classList.add("sb-toast-out");
+      setTimeout(()=> toast.remove(), 250);
+    }, 4000);
+  }
+
+  // Web Push 公鑰（可公開，用來讓瀏覽器跟推播服務建立訂閱）
+  const VAPID_PUBLIC_KEY = "BNR-GFJ6UxpQWVk6ghTFNUl9RYncDp_WX9W6XNA1vqsyWk9zQ4WC5ghAGiuBqqXQhluRiVB7KsAPGxTWNl27JW4";
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  }
+
+  const notifyBtn = document.getElementById("notifyBtn");
+  const pushSupported = "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
+
+  const notifyHint = document.getElementById("notifyHint");
+  const NOTIFY_HINT_DEFAULT = "開啟後，只要有跟你相關的支出或還款有異動就會通知你。";
+  const NOTIFY_HINT_BLOCKED = "🔕 通知已經被瀏覽器封鎖了，需要手動解除：\n手機：瀏覽器選單 → 網站設定（或「這個網站的權限」）→ 通知 → 改成允許\n電腦：網址列左邊的鎖頭／ⓘ 圖示 → 通知 → 改成允許\n改完後重新整理網頁即可。";
+
+  async function updateNotifyBtnState(){
+    if(!notifyBtn) return;
+    if(!pushSupported){
+      notifyBtn.classList.add("hidden");
+      return;
+    }
+    notifyBtn.classList.remove("hidden");
+    notifyBtn.disabled = false;
+    if(Notification.permission === "denied"){
+      notifyBtn.textContent = "🔕";
+      notifyBtn.title = "通知已被瀏覽器封鎖，點一下看怎麼打開";
+      notifyBtn.classList.remove("active");
+      if(notifyHint) notifyHint.textContent = NOTIFY_HINT_BLOCKED;
+      return;
+    }
+    if(notifyHint) notifyHint.textContent = NOTIFY_HINT_DEFAULT;
+    if(Notification.permission === "granted"){
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(sub){
+        notifyBtn.textContent = "🔔";
+        notifyBtn.title = "通知已開啟（點擊關閉）";
+        notifyBtn.classList.add("active");
+        return;
+      }
+    }
+    notifyBtn.textContent = "🔔";
+    notifyBtn.title = "點擊開啟通知";
+    notifyBtn.classList.remove("active");
+  }
+
+  // 登入後自動嘗試訂閱（預設開啟）；如果瀏覽器已經封鎖或使用者已關閉過，
+  // 這裡什麼都不會發生，不會硬跳出來吵。
+  async function ensurePushSubscribed(){
+    if(!pushSupported || !currentUser) return;
+    if(Notification.permission === "denied"){ await updateNotifyBtnState(); return; }
+
+    const permission = await Notification.requestPermission();
+    if(permission !== "granted"){ await updateNotifyBtnState(); return; }
+
+    try{
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if(!sub){
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+      const subJson = sub.toJSON();
+      const { error } = await sb.from("push_subscriptions").upsert({
+        member_id: myMember.id,
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh,
+        auth: subJson.keys.auth
+      }, { onConflict: "endpoint" });
+      if(error){
+        console.error("推播訂閱寫入失敗：", error);
+        await sub.unsubscribe();
+        alert("開啟通知失敗，請稍後再試一次。");
+      }
+    }catch(e){
+      console.error("推播訂閱失敗：", e);
+    }
+    await updateNotifyBtnState();
+  }
+
+  // 按鈕點擊：目前開著就關掉，目前關著就打開
+  async function toggleNotify(){
+    if(!pushSupported || !currentUser) return;
+
+    if(Notification.permission === "denied"){
+      alert(NOTIFY_HINT_BLOCKED);
+      return;
+    }
+
+    if(Notification.permission === "granted"){
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if(sub){
+        const { error } = await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        if(error) console.error("取消推播訂閱寫入失敗：", error);
+        await sub.unsubscribe();
+        await updateNotifyBtnState();
+        return;
+      }
+    }
+
+    await ensurePushSubscribed();
+  }
+
+  if(notifyBtn){
+    updateNotifyBtnState();
+    notifyBtn.addEventListener("click", toggleNotify);
+  }
+
+  function isRelevantToMe(table, row){
+    if(!row || !myMember) return false;
+    if(table === "expenses"){
+      return (row.payers || []).some(p => p.member_id === myMember.id) ||
+             (row.shares || []).some(s => s.member_id === myMember.id);
+    }
+    if(table === "repayments"){
+      return row.from_member === myMember.id || row.to_member === myMember.id;
+    }
+    return false;
+  }
+
+  function notifyRelevantChange(table, payload){
+    const row = (payload.new && Object.keys(payload.new).length) ? payload.new : payload.old;
+    if(!isRelevantToMe(table, row)) return;
+    if(payload.eventType === "DELETE") return; // 刪除先不通知，避免太吵
+
+    const sym = currencyMeta(row.currency).symbol;
+    const actor = memberById[row.created_by] || "有人";
+    let title, body;
+    if(table === "expenses"){
+      title = payload.eventType === "INSERT" ? "📋 新增支出" : "📋 支出更新";
+      body = `${actor}：「${row.description}」${sym}${formatAmt(row.amount)}`;
+    } else {
+      title = payload.eventType === "INSERT" ? "💸 新增還款" : "💸 還款更新";
+      body = `${memberById[row.from_member] || "?"} 還 ${memberById[row.to_member] || "?"}　${sym}${formatAmt(row.amount)}`;
+    }
+
+    showToast(title, body);
+
+    if(typeof Notification !== "undefined" && Notification.permission === "granted"){
+      try{ new Notification(title, { body, icon: "icon.svg" }); }catch(e){}
+    }
+  }
+
+  // ---------- 設定入口：設定已經搬到獨立的 settings.html，這裡只留信箱
+  // 提醒卡片的「去設定」按鈕，改成導頁而不是開彈窗。 ----------
+  const emailReminderBtn = document.getElementById("emailReminderBtn");
+  if(emailReminderBtn) emailReminderBtn.addEventListener("click", ()=>{ location.href = "settings.html"; });
+
+  // 每人淨餘額改成呼叫資料庫的 member_balances() 函式算，跟各幣別頁
+  // 共用同一份邏輯，不會有算法不一致的風險。傳 sinceDate 可以只算某天之後的。
+  // balances 的形狀： { 幣別代碼: { 成員id: 淨餘額 } }，幣別完全依 RPC 實際
+  // 回傳的資料決定 ── 沒用過的幣別根本不會出現，總表跟我的款項都不用列出來。
+  async function loadBalances(sinceDate){
+    const { data } = await sb.rpc("member_balances", { p_since: sinceDate || null });
+    const balances = {};
+    (data || []).forEach(row=>{
+      if(!balances[row.currency]) balances[row.currency] = {};
+      balances[row.currency][row.member_id] = Number(row.balance);
+    });
+    return balances;
+  }
+
+  function currencyMeta(code){
+    return CURRENCIES.find(c => c.code === code) || { code, symbol: code, label: code, flag: "" };
+  }
+
+  // 依 CURRENCIES 設定的順序，只列出使用者在設定裡選擇要顯示的幣別，
+  // 跟這個幣別有沒有交易紀錄無關 —— 選了就顯示（沒紀錄就顯示 0／已結清）。
+  function activeCurrencyCodes(){
+    return CURRENCIES.map(c => c.code).filter(code => shownCurrencies.includes(code));
+  }
+
+  // ---------- 淨餘額比較：橫向長條圖，取代原本的文字總表。不同幣別數字
+  // 不能混在一起比，所以用下拉選單一次只看一種。
+  let balanceChartCode = null;
+  let balanceChartData = null; // 存最新一次的 balances，切換幣別時不用重算
+
+  // 用 canvas 量實際文字寬度，長條圖的名字欄寬度/長條可用長度才能跟著
+  // 實際內容自動調整，不會被很長的名字或很大的金額數字擠壓、疊在一起。
+  let measureCtx = null;
+  function measureTextWidth(text, font){
+    if(!measureCtx) measureCtx = document.createElement("canvas").getContext("2d");
+    measureCtx.font = font;
+    return measureCtx.measureText(text).width;
+  }
+  function truncateToWidth(text, font, maxWidth){
+    if(measureTextWidth(text, font) <= maxWidth) return text;
+    for(let len = text.length - 1; len > 0; len--){
+      const candidate = text.slice(0, len) + "*";
+      if(measureTextWidth(candidate, font) <= maxWidth) return candidate;
+    }
+    return "*";
+  }
+
+  function renderBalanceCurrencyMenu(codes){
+    const menu = document.getElementById("balanceCurrencyMenu");
+    const text = document.getElementById("balanceCurrencyText");
+    if(!menu || !text) return;
+    if(!codes.length){
+      menu.innerHTML = "";
+      text.textContent = "";
+      balanceChartCode = null;
+      return;
+    }
+    if(!balanceChartCode || !codes.includes(balanceChartCode)) balanceChartCode = codes[0];
+    menu.innerHTML = codes.map(code=>{
+      const meta = currencyMeta(code);
+      return `<button type="button" class="chart-gran-option${code === balanceChartCode ? " active" : ""}" data-code="${code}">${meta.label}</button>`;
+    }).join("");
+    text.textContent = currencyMeta(balanceChartCode).label;
+  }
+
+  function renderBalanceChart(){
+    const wrap = document.getElementById("balanceChartWrap");
+    if(!wrap || !balanceChartData) return;
+    if(!balanceChartCode){
+      wrap.innerHTML = `<p class="filter-hint">請到⚙️設定選擇要顯示的幣別</p>`;
+      return;
+    }
+    const meta = currencyMeta(balanceChartCode);
+    const rows = memberRows.map(m => ({
+      name: m.name,
+      amt: (balanceChartData[balanceChartCode] && balanceChartData[balanceChartCode][m.id]) || 0
+    })).sort((a, b) => a.amt - b.amt);
+    if(rows[0] && rows[0].amt < -0.05) rows[0].badge = "😠 ";
+    if(rows.length > 1 && rows[rows.length - 1].amt > 0.05) rows[rows.length - 1].badge = "😢 ";
+
+    if(!rows.length){
+      wrap.innerHTML = `<p class="filter-hint">目前群組還沒有成員</p>`;
+      return;
+    }
+    if(!rows.some(r => Math.abs(r.amt) > 0.05)){
+      wrap.innerHTML = `<p class="filter-hint">${meta.label}目前大家都已結清 🎉</p>`;
+      return;
+    }
+
+    // 名字欄寬度、長條可用長度都依實際內容（量測出來的文字寬度）自動調整，
+    // 不用固定寬度——不然遇到很長的名字或很大的金額數字，文字會蓋到長條
+    // 或彼此疊在一起。太長的名字超過欄寬上限就截斷加「…」，滑鼠移過去
+    // （或桌機 title tooltip）還是看得到全名。
+    const w = 320, rowH = 26, rowGap = 6, padTop = 6, padBottom = 6;
+    const NAME_FONT = `11px "Noto Sans TC", sans-serif`;
+    const AMT_FONT = `9px "JetBrains Mono", monospace`;
+
+    const displayNames = rows.map(r => (r.badge || "") + r.name);
+    const rawNameW = Math.max(...displayNames.map(t => measureTextWidth(t, NAME_FONT)));
+    const labelW = Math.min(130, Math.max(60, rawNameW + 20));
+    const truncatedNames = displayNames.map(t => truncateToWidth(t, NAME_FONT, labelW - 18));
+
+    const barAreaW = w - labelW;
+    const midX = labelW + barAreaW / 2;
+
+    const amtLabels = rows.map(r => r.amt > 0.05 ? `+${meta.symbol}${formatAmt(r.amt)}` : r.amt < -0.05 ? `-${meta.symbol}${formatAmt(Math.abs(r.amt))}` : "已結清");
+    const maxAmtW = Math.max(...amtLabels.map(t => measureTextWidth(t, AMT_FONT)));
+    const halfMax = Math.max(20, Math.min(80, barAreaW / 2 - maxAmtW - 8));
+
+    const max = Math.max(1, ...rows.map(r => Math.abs(r.amt)));
+    const h = rows.length * (rowH + rowGap) - rowGap + padTop + padBottom;
+
+    const bars = rows.map((r, i)=>{
+      const y = padTop + i * (rowH + rowGap);
+      const cy = y + rowH / 2;
+      const barLen = Math.abs(r.amt) > 0.05 ? Math.max(3, Math.round((Math.abs(r.amt) / max) * halfMax)) : 0;
+      const isPos = r.amt > 0.05;
+      const barX = isPos ? midX : midX - barLen;
+      const cls = isPos ? "flow-bar-down" : r.amt < -0.05 ? "flow-bar-up" : "";
+      const barRect = barLen > 0
+        ? `<rect x="${barX.toFixed(1)}" y="${(cy - 8).toFixed(1)}" width="${barLen}" height="16" rx="3" class="${cls}"></rect>`
+        : "";
+      const textX = isPos ? midX + barLen + 4 : midX - barLen - 4;
+      const textAnchor = isPos ? "start" : "end";
+      const textCls = isPos ? "balance-amt-pos" : r.amt < -0.05 ? "balance-amt-neg" : "";
+      return `<text x="${(labelW - 14).toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" text-anchor="end" class="balance-chart-name"><title>${escapeHtml(displayNames[i])}</title>${escapeHtml(truncatedNames[i])}</text>
+        ${barRect}
+        <text x="${textX.toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" text-anchor="${textAnchor}" class="spend-bar-label ${textCls}">${amtLabels[i]}</text>`;
+    }).join("");
+
+    wrap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" class="spend-chart" role="img" aria-label="淨餘額比較">
+      <line x1="${midX.toFixed(1)}" y1="0" x2="${midX.toFixed(1)}" y2="${h}" class="flow-zero-line"/>
+      ${bars}
+    </svg>`;
+  }
+
+  let isSettledListExpanded = false;
+
+  function renderMyAmtList(balances){
+    const codes = activeCurrencyCodes();
+    const list = document.getElementById("myAmtList");
+    if(!list) return;
+    if(!codes.length){
+      list.innerHTML = `<p class="filter-hint">請到⚙️設定選擇要顯示的幣別</p>`;
+      return;
+    }
+
+    const items = codes.map(code => {
+      const meta = currencyMeta(code);
+      const amt = (balances[code] && myMember && balances[code][myMember.id]) || 0;
+      const isPos = amt > 0.05;
+      const isNeg = amt < -0.05;
+      const isSettled = !isPos && !isNeg;
+      const cls = isPos ? "pos" : isNeg ? "neg" : "zero";
+      const label = isPos ? `該收 ${meta.symbol}${formatAmt(amt)}` : isNeg ? `該付 ${meta.symbol}${formatAmt(Math.abs(amt))}` : "已結清 🎉";
+      return { code, meta, amt, isPos, isNeg, isSettled, cls, label };
+    });
+
+    const activeItems = items.filter(it => !it.isSettled);
+    const settledItems = items.filter(it => it.isSettled);
+
+    // 全部都已結清時：顯示一個清爽精緻的歡呼卡片
+    if(!activeItems.length){
+      list.innerHTML = `
+        <div class="my-mini-balance zero all-settled-card">
+          <span>✨ 太棒了！所有幣別皆已結清</span>
+          <span class="amt zero">無款項 🎉</span>
+        </div>
+        ${settledItems.length > 1 ? `
+          <button type="button" class="settled-toggle-btn ${isSettledListExpanded ? 'open' : ''}" id="settledToggleBtn">
+            <span>查看各幣別（共 ${settledItems.length} 個幣別）</span>
+            <span class="chevron">▾</span>
+          </button>
+          <div class="settled-collapse-body ${isSettledListExpanded ? '' : 'hidden'}" id="settledCollapseBody">
+            <div class="settled-grid">
+              ${settledItems.map(it => `
+                <a href="currency.html?c=${it.code}" class="my-mini-balance zero mini-pill">
+                  <span>${it.meta.label}</span>
+                  <span class="amt zero">已結清 ✓</span>
+                </a>
+              `).join("")}
+            </div>
+          </div>
+        ` : ''}
+      `;
+    } else {
+      // 有欠款/待收款幣別：高亮優先顯示
+      const activeHtml = activeItems.map(it => `
+        <a href="currency.html?c=${it.code}" class="my-mini-balance ${it.cls}">
+          <span>${it.meta.label}</span>
+          <span class="amt ${it.cls}">${it.label}</span>
+        </a>
+      `).join("");
+
+      // 已結清的幣別：自動折疊收納成一行
+      let settledHtml = "";
+      if(settledItems.length === 1){
+        settledHtml = `
+          <a href="currency.html?c=${settledItems[0].code}" class="my-mini-balance zero">
+            <span>${settledItems[0].meta.label}</span>
+            <span class="amt zero">${settledItems[0].label}</span>
+          </a>
+        `;
+      } else if(settledItems.length > 1){
+        const namesPreview = settledItems.slice(0, 3).map(it => it.meta.label).join("、") + (settledItems.length > 3 ? "…" : "");
+        settledHtml = `
+          <button type="button" class="settled-toggle-btn ${isSettledListExpanded ? 'open' : ''}" id="settledToggleBtn">
+            <span>🎉 其他 ${settledItems.length} 個幣別已結清 <small class="settled-preview">(${namesPreview})</small></span>
+            <span class="chevron">▾</span>
+          </button>
+          <div class="settled-collapse-body ${isSettledListExpanded ? '' : 'hidden'}" id="settledCollapseBody">
+            <div class="settled-grid">
+              ${settledItems.map(it => `
+                <a href="currency.html?c=${it.code}" class="my-mini-balance zero mini-pill">
+                  <span>${it.meta.label}</span>
+                  <span class="amt zero">已結清 ✓</span>
+                </a>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      list.innerHTML = activeHtml + settledHtml;
+    }
+
+    const toggleBtn = document.getElementById("settledToggleBtn");
+    const collapseBody = document.getElementById("settledCollapseBody");
+    if(toggleBtn && collapseBody){
+      toggleBtn.addEventListener("click", ()=>{
+        isSettledListExpanded = !isSettledListExpanded;
+        toggleBtn.classList.toggle("open", isSettledListExpanded);
+        collapseBody.classList.toggle("hidden", !isSettledListExpanded);
+      });
+    }
+  }
+
+  const balanceCurrencyBtn = document.getElementById("balanceCurrencyBtn");
+  const balanceCurrencyMenu = document.getElementById("balanceCurrencyMenu");
+  const balanceCurrencyText = document.getElementById("balanceCurrencyText");
+  if(balanceCurrencyBtn && balanceCurrencyMenu){
+    balanceCurrencyBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const willOpen = balanceCurrencyMenu.classList.contains("hidden");
+      balanceCurrencyMenu.classList.toggle("hidden", !willOpen);
+      balanceCurrencyBtn.classList.toggle("open", willOpen);
+    });
+    balanceCurrencyMenu.addEventListener("click", (e)=>{
+      const opt = e.target.closest(".chart-gran-option");
+      if(!opt) return;
+      balanceChartCode = opt.dataset.code;
+      balanceCurrencyText.textContent = opt.textContent;
+      balanceCurrencyMenu.querySelectorAll(".chart-gran-option").forEach(o => o.classList.remove("active"));
+      opt.classList.add("active");
+      balanceCurrencyMenu.classList.add("hidden");
+      balanceCurrencyBtn.classList.remove("open");
+      renderBalanceChart();
+    });
+    document.addEventListener("click", (e)=>{
+      if(!balanceCurrencyMenu.classList.contains("hidden") && !balanceCurrencyMenu.contains(e.target) && e.target !== balanceCurrencyBtn){
+        balanceCurrencyMenu.classList.add("hidden");
+        balanceCurrencyBtn.classList.remove("open");
+      }
+    });
+  }
+
+  // ---------- 主流程：確認登入狀態、沒有群組就導去 index.html ----------
+  async function onLoggedIn(user){
+    if(isSessionExpired()){ await forceLogout(); return; }
+    refreshLoginTime();
+    currentUser = user;
+    try{
+      await loadMembers();
+
+      // 沒有任何啟用中的群組（例如在別的分頁退出了最後一個群組）：
+      // 選擇/建立群組的畫面只做在 index.html，這裡直接導過去，
+      // 帶著 redirect 記住回來要到總覽頁。
+      if(!myMember){
+        location.href = "index.html?redirect=summary.html";
+        return;
+      }
+
+      if(!myMember.name && !isRealEmail(myMember.email)){
+        // 讀得到成員資料列，但名字跟信箱都是空的——代表資料異常，
+        // 與其卡在畫面上一堆轉圈圈，不如直接登出讓使用者重新登入。
+        throw new Error("member data incomplete");
+      }
+
+      appScreen.style.display = "block";
+      hidePwaSplash();
+      {
+        const whoamiEl = document.getElementById("whoamiName");
+        const groupName = myMember.groups && myMember.groups.name;
+        whoamiEl.textContent = (myMember.name || user.email) + (groupName ? ` (${groupName})` : "");
+      }
+
+      const myLatestRow = myMember;
+
+      const emailReminderCard = document.getElementById("emailReminderCard");
+      if(emailReminderCard){
+        emailReminderCard.classList.toggle("hidden", !!(myLatestRow && isRealEmail(myLatestRow.email)));
+      }
+
+      shownCurrencies = (myLatestRow && myLatestRow.shown_currencies) || ["TWD"];
+      localStorage.setItem("splitbill-shown-currencies", JSON.stringify(shownCurrencies));
+      renderNavLinks();
+
+      await loadAndRenderAllBalances();
+      await loadFeedback();
+      subscribeRealtime();
+      ensurePushSubscribed();
+    }catch(e){
+      // 任何一步讀不到使用者/成員資料就直接登出，不要卡在半載入的畫面上。
+      await forceLogout();
+    }
+  }
+
+  async function loadAndRenderAllBalances(){
+    const allTime = await loadBalances(null);
+    renderMyAmtList(allTime);
+
+    balanceChartData = allTime;
+    renderBalanceCurrencyMenu(activeCurrencyCodes());
+    renderBalanceChart();
+  }
+
+  // ---------- 即時同步：別人新增/編輯/刪除支出或還款時，自動重新整理 ----------
+  // 需要先在 Supabase 後台的 Database > Replication 把 expenses、repayments
+  // 這兩張表加進 supabase_realtime publication，這段程式碼才收得到變動通知。
+  let realtimeSubscribed = false;
+  function subscribeRealtime(){
+    if(realtimeSubscribed) return;
+    realtimeSubscribed = true;
+
+    let refreshTimer = null;
+    function scheduleRefresh(){
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(()=>{ loadAndRenderAllBalances(); }, 400);
+    }
+
+    // filter 一定要帶 group_id，不然即時同步會把「所有群組」的異動都廣播過來，
+    // 雖然畫面上會被 isRelevantToMe() 擋掉不顯示，但資料還是會傳到瀏覽器裡，
+    // 等於別的群組的支出內容在網路層/記憶體裡洩漏出來，不是真的隔離。
+    sb.channel("splitbill-overview")
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: `group_id=eq.${myMember.group_id}` }, (payload)=>{
+        notifyRelevantChange("expenses", payload);
+        scheduleRefresh();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "repayments", filter: `group_id=eq.${myMember.group_id}` }, (payload)=>{
+        notifyRelevantChange("repayments", payload);
+        scheduleRefresh();
+      })
+      .subscribe();
+  }
+
+  (async function boot(){
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      if(session && session.user){
+        await onLoggedIn(session.user);
+      } else {
+        localStorage.removeItem(LOGIN_TIME_KEY);
+        location.href = "index.html?redirect=summary.html";
+      }
+    } catch(e){
+      location.href = "index.html?redirect=summary.html";
+    }
+  })();
+})();
+</script>
+</body>
+</html>

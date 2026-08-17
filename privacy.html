@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("splitbill-theme");
+    if(t !== "dark" && t !== "light"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隱私權政策 - Splitbill</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+<script src="version.js"></script>
+<script src="theme.js" defer></script>
+<style>
+.legal-card p, .legal-card li{ font-size:14px; line-height:1.8; color:var(--ink); }
+.legal-card ul{ margin:8px 0; padding-left:20px; }
+.legal-card li{ margin-bottom:4px; }
+.legal-card h3{ font-size:15px; margin:22px 0 8px; color:var(--ink); }
+.legal-card h3:first-child{ margin-top:0; }
+.legal-updated{ font-size:12px; color:var(--ink-soft); margin-bottom:18px; }
+.legal-card a, .legal-card a:visited{ color:var(--accent-text); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop class="logo-stop-a" offset="0%"/>
+      <stop class="logo-stop-b" offset="100%"/>
+    </linearGradient>
+  </defs>
+</svg>
+<div class="wrap">
+  <div class="app-header">
+    <div class="eyebrow">SPLIT BILL</div>
+    <div class="title-row">
+      <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
+        <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+        <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+        <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+      </svg>
+      <h1>隱私權政策</h1>
+    </div>
+  </div>
+
+  <div class="card legal-card">
+    <div class="legal-updated">最後更新：2026 年 8 月 15 日</div>
+
+    <p>Splitbill（分帳）是一個給朋友、旅遊夥伴或小群體記帳、分攤共同開銷用的小工具。這份文件說明使用這個服務時，我們會收集哪些資料、怎麼使用、跟誰共享。</p>
+
+    <h3>我們會收集的資料</h3>
+    <ul>
+      <li><b>帳號資料：</b>顯示名稱、電子信箱（選填）、密碼（由 Supabase 加密儲存，我們看不到明文），或透過 Google／Discord 登入時取得的帳號識別碼、信箱、顯示名稱。</li>
+      <li><b>記帳內容：</b>你在群組裡新增的支出、還款紀錄（品項描述、金額、幣別、日期、參與分攤的成員）。</li>
+      <li><b>意見回饋：</b>你在「意見回饋」留言板寫的內容。</li>
+      <li><b>通知訂閱資訊：</b>如果你開啟瀏覽器推播通知，會儲存瀏覽器提供的推播端點資訊，用來在有相關支出/還款異動時通知你。</li>
+      <li><b>裝置端設定：</b>深色/淺色模式偏好、目前選擇顯示的幣別等，只存在你自己的瀏覽器 localStorage，不會上傳到伺服器。</li>
+    </ul>
+
+    <h3>資料怎麼被使用</h3>
+    <ul>
+      <li>讓你登入、辨識身份、跟同群組成員一起記帳、計算彼此的應收應付金額。</li>
+      <li>在有跟你相關的支出或還款異動時發送通知（如果你開啟了通知）。</li>
+      <li>我們不會把你的資料用於廣告、行銷或賣給第三方。</li>
+    </ul>
+
+    <h3>資料儲存與存取範圍</h3>
+    <p>資料儲存在 Supabase（資料庫與帳號驗證服務）上，透過權限規則（Row Level Security）限制，只有同一個群組的成員才能看到彼此的支出/還款紀錄；不同群組之間的資料互不可見。</p>
+
+    <h3>會用到的第三方服務</h3>
+    <ul>
+      <li><b>Supabase：</b>帳號驗證與資料庫，實際儲存你上面提到的所有資料。</li>
+      <li><b>Google／Discord：</b>如果你選擇用這兩種方式登入，我們只會取得你授權的帳號識別碼、信箱、顯示名稱，不會取得你的密碼。</li>
+      <li><b>Cloudflare Turnstile：</b>登入/註冊頁面用來防止機器人濫用，運作時會跟 Cloudflare 交換必要的驗證資訊。</li>
+      <li><b>瀏覽器推播服務：</b>如果你開啟通知，你的瀏覽器（例如 Chrome、Firefox）會透過各自的推播伺服器轉發通知，這是瀏覽器本身的機制，不是我們自建的服務。</li>
+    </ul>
+
+    <h3>你可以做的事</h3>
+    <ul>
+      <li>隨時在「設定」裡修改顯示名稱、電子信箱、密碼，或連結/解除連結 Google、Discord 登入方式。</li>
+      <li>退出群組：你的歷史支出/還款紀錄會保留（其他成員還是看得到，因為那本來就是共同的帳），但你之後就不會出現在該群組的名單裡。</li>
+      <li>銷毀帳號：會讓帳號無法再登入，並讓你離開所有群組。如果在任何群組裡還有未結清的款項，需要先結清才能銷毀。歷史紀錄會保留（用你當時的顯示名稱呈現），其他成員仍看得到。</li>
+    </ul>
+
+    <h3>資料保留</h3>
+    <p>只要帳號或群組還存在，相關資料就會持續保留，做為共同記帳的依據。刪除群組會一併清除該群組的支出、還款、留言與成員資料，且無法復原。</p>
+
+    <h3>聯絡方式</h3>
+    <p>如果你對這份隱私權政策有任何問題，或想要求刪除/查詢你的個人資料，歡迎寄信到 <a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a>。</p>
+
+    <h3>政策異動</h3>
+    <p>如果這份政策有重大修改，會更新這個頁面上方的日期。</p>
+  </div>
+
+  <a class="btn secondary" href="index.html">← 回到登入頁</a>
+
+  <div class="app-footer" id="appFooter"></div>
+</div>
+<script>document.getElementById("appFooter").textContent = "--菘.v" + APP_VERSION + "--";</script>
+</body>
+</html>

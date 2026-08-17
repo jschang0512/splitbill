@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("splitbill-theme");
+    if(t !== "dark" && t !== "light"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+
+    // 防閃爍機制：session 看起來已經過期，直接導去 index.html 補登入，
+    // 帶著 redirect 記住這一頁，登入完成後才不會被丟去總覽頁。
+    var loginTime = Number(localStorage.getItem("sb_login_time"));
+    var isExpired = !loginTime || (Date.now() - loginTime > 12 * 60 * 60 * 1000);
+    if (isExpired) {
+      location.replace("index.html?redirect=" + encodeURIComponent(location.pathname.split("/").pop() + location.search));
+    }
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分帳</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7A6B9E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="帳務系統">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+<style>
+.hidden{display:none !important;}
+.app-logo{width:38px;height:38px;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="currencies.js"></script>
+<script src="version.js"></script>
+<script src="theme.js" defer></script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    // 這一頁「載入當下」有沒有已經被某個 SW 控制——只有原本就有在
+    // 控制、後來換了一顆新的，才算是「真的更新了」；如果這頁一開始
+    // 就還沒有 SW 控制（例如第一次連上、或剛清過資料），那接下來的
+    // controllerchange 只是「第一次接手」，不是版本更新，不用重整，
+    // 不然一般换頁瀏覽也會被誤判成改版、多閃一次載入畫面。
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("sw.js").then((reg)=>{
+      // 每次開啟都主動檢查一次，不然瀏覽器預設的背景檢查間隔可能長達
+      // 24 小時——尤其是 TWA/APK 那種很少真的整個關掉重開的情況，
+      // 使用者要等很久才會看到新版內容。新版接手後自動重新整理一次。
+      reg.update();
+      if(hadController){
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+          if(refreshing) return;
+          refreshing = true;
+          location.reload();
+        });
+      }
+    }).catch(()=>{});
+  });
+}
+</script>
+</head>
+<body>
+<div id="pwaSplash" class="pwa-splash">
+  <div class="pwa-splash-content">
+    <svg class="pwa-splash-logo" viewBox="0 0 512 512" aria-hidden="true">
+      <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+      <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+      <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+    </svg>
+  </div>
+</div>
+<script>
+(function(){
+  const splashEl = document.getElementById("pwaSplash");
+  if(!splashEl) return;
+  const splashStartTime = performance.now();
+  const hasSplashed = sessionStorage.getItem("sb_splashed_in_session") === "1";
+  let splashTimer = null;
+
+  if(!hasSplashed){
+    splashEl.classList.add("pwa-splash-visible");
+    sessionStorage.setItem("sb_splashed_in_session", "1");
+  } else {
+    splashTimer = setTimeout(()=>{
+      if(splashEl) splashEl.classList.add("pwa-splash-visible");
+    }, 300);
+  }
+
+  window.hidePwaSplash = function(){
+    if(splashTimer) clearTimeout(splashTimer);
+    const elapsed = performance.now() - splashStartTime;
+    const minDisplay = (!hasSplashed) ? 380 : 0;
+    const remaining = Math.max(0, minDisplay - elapsed);
+    setTimeout(()=>{
+      splashEl.classList.add("pwa-splash-out");
+      setTimeout(()=>{ if(splashEl.parentNode) splashEl.remove(); }, 350);
+    }, remaining);
+  };
+  setTimeout(window.hidePwaSplash, 2000);
+})();
+</script>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop class="logo-stop-a" offset="0%"/>
+      <stop class="logo-stop-b" offset="100%"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="app-header">
+    <div class="eyebrow" id="pageEyebrow"></div>
+    <div class="title-row">
+      <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
+        <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+        <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+        <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+      </svg>
+      <h1 id="pageH1"></h1>
+    </div>
+    <div class="nav-links" id="navLinks"></div>
+    <div class="exchange-rate-hint hidden" id="exchangeRateHint"></div>
+  </div>
+
+  <div id="configWarning" class="card hidden">
+    <h2>⚠️ 尚未設定 Supabase</h2>
+    <p class="config-warning-text">
+      打開這個檔案，把最下面 <code>&lt;script&gt;</code> 區塊裡的
+      <code>SUPABASE_URL</code> 跟 <code>SUPABASE_ANON_KEY</code>
+      換成你自己 Supabase 專案的值，存檔後重新整理即可。
+    </p>
+  </div>
+
+  <div id="appScreen">
+    <div class="topbar">
+      <div class="whoami">登入身份：<b id="whoamiName"></b></div>
+      <div class="topbar-actions">
+        <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
+        <button class="btn secondary small" id="logoutBtn">登出</button>
+      </div>
+    </div>
+
+    <div class="card email-reminder hidden" id="emailReminderCard">
+      <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
+      <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+    </div>
+
+    <div class="my-balance" id="myBalance">
+      <div class="my-balance-label" id="myBalanceLabel"></div>
+      <div class="my-balance-amt" id="myBalanceAmt"><span class="skeleton skeleton-light skeleton-mybalance"></span></div>
+    </div>
+
+    <!-- 1. 總表在導覽列最左邊，且一進來先看到總表 -->
+    <div class="app-tabs main-app-tabs" id="mainAppTabs">
+      <div class="tab-indicator"></div>
+      <button type="button" class="app-tab active" data-tab="summary">📊 總表</button>
+      <button type="button" class="app-tab" data-tab="expense">🧾 支出</button>
+      <button type="button" class="app-tab" data-tab="repay">💸 還款</button>
+      <button type="button" class="app-tab" data-tab="history">📋 記錄</button>
+    </div>
+
+    <!-- 1. 總表預設開啟 -->
+    <div class="app-panel active" id="panelSummary">
+      <div class="card">
+        <div class="chart-title-row">
+          <h2>📈 債務趨勢</h2>
+          <div class="chart-gran-select" id="chartGranSelect">
+            <button type="button" class="chart-gran-btn" id="chartGranBtn">
+              <span id="chartGranText">週</span>
+              <span class="chart-gran-caret">▾</span>
+            </button>
+            <div class="chart-gran-menu hidden" id="chartGranMenu">
+              <button type="button" class="chart-gran-option" data-value="day">日</button>
+              <button type="button" class="chart-gran-option active" data-value="week">週</button>
+              <button type="button" class="chart-gran-option" data-value="month">月</button>
+              <button type="button" class="chart-gran-option" data-value="year">年</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-range-nav">
+          <button type="button" class="chart-nav-btn" id="chartPrevBtn" aria-label="上一組">‹</button>
+          <span id="chartRangeLabel"></span>
+          <button type="button" class="chart-nav-btn" id="chartNextBtn" aria-label="下一組">›</button>
+        </div>
+        <div id="spendChartWrap">
+          <p class="filter-hint">載入中…</p>
+        </div>
+      </div>
+
+      <div class="card card-wide">
+        <h2>🧮 債務關係表</h2>
+        <p class="filter-hint summary-hint">1. 點擊格子可以看債務紀錄<br>2. 若分攤過程產生餘數將隨機分配</p>
+        <div class="matrix-scroll">
+          <table class="debt-matrix" id="debtMatrix"></table>
+        </div>
+        <div id="matrixDetail"></div>
+      </div>
+    </div>
+
+    <div class="app-panel" id="panelExpense">
+      <div class="card">
+        <h2 id="expFormTitle">🧾 新增支出</h2>
+        <div class="edit-banner hidden" id="editBanner">
+          ✎ 編輯模式 <button type="button" class="link-btn" id="cancelEditBtn">取消編輯</button>
+        </div>
+        <label id="expAmountLabel"></label>
+        <input type="number" id="expAmount" placeholder="例如 850" min="1" step="1">
+        <label>項目說明</label>
+        <input type="text" id="expDesc" placeholder="例如 晚餐、租車油錢">
+
+        <label>
+          誰付的錢
+          <span class="split-toggle">
+            <button type="button" class="split-mode-btn active" data-payer-mode="single">單人全付</button>
+            <button type="button" class="split-mode-btn" data-payer-mode="multi">多人付款</button>
+          </span>
+        </label>
+        <select id="expPaidBySingle"></select>
+        <div class="amt-grid hidden" id="expPayers"></div>
+        <div class="sum-check" id="payerSumCheck"></div>
+
+        <label>
+          怎麼分攤
+          <span class="split-toggle">
+            <button type="button" class="split-mode-btn active" data-mode="equal">平均分攤</button>
+            <button type="button" class="split-mode-btn" data-mode="custom">自訂金額</button>
+          </span>
+        </label>
+        <div class="checks" id="expParticipants"></div>
+        <button type="button" class="link-btn" id="toggleAllParticipants">取消全選</button>
+        <div class="amt-grid hidden" id="expSharesCustom"></div>
+        <div class="sum-check" id="shareSumCheck"></div>
+
+        <label>日期</label>
+        <input type="date" id="expDate" lang="en-CA">
+        <button class="btn" id="addExpenseBtn">加入這筆支出</button>
+        <div class="msg" id="expMsg"></div>
+      </div>
+    </div>
+
+    <div class="app-panel" id="panelRepay">
+      <div class="card">
+        <h2>🤝 建議還款方式</h2>
+        <select id="settleList"></select>
+        <p class="repay-hint">選擇其中一筆會自動幫你填好下面的還款表單</p>
+      </div>
+      <div class="card">
+        <h2 id="repayFormTitle">💸 記錄還款</h2>
+        <div class="edit-banner hidden" id="repayEditBanner">
+          ✎ 編輯模式 <button type="button" class="link-btn" id="cancelRepayEditBtn">取消編輯</button>
+        </div>
+        <label>誰還錢</label>
+        <select id="repayFrom"></select>
+        <label>誰收錢</label>
+        <select id="repayTo"></select>
+        <label id="repayAmountLabel"></label>
+        <input type="number" id="repayAmount" placeholder="例如 500" min="1" step="1">
+        <label>備註（選填）</label>
+        <input type="text" id="repayNote" placeholder="例如 現金當面給、轉帳">
+        <label>日期</label>
+        <input type="date" id="repayDate" lang="en-CA">
+        <button class="btn" id="addRepaymentBtn">記錄這筆還款</button>
+        <div class="msg" id="repayMsg"></div>
+      </div>
+    </div>
+
+    <div class="app-panel" id="panelHistory">
+      <div class="card">
+        <button type="button" class="filter-toggle-head" id="filterToggleHead">
+          <span>🔍 篩選</span>
+          <span class="chevron">▾</span>
+        </button>
+        <div class="filter-body" id="filterBody">
+          <span class="filter-type-toggle">
+            <button type="button" class="split-mode-btn active" data-filter-type="expense">支出</button>
+            <button type="button" class="split-mode-btn" data-filter-type="repay">還款</button>
+          </span>
+          <label>日期區間</label>
+          <div class="filter-date-row">
+            <input type="date" id="filterFrom" lang="en-CA">
+            <span class="filter-date-sep">～</span>
+            <input type="date" id="filterTo" lang="en-CA">
+          </div>
+          <p class="filter-hint">預設只顯示近 14 天的紀錄，設定起始日期可以查更久以前的</p>
+          <label>關鍵字</label>
+          <input type="text" id="filterKeyword" placeholder="支出說明或還款備註">
+
+          <div id="filterExpenseFields">
+            <label>誰付的（可複選，不選代表不篩選）</label>
+            <div class="checks" id="filterPayerChecks"></div>
+            <label>應付人</label>
+            <div class="checks" id="filterInvolvedChecks"></div>
+          </div>
+          <div id="filterRepayFields" class="hidden">
+            <label>誰還錢（可複選，不選代表不篩選）</label>
+            <div class="checks" id="filterRepayFromChecks"></div>
+            <label>誰收錢（可複選，不選代表不篩選）</label>
+            <div class="checks" id="filterRepayToChecks"></div>
+          </div>
+
+          <button type="button" class="link-btn" id="filterClearBtn">清除篩選</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 支出紀錄</h2>
+        <div id="expenseHistory"></div>
+      </div>
+      <div class="card">
+        <h2>💵 還款紀錄</h2>
+        <div id="repaymentHistory"></div>
+      </div>
+      <div class="card">
+        <button type="button" class="btn secondary" id="exportCsvBtn">📤 匯出目前篩選結果（CSV）</button>
+        <p class="filter-hint export-hint">會匯出符合上面篩選條件的支出跟還款紀錄</p>
+      </div>
+    </div>
+
+    <div class="app-footer" id="appFooter"></div>
+  </div>
+</div>
+
+<script>document.getElementById("appFooter").textContent = "--菘.v" + APP_VERSION + "--";</script>
+
+<div class="calc-modal" id="calcModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name" id="calcTargetName"></span>
+      <button type="button" class="calc-close" id="calcCloseBtn">✕</button>
+    </div>
+    <div class="calc-display" id="calcDisplay">0</div>
+    <div class="calc-keys">
+      <button type="button" class="calc-key calc-key-op" data-key="C">C</button>
+      <button type="button" class="calc-key calc-key-op" data-key="back">⌫</button>
+      <button type="button" class="calc-key calc-key-paren" data-key="(">(</button>
+      <button type="button" class="calc-key calc-key-paren" data-key=")">)</button>
+      <button type="button" class="calc-key" data-key="7">7</button>
+      <button type="button" class="calc-key" data-key="8">8</button>
+      <button type="button" class="calc-key" data-key="9">9</button>
+      <button type="button" class="calc-key calc-key-op" data-key="/">÷</button>
+      <button type="button" class="calc-key" data-key="4">4</button>
+      <button type="button" class="calc-key" data-key="5">5</button>
+      <button type="button" class="calc-key" data-key="6">6</button>
+      <button type="button" class="calc-key calc-key-op" data-key="*">×</button>
+      <button type="button" class="calc-key" data-key="1">1</button>
+      <button type="button" class="calc-key" data-key="2">2</button>
+      <button type="button" class="calc-key" data-key="3">3</button>
+      <button type="button" class="calc-key calc-key-op" data-key="-">−</button>
+      <button type="button" class="calc-key calc-key-zero" data-key="0">0</button>
+      <button type="button" class="calc-key" data-key=".">.</button>
+      <button type="button" class="calc-key calc-key-op" data-key="+">+</button>
+      <button type="button" class="calc-key calc-key-eq" data-key="=">=</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ofevarwtqzvzrvhbanmf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX";
+
+// ---------- 依網址參數 ?c=XXX 決定這頁是哪個幣別 ----------
+const urlParams = new URLSearchParams(location.search);
+const requestedCode = (urlParams.get("c") || "TWD").toUpperCase();
+const activeCurrency = CURRENCIES.find(c => c.code === requestedCode) || CURRENCIES[0];
+
+const CURRENCY = activeCurrency.code;
+const CURRENCY_SYMBOL = activeCurrency.symbol;
+const CURRENCY_LABEL = activeCurrency.label;
+const SHOW_CONVERSION = !!activeCurrency.convert;
+
+document.title = CURRENCY_LABEL + "區";
+document.getElementById("pageEyebrow").textContent = CURRENCY;
+document.getElementById("pageH1").textContent = CURRENCY_LABEL + "區";
+document.getElementById("myBalanceLabel").textContent = "我的款項（" + CURRENCY_LABEL + "）";
+document.getElementById("expAmountLabel").textContent = "總金額（" + CURRENCY_LABEL + "）";
+document.getElementById("repayAmountLabel").textContent = "金額（" + CURRENCY_LABEL + "）";
+
+// shownCurrencies 由 app.js 在登入後從 members.shown_currencies 填入，
+// 先用上次登入抓到的結果（快取在 localStorage）畫一次，避免每次換頁都先跳回預設值。
+// 目前這個幣別本身一定要顯示連結（不管有沒有勾選，畢竟使用者就在這一頁）。
+window.shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || ["TWD"];
+window.renderNavLinks = function(){
+  renderSplitbillNav("navLinks", CURRENCY, window.shownCurrencies);
+};
+window.renderNavLinks();
+</script>
+<script src="app.js"></script>
+</body>
+</html>

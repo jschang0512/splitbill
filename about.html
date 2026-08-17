@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("splitbill-theme");
+    if(t !== "dark" && t !== "light"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>關於 Splitbill 帳務系統</title>
+<meta name="description" content="Splitbill 帳務系統——跟朋友一起記帳、分攤旅遊/聚餐/團體開銷的小工具，一筆一筆記清楚，誰欠誰一看就懂。">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+<script src="version.js"></script>
+<script src="theme.js" defer></script>
+<style>
+.legal-card p, .legal-card li{ font-size:14px; line-height:1.8; color:var(--ink); }
+.legal-card ul{ margin:8px 0; padding-left:20px; }
+.legal-card li{ margin-bottom:4px; }
+.legal-card h3{ font-size:15px; margin:22px 0 8px; color:var(--ink); }
+.legal-card h3:first-child{ margin-top:0; }
+.about-lede{ font-size:15px; line-height:1.8; color:var(--ink); margin-bottom:0; }
+.about-actions{ display:flex; gap:10px; margin-top:22px; }
+.about-actions .btn{ margin-top:0; }
+.about-footer-links{ text-align:center; margin-top:20px; font-size:12.5px; color:var(--ink-soft); }
+.about-footer-links a{ color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop class="logo-stop-a" offset="0%"/>
+      <stop class="logo-stop-b" offset="100%"/>
+    </linearGradient>
+  </defs>
+</svg>
+<div class="wrap">
+  <div class="app-header">
+    <div class="eyebrow">SPLIT BILL</div>
+    <div class="title-row">
+      <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
+        <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+        <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+        <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+      </svg>
+      <h1>帳務系統</h1>
+    </div>
+  </div>
+
+  <div class="card legal-card">
+    <p class="about-lede"><b>Splitbill 帳務系統</b>是一個跟朋友、旅遊夥伴或小群體一起記帳、分攤共同開銷的小工具——旅遊、聚餐、團體開銷，一筆一筆記清楚，誰欠誰一看就懂。</p>
+
+    <h3>可以做什麼</h3>
+    <ul>
+      <li><b>群組記帳：</b>建立群組、邀請朋友加入，一起記錄大家墊付的支出跟後續的還款。</li>
+      <li><b>自動算清：</b>系統會自動幫每個人算出目前的淨餘額，並提供建議的還款方式，不用自己拿計算機對帳。</li>
+      <li><b>多幣別：</b>旅遊常常同時有台幣、日圓等不同幣別的花費，各幣別分開記、分開結算。</li>
+      <li><b>異動通知：</b>只要有跟你相關的支出或還款被新增/修改，就能收到通知。</li>
+      <li><b>意見回饋留言板：</b>群組成員可以互相留言、回報問題或提建議。</li>
+    </ul>
+
+    <h3>誰在用</h3>
+    <p>設計給彼此認識、互相信任的朋友/家人群組使用（例如一起出遊的旅伴、常一起聚餐的朋友圈）。加入群組需要邀請碼，同一群組的成員才看得到彼此的帳務紀錄。</p>
+
+    <div class="about-actions">
+      <a class="btn" href="index.html">前往登入</a>
+    </div>
+  </div>
+
+  <div class="about-footer-links">
+    <a href="privacy.html">隱私權政策</a>　·　<a href="terms.html">服務條款</a>
+  </div>
+
+  <div class="app-footer" id="appFooter"></div>
+</div>
+<script>document.getElementById("appFooter").textContent = "--菘.v" + APP_VERSION + "--";</script>
+</body>
+</html>
