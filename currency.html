@@ -565,12 +565,14 @@ if("serviceWorker" in navigator){
       <div class="ai-receipt-store-bar">
         <div class="ai-receipt-store-wrap">
           <span class="ai-receipt-store-icon">🏪</span>
-          <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或聚餐名稱 (可修改)">
+          <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或聚餐名稱 (可點擊修改)">
         </div>
-        <div class="ai-receipt-cur-select-wrap">
-          <select id="aiReceiptCurrencySelect" class="ai-receipt-currency-select" title="記帳幣別"></select>
+        <div class="ai-receipt-store-meta-wrap">
+          <div class="ai-receipt-cur-select-wrap">
+            <select id="aiReceiptCurrencySelect" class="ai-receipt-currency-select" title="記帳幣別"></select>
+          </div>
+          <div class="ai-receipt-store-total" id="aiReceiptStoreTotal">總計 NT$ 0</div>
         </div>
-        <div class="ai-receipt-store-total" id="aiReceiptStoreTotal">總計 NT$ 0</div>
       </div>
 
       <!-- 💳 付款人與時間設定（置於最上方，方便優先確認） -->
@@ -680,6 +682,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=409"></script>
+<script src="app.js?v=413"></script>
 </body>
 </html>

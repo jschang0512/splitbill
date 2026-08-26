@@ -4681,18 +4681,22 @@ function showPairDetail(
   }
 
   async function callOpenRouterOCR(key, prompt, mimeType, pureBase64){
+    // 🌟 優先選用兼顧高解析度與回應速度的視覺模型
     const orModels = [
       "openrouter/free",
-      "dots-studio/dots-3-note-preview:free",
-      "minimax/minimax-m3:free",
       "google/gemma-4-26b-a4b-it:free",
-      "google/gemma-4-31b-it:free"
+      "minimax/minimax-m3:free",
+      "dots-studio/dots-3-note-preview:free"
     ];
     let orErr = null;
     for(const om of orModels){
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8500); // 8.5秒逾時自動換下一個高速模型
+
       try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${key}`,
@@ -4708,9 +4712,12 @@ function showPairDetail(
                 { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
               ]
             }],
-            response_format: { type: "json_object" }
+            response_format: { type: "json_object" },
+            max_tokens: 1200,
+            temperature: 0.1
           })
         });
+        clearTimeout(timeoutId);
         if(!res.ok){
           const err = await res.json().catch(()=>({}));
           orErr = new Error((err && err.error && err.error.message) || `OpenRouter HTTP ${res.status}`);
@@ -4718,9 +4725,10 @@ function showPairDetail(
         }
         const data = await res.json();
         const rawText = data?.choices?.[0]?.message?.content || "{}";
-        const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
         return JSON.parse(cleaned);
       } catch(e){
+        clearTimeout(timeoutId);
         orErr = e;
       }
     }
@@ -4818,7 +4826,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
                 { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
               ]
             }],
-            response_format: { type: "json_object" }
+            response_format: { type: "json_object" },
+            max_tokens: 1200
           })
         });
         if(!res.ok){
@@ -4827,7 +4836,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
         const data = await res.json();
         const rawText = data?.choices?.[0]?.message?.content || "{}";
-        const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
         return JSON.parse(cleaned);
       } catch(openAiErr){
         console.warn("OpenAI attempt failed, falling back to OpenRouter:", openAiErr);
@@ -4868,7 +4877,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               ]
             }],
             generationConfig: {
-              responseMimeType: "application/json"
+              responseMimeType: "application/json",
+              maxOutputTokens: 1200
             }
           })
         });
@@ -4885,7 +4895,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
         const data = await response.json();
         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-        const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
         return JSON.parse(cleaned);
       } catch(e){
         if(e.message && e.message.includes("authentication credential")){
@@ -5510,7 +5520,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const targetH = Math.round(rotH * cropRect.h);
 
           const offCanvas = document.createElement("canvas");
-          const maxDim = 1400;
+          const maxDim = 1100;
           let finalW = targetW, finalH = targetH;
           if(finalW > maxDim || finalH > maxDim){
             if(finalW > finalH){
@@ -5541,7 +5551,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const sy = Math.round(rotH * cropRect.y);
           offCtx.drawImage(tempRotCanvas, sx, sy, targetW, targetH, 0, 0, finalW, finalH);
 
-          const base64Data = offCanvas.toDataURL("image/jpeg", 0.88);
+          const base64Data = offCanvas.toDataURL("image/jpeg", 0.82);
           const pureBase64 = base64Data.split(",")[1];
 
           const parsed = await parseReceiptWithGemini(pureBase64, "image/jpeg", key);
@@ -5731,7 +5741,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       // 6. 渲染品項清單（品名 翻譯(原文)，金額寬度充足）
       if(itemsListEl){
-        itemsListEl.innerHTML = receiptClaimItems.map((item) => {
+        itemsListEl.innerHTML = receiptClaimItems.map((item, idx) => {
           const isAllClaimed = activeMembers.length > 0 && activeMembers.every(m => item.claimedMemberIds.includes(m.id));
           const memberPillsHTML = activeMembers.map(m => {
             const isClaimed = item.claimedMemberIds.includes(m.id);
@@ -5747,19 +5757,25 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
           return `
             <div class="ai-receipt-item-card" data-id="${item.id}">
-              <div class="ai-receipt-item-top">
-                <div class="ai-receipt-item-info">
+              <!-- 行 1：品項名稱 + 刪除按鈕 (滿版寬度，絕不擠壓) -->
+              <div class="ai-item-row-header">
+                <div class="ai-item-name-wrap">
+                  <span class="ai-item-tag-num">${idx + 1}</span>
                   <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品名 中文翻譯(原文)" data-id="${item.id}">
-                  <div class="ai-receipt-price-wrap">
-                    <span class="ai-receipt-cur-prefix">${curSym}</span>
-                    <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="0" data-id="${item.id}">
-                  </div>
                 </div>
                 <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="刪除此品項">✕</button>
               </div>
+              <!-- 行 2：金額欄位 -->
+              <div class="ai-item-row-price">
+                <div class="ai-receipt-price-wrap">
+                  <span class="ai-receipt-cur-prefix">${curSym}</span>
+                  <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="0" data-id="${item.id}">
+                </div>
+              </div>
+              <!-- 行 3：分攤成員選擇與一鍵平分 -->
               <div class="ai-receipt-claims-row">
                 ${memberPillsHTML}
-                <button type="button" class="ai-claim-pill-all" data-id="${item.id}">${isAllClaimed ? '取消全員' : '所有人平分'}</button>
+                <button type="button" class="ai-claim-pill-all" data-id="${item.id}">${isAllClaimed ? '✕ 取消全員' : '⚡ 所有人平分'}</button>
               </div>
             </div>
           `;
