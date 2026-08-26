@@ -1261,11 +1261,116 @@
     });
   }
 
+  // ---------- AI Receipt Data Extraction & Serialization ----------
+  function extractAiReceiptData(description, members = []){
+    if(!description) return null;
+    const match = description.match(/<!--AI_RECEIPT_DATA:(.*?)-->/);
+    if(match && match[1]){
+      try {
+        return JSON.parse(decodeURIComponent(match[1]));
+      } catch(err){
+        try {
+          return JSON.parse(match[1]);
+        } catch(e){}
+      }
+    }
+
+    if(description.includes("(AI自動拆單)") || description.includes("📋 品項明細") || description.includes("🏪 店家：")){
+      return parseLegacyAiDescription(description, members);
+    }
+    return null;
+  }
+
+  function parseLegacyAiDescription(description, members = []){
+    const clean = (description || "").replace(/<!--AI_RECEIPT_DATA:[\s\S]*?-->/gi, "").trim();
+    const lines = clean.split("\n").map(l => l.trim()).filter(Boolean);
+    let storeName = "聚餐收據";
+    let subtotal = 0;
+    let serviceCharge = 0;
+    const items = [];
+
+    const storeLine = lines.find(l => l.startsWith("🏪 店家："));
+    if(storeLine){
+      storeName = storeLine.replace("🏪 店家：", "").trim();
+    } else if(lines[0]){
+      storeName = lines[0].replace(/\(AI自動拆單\)/g, "").trim();
+    }
+
+    const totalLine = lines.find(l => l.startsWith("💰 總額："));
+    if(totalLine){
+      const subMatch = totalLine.match(/小計\s*[^\d]*([\d,]+)/);
+      if(subMatch) subtotal = Number(subMatch[1].replace(/,/g, "")) || 0;
+      const srvMatch = totalLine.match(/服務費\/稅\s*[^\d]*([\d,]+)/);
+      if(srvMatch) serviceCharge = Number(srvMatch[1].replace(/,/g, "")) || 0;
+    }
+
+    const memberNameToId = {};
+    (members || []).forEach(m => {
+      if(m.name) memberNameToId[m.name] = m.id;
+      if(m.email) memberNameToId[emailToName(m.email)] = m.id;
+    });
+
+    lines.forEach((l, idx) => {
+      const arrowIdx = l.indexOf("➔");
+      if(arrowIdx === -1) return;
+      const left = l.slice(0, arrowIdx).trim();
+      let claimPart = l.slice(arrowIdx + 1).trim();
+
+      const numMatch = left.match(/^\d+\.\s*(.*)$/);
+      if(!numMatch) return;
+      const content = numMatch[1].trim();
+
+      const priceMatch = content.match(/^(.*?)\s+([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
+      if(!priceMatch) return;
+
+      const name = priceMatch[1].trim();
+      const rawPrice = priceMatch[2].replace(/[^\d.]/g, "");
+      const price = Number(rawPrice) || 0;
+
+      claimPart = claimPart.replace(/\s*\(每人[^\)]*\)/g, "").trim();
+      let claimedMemberIds = [];
+
+      if(claimPart.includes("全員") || claimPart.includes("所有人") || claimPart.includes("全體")){
+        claimedMemberIds = (members || []).map(m => m.id);
+      } else {
+        const names = claimPart.split(/[、,]/).map(n => n.trim()).filter(Boolean);
+        names.forEach(n => {
+          if(memberNameToId[n]) claimedMemberIds.push(memberNameToId[n]);
+        });
+      }
+
+      items.push({
+        id: "item_" + idx + "_" + Date.now(),
+        name,
+        price,
+        qty: 1,
+        claimedMemberIds
+      });
+    });
+
+    return {
+      storeName,
+      subtotal,
+      serviceCharge,
+      tax: 0,
+      discount: 0,
+      taxSplitMode: "ratio",
+      items
+    };
+  }
+
   // ---------- edit expense ----------
   let editingExpenseId = null;
   let editingExpenseOriginal = null;
 
   function startEditExpense(e){
+    // 🌟 若為 AI 自動拆單產生的紀錄，直接開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
+    const aiData = extractAiReceiptData(e.description, memberRows || MEMBERS || []);
+    if(aiData && typeof window.openAiReceiptEditMode === "function"){
+      window.openAiReceiptEditMode(e, aiData);
+      return;
+    }
+
     clearTempEditOptions();
     editingExpenseId = e.id;
     editingExpenseOriginal = e;
@@ -1754,7 +1859,15 @@
   }
 
   function cleanXcurText(str){
-    return (str || "").replace(/\s*\[xcur[:_][^\]]+\]/gi, "").trim();
+    return (str || "")
+      .replace(/<!--AI_RECEIPT_DATA:[\s\S]*?-->/gi, "")
+      .replace(/\s*\[xcur[:_][^\]]+\]/gi, "")
+      .trim();
+  }
+
+  function getFirstLineDesc(str){
+    const clean = cleanXcurText(str);
+    return clean.split("\n")[0].trim();
   }
 
   async function handleCrossCurrencyDelete(textOrGroup, fallbackFn){
@@ -1842,13 +1955,15 @@
       const itemsHtml = g.items.map(e => {
         const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
         const isXcur = isXcurStr(e.description);
+        const isAiSplit = Boolean(e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細")));
         const icon = getCategoryIcon(e.description);
+        const firstLine = getFirstLineDesc(e.description);
         const payerNames = (e.payers || []).map(p => escapeHtml(memberById[p.member_id] || "?")).join("、");
         const shareNames = (e.shares || []).map(s => escapeHtml(memberById[s.member_id] || "?")).join("、");
-        return `<div class="exp-item" data-id="${e.id}" title="點擊查看本項目的債務關係表">
+        return `<div class="exp-item" data-id="${e.id}" title="點擊查看本項目的債務關係表與品項明細">
           <div class="exp-cat-badge">${icon}</div>
           <div class="exp-main">
-            <div class="exp-desc">${escapeHtml(cleanXcurText(e.description))}${isXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}</div>
+            <div class="exp-desc">${escapeHtml(firstLine)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI拆單</span>' : ""}${isXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}</div>
             <div class="exp-meta">
               <span class="exp-meta-line">時間：${e.expense_date}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}（${escapeHtml(memberById[e.created_by] || "?")}）</span>
               <span class="exp-meta-line">付款：${payerNames || "—"}</span>
@@ -3056,9 +3171,14 @@ function showExpenseDebtDetail(e){
   const body = document.getElementById("expDebtModalBody");
   if(!modal || !body) return;
 
-  const icon = getCategoryIcon(e.description);
+  const rawDesc = e.description || "";
+  const cleanTitle = getFirstLineDesc(rawDesc) || "支出明細";
+  const cleanBodyText = cleanXcurText(rawDesc);
+  const isMultiLine = cleanBodyText.includes("\n") || cleanBodyText.includes("📋 品項明細") || cleanBodyText.includes("🏪 店家：");
+
+  const icon = getCategoryIcon(rawDesc);
   if(iconEl) iconEl.textContent = icon;
-  if(titleName) titleName.textContent = cleanXcurText(e.description || "支出明細");
+  if(titleName) titleName.textContent = cleanTitle;
 
   const debts = computeExpenseDebts(e);
 
@@ -3263,6 +3383,16 @@ function showExpenseDebtDetail(e){
     `;
   }
 
+  let breakdownCardHtml = "";
+  if(isMultiLine){
+    breakdownCardHtml = `
+      <div class="exp-debt-breakdown-card">
+        <div class="exp-debt-breakdown-title">📋 項目明細與金額組成</div>
+        <div class="exp-debt-breakdown-content">${escapeHtml(cleanBodyText)}</div>
+      </div>
+    `;
+  }
+
   body.innerHTML = `
     <div class="exp-debt-info-card">
       <div class="exp-debt-info-top">
@@ -3277,8 +3407,20 @@ function showExpenseDebtDetail(e){
       </div>
     </div>
 
+    ${breakdownCardHtml}
+
     ${dynamicDebtSection}
   `;
+
+  const expDebtModalEditBtn = document.getElementById("expDebtModalEditBtn");
+  if(expDebtModalEditBtn){
+    const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
+    expDebtModalEditBtn.style.display = canEdit ? "inline-flex" : "none";
+    expDebtModalEditBtn.onclick = () => {
+      modal.classList.remove("show");
+      startEditExpense(e);
+    };
+  }
 
   modal.classList.add("show");
 }
@@ -4347,7 +4489,10 @@ function showPairDetail(
     const prompt = `You are an expert receipt & invoice OCR parsing AI. Analyze the image carefully.
 Extract all details and output in STRICT JSON format (no markdown, no backticks, only valid raw JSON):
 {
-  "storeName": "Store or Restaurant Name if found, otherwise empty string",
+  "storeName": "Store or Restaurant Name translated to Traditional Chinese with original in parentheses if foreign (e.g. '唐吉訶德 (ドン・キホーテ)', '一蘭拉麵 (一蘭)', '星巴克 (Starbucks)')",
+  "currencyCode": "Detected 3-letter currency code (e.g. 'JPY', 'TWD', 'KRW', 'USD', 'EUR', 'THB', 'VND', 'SGD', 'HKD', 'CNY', 'GBP', 'AUD', etc.)",
+  "date": "Receipt date in YYYY-MM-DD format if found, otherwise empty string",
+  "time": "Receipt time in HH:MM format if found, otherwise empty string",
   "subtotal": 0,
   "serviceCharge": 0,
   "tax": 0,
@@ -4355,19 +4500,23 @@ Extract all details and output in STRICT JSON format (no markdown, no backticks,
   "totalAmount": 0,
   "items": [
     {
-      "name": "Item or dish name (NEVER leave empty, use original language)",
+      "name": "Item name formatted as: Traditional Chinese Translation (Original Name) if foreign, or just Chinese if already Chinese (e.g. '雀巢 KitKat 巧克棒 (★キットカット 部活応援ゴ)', '章魚燒 (たこ焼き)', '生啤酒 (生ビール)')",
       "price": 0,
       "qty": 1
     }
   ]
 }
 Rules:
-1. "price" for each item should be the TOTAL price for that line item (unit price * qty).
-2. If service charge / tip (e.g. 10% 服務費) is present, put it in "serviceCharge".
-3. If tax is present separately, put it in "tax".
-4. If discounts are present, put them in "discount" as a positive number.
-5. "totalAmount" must be the final total bill amount.
-6. All prices and amounts must be clean numbers, without currency symbols.`;
+1. Translate foreign dish/product names and store name to Traditional Chinese with original name in parentheses: '中文翻譯 (原文)'.
+2. 'currencyCode': Determine the currency of the receipt ('JPY' for Japanese Yen / ¥, 'TWD' for NT$, 'KRW' for ₩, 'USD' for $, 'EUR' for €, 'THB' for ฿, 'VND' for ₫, etc.).
+3. 'date': Extract the receipt date (YYYY-MM-DD) if visible.
+4. 'time': Extract the receipt time (HH:MM) if visible.
+5. 'price' for each item should be the TOTAL price for that line item (unit price * qty).
+6. If service charge / tip is present, put it in 'serviceCharge'.
+7. If tax is present separately, put it in 'tax'.
+8. If discounts are present, put them in 'discount' as a positive number.
+9. 'totalAmount' must be the final total bill amount.
+10. All prices and amounts must be clean numbers, without currency symbols.`;
 
     // 1. 支援 Groq Cloud (gsk_...) - 100% 免費、極速 0.5s、免綁信用卡
     if(activeKey.startsWith("gsk_")){
@@ -4581,7 +4730,8 @@ Rules:
     const equalBtn = document.getElementById("aiTaxEqualBtn");
     const retakeBtn = document.getElementById("aiReceiptRetakeBtn");
 
-    // 直接記帳相關元素
+    // 直接記帳與幣別相關元素
+    const aiReceiptCurrencySelect = document.getElementById("aiReceiptCurrencySelect");
     const aiPayerModeSingle = document.getElementById("aiPayerModeSingle");
     const aiPayerModeMulti = document.getElementById("aiPayerModeMulti");
     const aiPayerSingleRow = document.getElementById("aiPayerSingleRow");
@@ -4595,10 +4745,107 @@ Rules:
     const aiDirectSaveBtn = document.getElementById("aiReceiptDirectSaveBtn");
 
     let aiPayerMode = "single";
+    let selectedReceiptCurrency = CURRENCY;
+    let editingAiExpenseId = null;
+    let editingAiExpenseOriginal = null;
+
+    function getReceiptSymbol(){
+      const c = (CURRENCIES || []).find(item => item.code === selectedReceiptCurrency);
+      return (c && c.symbol) || CURRENCY_SYMBOL || "$";
+    }
+
+    function getReceiptCurrencyLabel(){
+      const c = (CURRENCIES || []).find(item => item.code === selectedReceiptCurrency);
+      return (c && c.label) || selectedReceiptCurrency;
+    }
+
+    // 🌟 供外部編輯呼叫：開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
+    window.openAiReceiptEditMode = function(expense, aiData){
+      editingAiExpenseId = expense.id;
+      editingAiExpenseOriginal = expense;
+
+      currentReceiptData = {
+        storeName: aiData.storeName || "",
+        currencyCode: expense.currency || aiData.currencyCode || CURRENCY,
+        subtotal: Number(aiData.subtotal) || 0,
+        serviceCharge: Number(aiData.serviceCharge) || 0,
+        tax: Number(aiData.tax) || 0,
+        discount: Number(aiData.discount) || 0,
+        totalAmount: Number(expense.amount) || 0
+      };
+
+      taxSplitMode = aiData.taxSplitMode || "ratio";
+      selectedReceiptCurrency = expense.currency || aiData.currencyCode || CURRENCY;
+      if(aiReceiptCurrencySelect) aiReceiptCurrencySelect.value = selectedReceiptCurrency;
+
+      receiptClaimItems = (aiData.items || []).map((it, idx) => ({
+        id: it.id || ("item_" + idx + "_" + Date.now()),
+        name: it.name || `品項 ${idx + 1}`,
+        price: Number(it.price) || 0,
+        qty: Number(it.qty) || 1,
+        claimedMemberIds: Array.isArray(it.claimedMemberIds) ? [...it.claimedMemberIds] : []
+      }));
+
+      if(!receiptClaimItems.length){
+        receiptClaimItems.push({
+          id: "item_0_" + Date.now(),
+          name: aiData.storeName || "消費總額",
+          price: Number(expense.amount) || 0,
+          qty: 1,
+          claimedMemberIds: []
+        });
+      }
+
+      if(aiExpenseDate){
+        aiExpenseDate.value = expense.expense_date || aiData.date || "";
+      }
+      if(aiExpenseTime){
+        aiExpenseTime.value = aiData.time || formatTime(expense.created_at, expense.expense_date) || "";
+      }
+
+      const payers = expense.payers || aiData.payers || [];
+      if(payers.length > 1){
+        aiPayerMode = "multi";
+      } else {
+        aiPayerMode = "single";
+      }
+
+      if(aiDirectSaveBtn){
+        aiDirectSaveBtn.textContent = "💾 確認修改並更新支出";
+      }
+
+      renderClaimBoard();
+
+      if(aiPayerMode === "single" && payers[0] && aiPaidBySingle){
+        aiPaidBySingle.value = payers[0].member_id;
+      } else if(aiPayerMode === "multi" && aiPayerMultiList){
+        payers.forEach(p => {
+          const inp = aiPayerMultiList.querySelector(`.ai-multi-payer-input[data-id="${p.member_id}"]`);
+          if(inp) inp.value = p.amount;
+        });
+        updateMultiPayerSumCheck();
+      }
+
+      openModal("claim");
+    };
 
     if(!modal || !openBtn) return;
     if(isAiReceiptModalInitialized) return;
     isAiReceiptModalInitialized = true;
+
+    // 初始化幣別選單
+    if(aiReceiptCurrencySelect){
+      aiReceiptCurrencySelect.innerHTML = (CURRENCIES || []).map(c => `
+        <option value="${c.code}" ${c.code === CURRENCY ? 'selected' : ''}>
+          ${c.flag || ''} ${c.code} (${c.label} ${c.symbol})
+        </option>
+      `).join("");
+
+      aiReceiptCurrencySelect.addEventListener("change", ()=>{
+        selectedReceiptCurrency = aiReceiptCurrencySelect.value;
+        renderClaimBoard();
+      });
+    }
 
     // Cropper State
     let currentRawImage = null;
@@ -4622,6 +4869,9 @@ Rules:
 
     function closeModal(){
       modal.classList.remove("show");
+      editingAiExpenseId = null;
+      editingAiExpenseOriginal = null;
+      if(aiDirectSaveBtn) aiDirectSaveBtn.textContent = "💾 確認無誤，立即記帳";
     }
 
     // 點擊頂部「📷 照片自動拆單」按鈕，開啟選擇面板
@@ -4706,7 +4956,7 @@ Rules:
       };
     }
 
-    // 繪製裁切畫布（支援 High-DPI / Retina 高清螢幕）
+    // 繪製裁切畫布
     function renderCropCanvas(){
       if(!cropCanvas || !currentRawImage) return;
       const ctx = cropCanvas.getContext("2d");
@@ -4825,7 +5075,7 @@ Rules:
       ctx.restore();
     }
 
-    // 裁切互動手勢（精準支援 Pointer Events 手機多點觸控與電腦滑鼠拉動）
+    // 裁切手勢
     if(cropCanvas){
       function getCanvasPointer(e){
         const rect = cropCanvas.getBoundingClientRect();
@@ -5015,6 +5265,39 @@ Rules:
 
           const parsed = await parseReceiptWithGemini(pureBase64, "image/jpeg", key);
           currentReceiptData = parsed;
+
+          // 自動偵測幣別並切換下拉選單
+          const detectedCurCode = (parsed.currencyCode || "").trim().toUpperCase();
+          const matchedCur = (CURRENCIES || []).find(c => c.code === detectedCurCode);
+          if(matchedCur){
+            selectedReceiptCurrency = matchedCur.code;
+          } else {
+            selectedReceiptCurrency = CURRENCY;
+          }
+          if(aiReceiptCurrencySelect) aiReceiptCurrencySelect.value = selectedReceiptCurrency;
+
+          // 自動讀取發票明細上的日期與時間
+          if(aiExpenseDate){
+            if(parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date)){
+              aiExpenseDate.value = parsed.date;
+            } else {
+              const now = new Date();
+              const yyyy = now.getFullYear();
+              const mm = String(now.getMonth() + 1).padStart(2, '0');
+              const dd = String(now.getDate()).padStart(2, '0');
+              aiExpenseDate.value = `${yyyy}-${mm}-${dd}`;
+            }
+          }
+          if(aiExpenseTime){
+            if(parsed.time && /^\d{1,2}:\d{2}$/.test(parsed.time)){
+              aiExpenseTime.value = parsed.time.padStart(5, '0');
+            } else {
+              const now = new Date();
+              const hh = String(now.getHours()).padStart(2, '0');
+              const min = String(now.getMinutes()).padStart(2, '0');
+              aiExpenseTime.value = `${hh}:${min}`;
+            }
+          }
           
           receiptClaimItems = (parsed.items || []).map((it, idx) => {
             const rawName = (it.name || it.item || it.description || it.title || it.dish || "").trim();
@@ -5041,7 +5324,7 @@ Rules:
           showScreen("claim");
         } catch(err){
           console.error("AI 辨識收據失敗：", err);
-          await sbAlert("AI 辨識收據失敗：" + (err.message || "未知錯誤") + "。請確認 API Key 是否正確，或嘗試重新拍攝一張清晰的照片。", "📷 辨識失敗");
+          await sbAlert("AI 辨識收據失敗：" + (err.message || "未知錯誤") + "。請確認網路連線或嘗試重新拍攝一張清晰的照片。", "📷 辨識失敗");
           showScreen("crop");
         }
       });
@@ -5072,6 +5355,7 @@ Rules:
       const { subtotal, netExtraFees } = calculateMemberTotals();
       const calculatedTotal = Math.round(subtotal + netExtraFees);
       const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+      const curSym = getReceiptSymbol();
 
       let sum = 0;
       if(aiPayerMultiList){
@@ -5081,11 +5365,11 @@ Rules:
       }
       const diff = Math.round((finalTotal - sum) * 100) / 100;
       if(Math.abs(diff) < 0.5){
-        aiPayerSumCheck.innerHTML = `<span style="color:var(--positive-text);font-weight:700;">✓ 付款金額完全相符 (${SYM}${formatAmt(sum)})</span>`;
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--positive-text);font-weight:700;">✓ 付款金額完全相符 (${curSym}${formatAmt(sum)})</span>`;
       } else if(diff > 0){
-        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和還差 ${SYM}${formatAmt(diff)}（目標 ${SYM}${formatAmt(finalTotal)}）</span>`;
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和還差 ${curSym}${formatAmt(diff)}（目標 ${curSym}${formatAmt(finalTotal)}）</span>`;
       } else {
-        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和超過 ${SYM}${formatAmt(Math.abs(diff))}（目標 ${SYM}${formatAmt(finalTotal)}）</span>`;
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和超過 ${curSym}${formatAmt(Math.abs(diff))}（目標 ${curSym}${formatAmt(finalTotal)}）</span>`;
       }
     }
 
@@ -5093,13 +5377,19 @@ Rules:
       if(!currentReceiptData) return;
 
       const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+      const curSym = getReceiptSymbol();
 
       // 1. 可編輯店家名稱
       if(storeInputEl){
         storeInputEl.value = currentReceiptData.storeName || "聚餐收據";
       }
 
-      // 2. 日期與時間預設當前時間
+      // 2. 幣別選擇下拉選單同步
+      if(aiReceiptCurrencySelect){
+        aiReceiptCurrencySelect.value = selectedReceiptCurrency;
+      }
+
+      // 3. 日期與時間若尚未設定則預設當前時間
       if(aiExpenseDate && !aiExpenseDate.value){
         const now = new Date();
         const yyyy = now.getFullYear();
@@ -5114,7 +5404,7 @@ Rules:
         aiExpenseTime.value = `${hh}:${min}`;
       }
 
-      // 3. 單人付款下拉選單
+      // 4. 單人付款下拉選單
       if(aiPaidBySingle){
         aiPaidBySingle.innerHTML = activeMembers.map(m => `
           <option value="${m.id}" ${myMember && myMember.id === m.id ? 'selected' : ''}>
@@ -5123,7 +5413,7 @@ Rules:
         `).join("");
       }
 
-      // 4. 多人付款清單
+      // 5. 多人付款清單
       if(aiPayerMultiList){
         aiPayerMultiList.innerHTML = activeMembers.map(m => `
           <div class="ai-payer-multi-row">
@@ -5131,8 +5421,8 @@ Rules:
               ${renderAvatarHTML(m, "avatar-xs")}
               ${escapeHtml(m.name || emailToName(m.email))}
             </span>
-            <div class="ai-receipt-price-wrap" style="width:105px;">
-              <span class="ai-receipt-cur-prefix">${SYM}</span>
+            <div class="ai-receipt-price-wrap" style="width:125px;">
+              <span class="ai-receipt-cur-prefix">${curSym}</span>
               <input type="number" class="ai-receipt-item-price ai-multi-payer-input" data-id="${m.id}" placeholder="0" min="0" step="any">
             </div>
           </div>
@@ -5148,17 +5438,17 @@ Rules:
       const tax = Number(currentReceiptData.tax) || 0;
       const discount = Number(currentReceiptData.discount) || 0;
 
-      if(subtotalTextEl) subtotalTextEl.textContent = `${SYM}${formatAmt(subtotal)}`;
-      if(serviceTextEl) serviceTextEl.textContent = `${SYM}${formatAmt(service + tax)}`;
+      if(subtotalTextEl) subtotalTextEl.textContent = `${curSym}${formatAmt(subtotal)}`;
+      if(serviceTextEl) serviceTextEl.textContent = `${curSym}${formatAmt(service + tax)}`;
       if(discountRowEl){
         discountRowEl.classList.toggle("hidden", discount <= 0);
-        if(discountTextEl) discountTextEl.textContent = `-${SYM}${formatAmt(discount)}`;
+        if(discountTextEl) discountTextEl.textContent = `-${curSym}${formatAmt(discount)}`;
       }
 
       if(ratioBtn) ratioBtn.classList.toggle("active", taxSplitMode === "ratio");
       if(equalBtn) equalBtn.classList.toggle("active", taxSplitMode === "equal");
 
-      // 5. 渲染品項清單（可修改品名與金額）
+      // 6. 渲染品項清單（品名 翻譯(原文)，金額寬度充足）
       if(itemsListEl){
         itemsListEl.innerHTML = receiptClaimItems.map((item) => {
           const isAllClaimed = activeMembers.length > 0 && activeMembers.every(m => item.claimedMemberIds.includes(m.id));
@@ -5178,10 +5468,10 @@ Rules:
             <div class="ai-receipt-item-card" data-id="${item.id}">
               <div class="ai-receipt-item-top">
                 <div class="ai-receipt-item-info">
-                  <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品項名稱 (可點擊修改)" data-id="${item.id}">
+                  <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品名 中文翻譯(原文)" data-id="${item.id}">
                   <div class="ai-receipt-price-wrap">
-                    <span class="ai-receipt-cur-prefix">${SYM}</span>
-                    <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="金額" data-id="${item.id}">
+                    <span class="ai-receipt-cur-prefix">${curSym}</span>
+                    <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="0" data-id="${item.id}">
                   </div>
                 </div>
                 <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="刪除此品項">✕</button>
@@ -5307,23 +5597,24 @@ Rules:
 
     function generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal){
       const lines = [];
+      const curSym = getReceiptSymbol();
       const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
       lines.push(`🏪 店家：${store}`);
-      lines.push(`💰 總額：${SYM}${formatAmt(finalTotal)} (小計 ${SYM}${formatAmt(subtotal)} + 服務費/稅 ${SYM}${formatAmt(netExtraFees)})`);
+      lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (小計 ${curSym}${formatAmt(subtotal)} + 服務費/稅 ${curSym}${formatAmt(netExtraFees)})`);
       lines.push(`\n📋 品項明細：`);
       receiptClaimItems.forEach((it, idx) => {
         const claimNames = it.claimedMemberIds.map(id => memberById[id] || id).join("、");
         const count = it.claimedMemberIds.length;
-        const perPerson = count > 1 ? ` (每人 ${SYM}${formatAmt(Math.round(it.price / count))})` : "";
-        lines.push(`  ${idx + 1}. ${it.name || '品項'} ${SYM}${formatAmt(it.price)} ➔ ${claimNames || '無人認領'}${perPerson}`);
+        const perPerson = count > 1 ? ` (每人 ${curSym}${formatAmt(Math.round(it.price / count))})` : "";
+        lines.push(`  ${idx + 1}. ${it.name || '品項'} ${curSym}${formatAmt(it.price)} ➔ ${claimNames || '無人認領'}${perPerson}`);
       });
       lines.push(`\n👥 各成員應付金額：`);
       const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
       activeMembers.forEach(m => {
         const d = memberCalcMap[m.id];
         if(d && d.total > 0){
-          const taxPart = d.taxShare ? ` (含服務費 ${SYM}${formatAmt(Math.round(d.taxShare))})` : "";
-          lines.push(`  ・${m.name}：${SYM}${formatAmt(d.total)}${taxPart}`);
+          const taxPart = d.taxShare ? ` (含服務費 ${curSym}${formatAmt(Math.round(d.taxShare))})` : "";
+          lines.push(`  ・${m.name}：${curSym}${formatAmt(d.total)}${taxPart}`);
         }
       });
       return lines.join("\n");
@@ -5333,9 +5624,10 @@ Rules:
       const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
       const calculatedTotal = Math.round(subtotal + netExtraFees);
       const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+      const curSym = getReceiptSymbol();
 
-      if(subtotalTextEl) subtotalTextEl.textContent = `${SYM}${formatAmt(subtotal)}`;
-      if(storeTotalEl) storeTotalEl.textContent = `總計 ${SYM}${formatAmt(finalTotal)}`;
+      if(subtotalTextEl) subtotalTextEl.textContent = `${curSym}${formatAmt(subtotal)}`;
+      if(storeTotalEl) storeTotalEl.textContent = `總計 ${curSym}${formatAmt(finalTotal)}`;
 
       if(membersGridEl){
         const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
@@ -5347,7 +5639,7 @@ Rules:
                 ${renderAvatarHTML(m, "avatar-xs")}
                 ${escapeHtml(m.name || emailToName(m.email))}
               </span>
-              <b>${SYM}${formatAmt(data.total)}</b>
+              <b>${curSym}${formatAmt(data.total)}</b>
             </div>
           `;
         }).join("");
@@ -5400,6 +5692,8 @@ Rules:
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
         const calculatedTotal = Math.round(subtotal + netExtraFees);
         const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+        const curSym = getReceiptSymbol();
+        const curLabel = getReceiptCurrencyLabel();
 
         if(!finalTotal || finalTotal <= 0){
           await sbAlert("總金額不能為 0！請確認品項金額。", "金額錯誤");
@@ -5428,7 +5722,7 @@ Rules:
           }
           const payerSum = payers.reduce((acc, p) => acc + p.amount, 0);
           if(Math.abs(payerSum - finalTotal) >= 0.5){
-            await sbAlert(`付款人總額 (${SYM}${formatAmt(payerSum)}) 與支出總額 (${SYM}${formatAmt(finalTotal)}) 不符，請調整！`, "付款總額不符");
+            await sbAlert(`付款人總額 (${curSym}${formatAmt(payerSum)}) 與支出總額 (${curSym}${formatAmt(finalTotal)}) 不符，請調整！`, "付款總額不符");
             return;
           }
         }
@@ -5462,39 +5756,77 @@ Rules:
           shares[0].amount += diff;
         }
 
-        // 3. 組合金額組成明細文字
-        const breakdownSummary = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
-        const fullDescription = `${storeName} (AI自動拆單)\n${breakdownSummary}`;
+        // 3. 組合金額組成明細文字與完整狀態結構
         const expenseDate = (aiExpenseDate && aiExpenseDate.value) || new Date().toISOString().split("T")[0];
+        const breakdownSummary = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+        const aiReceiptMeta = {
+          storeName,
+          currencyCode: selectedReceiptCurrency,
+          subtotal,
+          serviceCharge: Number(currentReceiptData && currentReceiptData.serviceCharge) || 0,
+          tax: Number(currentReceiptData && currentReceiptData.tax) || 0,
+          discount: Number(currentReceiptData && currentReceiptData.discount) || 0,
+          taxSplitMode,
+          date: expenseDate,
+          time: (aiExpenseTime && aiExpenseTime.value) || "",
+          payerMode: aiPayerMode,
+          payers,
+          items: receiptClaimItems.map(it => ({
+            id: it.id,
+            name: it.name,
+            price: it.price,
+            qty: it.qty || 1,
+            claimedMemberIds: [...it.claimedMemberIds]
+          }))
+        };
+        const metaComment = `\n<!--AI_RECEIPT_DATA:${encodeURIComponent(JSON.stringify(aiReceiptMeta))}-->`;
+        const fullDescription = `${storeName} (AI自動拆單)\n${breakdownSummary}${metaComment}`;
 
         aiDirectSaveBtn.disabled = true;
-        aiDirectSaveBtn.textContent = "⏳ 正在記錄中…";
+        aiDirectSaveBtn.textContent = "⏳ 正在儲存中…";
 
         try {
           const payload = {
             amount: finalTotal,
             description: fullDescription,
             expense_date: expenseDate,
-            created_by: myMember ? myMember.id : activeMembers[0].id,
+            created_by: editingAiExpenseOriginal ? editingAiExpenseOriginal.created_by : (myMember ? myMember.id : activeMembers[0].id),
             payers,
             shares,
-            currency: CURRENCY
+            currency: selectedReceiptCurrency
           };
 
-          const { error } = await sb.from("expenses").insert(payload);
-          if(error){
-            throw error;
-          }
+          if(editingAiExpenseId){
+            const { error } = await sb.from("expenses").update(payload).eq("id", editingAiExpenseId);
+            if(error) throw error;
 
-          closeModal();
-          await refreshExpenses();
-          await sbAlert(`🎉 已成功直接記錄「${storeName}」總額 ${SYM}${formatAmt(finalTotal)}！`, "記帳成功");
+            closeModal();
+            await refreshExpenses();
+            await sbAlert(`🎉 已成功更新「${storeName}」支出明細！`, "更新成功");
+          } else {
+            const { error } = await sb.from("expenses").insert(payload);
+            if(error) throw error;
+
+            closeModal();
+
+            if(selectedReceiptCurrency !== CURRENCY){
+              const okSwitch = await sbConfirm(`🎉 已成功直接記錄「${storeName}」總額 ${curSym}${formatAmt(finalTotal)} 至【${curLabel}區】！\n\n是否立即切換至【${curLabel}區】查看此筆支出？`, "記帳成功");
+              if(okSwitch){
+                location.href = "currency.html?c=" + selectedReceiptCurrency;
+              } else {
+                await refreshExpenses();
+              }
+            } else {
+              await refreshExpenses();
+              await sbAlert(`🎉 已成功直接記錄「${storeName}」總額 ${curSym}${formatAmt(finalTotal)}！`, "記帳成功");
+            }
+          }
         } catch(saveErr){
           console.error("Direct save expense error:", saveErr);
           await sbAlert("記帳失敗：" + (saveErr.message || "伺服器錯誤"), "記帳失敗");
         } finally {
           aiDirectSaveBtn.disabled = false;
-          aiDirectSaveBtn.textContent = "💾 確認無誤，立即記帳";
+          aiDirectSaveBtn.textContent = editingAiExpenseId ? "💾 確認修改並更新支出" : "💾 確認無誤，立即記帳";
         }
       });
     }

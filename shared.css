@@ -3655,6 +3655,26 @@ button.dd-btn {
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.exp-debt-edit-btn{
+  background:var(--input-bg);
+  border:1px solid var(--line);
+  color:var(--btn-primary);
+  font-weight:700;
+  font-size:12px;
+  padding:5px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  transition:all .15s ease;
+  flex-shrink:0;
+}
+.exp-debt-edit-btn:hover{
+  background:var(--btn-primary);
+  color:#FFFFFF;
+  border-color:var(--btn-primary);
+}
 .exp-debt-modal-icon{
   width:32px;
   height:32px;
@@ -3665,6 +3685,40 @@ button.dd-btn {
   justify-content:center;
   font-size:17px;
   flex-shrink:0;
+}
+.exp-debt-breakdown-card{
+  background:#F8F7FB;
+  border:1px solid rgba(122, 107, 158, 0.15);
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:14px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+:root[data-theme="dark"] .exp-debt-breakdown-card{
+  background:#1C1C1F;
+  border:1px solid rgba(255, 255, 255, 0.08);
+}
+.exp-debt-breakdown-title{
+  font-size:12.5px;
+  font-weight:700;
+  color:var(--ink);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.exp-debt-breakdown-content{
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-size:12.5px;
+  line-height:1.68;
+  color:var(--ink);
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px 12px;
+  font-family:inherit;
 }
 .exp-debt-info-card{
   background:#F8F7FB;
@@ -4204,7 +4258,6 @@ button.dd-btn {
   width:64px;
   height:64px;
   filter:drop-shadow(0 8px 24px rgba(122,107,158,.35));
-  animation:aiLogoRotate 3s linear infinite;
 }
 .ai-loading-splash-logo .s1,
 .ai-loading-splash-logo .s2,
@@ -4216,10 +4269,6 @@ button.dd-btn {
 .ai-loading-splash-logo .s1{ animation-delay:0s; }
 .ai-loading-splash-logo .s2{ animation-delay:.36s; }
 .ai-loading-splash-logo .s3{ animation-delay:.72s; }
-@keyframes aiLogoRotate{
-  0%{ transform:rotate(0deg); }
-  100%{ transform:rotate(360deg); }
-}
 
 .ai-receipt-loading-title{
   font-size:16px;
@@ -4242,7 +4291,7 @@ button.dd-btn {
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:10px;
+  gap:8px;
   padding:8px 12px;
   background:var(--input-bg);
   border:1px solid var(--line);
@@ -4264,7 +4313,7 @@ button.dd-btn {
   width:100%;
   border:none;
   background:transparent;
-  font-size:14px;
+  font-size:13.5px;
   font-weight:700;
   color:var(--ink);
   padding:4px 6px;
@@ -4275,8 +4324,25 @@ button.dd-btn {
   background:var(--paper);
   outline:1px solid var(--btn-primary);
 }
+.ai-receipt-cur-select-wrap{
+  flex-shrink:0;
+}
+.ai-receipt-currency-select{
+  padding:4px 8px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  color:var(--ink);
+  font-size:12px;
+  font-weight:700;
+  outline:none;
+  cursor:pointer;
+}
+.ai-receipt-currency-select:focus{
+  border-color:var(--btn-primary);
+}
 .ai-receipt-store-total{
-  font-size:15px;
+  font-size:14.5px;
   font-weight:800;
   color:var(--btn-primary);
   white-space:nowrap;
@@ -4370,12 +4436,12 @@ button.dd-btn {
 }
 .ai-receipt-item-name{
   flex:1;
-  min-width:100px;
+  min-width:0;
   background:var(--input-bg);
   border:1px solid var(--line);
   border-radius:8px;
-  padding:6px 10px;
-  font-size:13.5px;
+  padding:6px 9px;
+  font-size:13px;
   font-weight:600;
   color:var(--ink);
   outline:none;
@@ -4388,12 +4454,13 @@ button.dd-btn {
 .ai-receipt-price-wrap{
   display:flex;
   align-items:center;
-  gap:3px;
+  gap:4px;
   background:var(--input-bg);
   border:1px solid var(--line);
   border-radius:8px;
-  padding:2px 8px;
-  width:90px;
+  padding:5px 8px;
+  width:125px;
+  min-width:115px;
   flex-shrink:0;
   transition:all .15s ease;
 }
@@ -4402,21 +4469,24 @@ button.dd-btn {
   border-color:var(--btn-primary);
 }
 .ai-receipt-cur-prefix{
-  font-size:12px;
+  font-size:12.5px;
   color:var(--ink-soft);
   font-weight:700;
+  white-space:nowrap;
+  flex-shrink:0;
 }
 .ai-receipt-item-price{
   width:100%;
+  min-width:55px;
   border:none;
   background:transparent;
   text-align:right;
-  font-size:14px;
+  font-size:14.5px;
   font-weight:800;
   font-family:'JetBrains Mono',monospace;
   color:var(--ink);
   outline:none;
-  padding:4px 0;
+  padding:0;
 }
 .ai-receipt-item-del{
   background:none;
@@ -4426,6 +4496,11 @@ button.dd-btn {
   cursor:pointer;
   padding:4px 8px;
   border-radius:6px;
+  flex-shrink:0;
+}
+.ai-receipt-item-del:hover{
+  color:var(--negative-text);
+  background:rgba(235,87,87,.12);
 }
 .ai-receipt-item-del:hover{
   color:var(--negative-text);
