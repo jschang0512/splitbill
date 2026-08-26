@@ -4380,9 +4380,14 @@ Rules:
       throw groqErr || new Error("Groq API 呼叫失敗。");
     }
 
-    // 2. 支援 OpenRouter (sk-or-...) - 100% 免費模型支援
+    // 2. 支援 OpenRouter (sk-or-...) - 100% 免費視覺模型（免綁信用卡）
     if(activeKey.startsWith("sk-or-")){
-      const orModels = ["google/gemini-2.0-flash-exp:free", "meta-llama/llama-3.2-11b-vision-instruct:free"];
+      const orModels = [
+        "minimax/minimax-m3:free",
+        "dots-studio/dots-3-note-preview:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "google/gemma-4-31b-it:free"
+      ];
       let orErr = null;
       for(const om of orModels){
         try {

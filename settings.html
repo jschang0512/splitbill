@@ -1691,14 +1691,14 @@ if(backBtn){
               "Authorization": `Bearer ${key}`
             },
             body: JSON.stringify({
-              model: "google/gemini-2.0-flash-exp:free",
+              model: "minimax/minimax-m3:free",
               messages: [{ role: "user", content: "ping" }]
             })
           });
           if(res.ok){
             if(geminiInput.value.trim()) localStorage.setItem(GEMINI_KEY_STORAGE, geminiInput.value.trim());
             updateGeminiStatusUI();
-            if(geminiMsg){ geminiMsg.textContent = "🎉 連線成功！OpenRouter AI 運作正常！"; geminiMsg.className = "msg ok"; }
+            if(geminiMsg){ geminiMsg.textContent = "🎉 連線成功！OpenRouter 視覺 AI 運作正常！"; geminiMsg.className = "msg ok"; }
             return;
           } else {
             const errData = await res.json().catch(()=>({}));

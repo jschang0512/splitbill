@@ -1,7 +1,7 @@
 {
-  "version": "392",
+  "version": "393",
   "updatedAt": "2026-08-27",
   "changelog": [
-    "全面升級後端 Supabase Edge Function 架構，前端 100% 零金鑰，金鑰全數交由後端環境變數集中安全處理"
+    "全面整合 OpenRouter 免費視覺模型（Dots OCR / Minimax），免綁信用卡 100% 成功連線自動發票拆單"
   ]
 }
