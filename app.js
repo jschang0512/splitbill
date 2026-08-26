@@ -4626,20 +4626,21 @@ function showPairDetail(
     });
   }
 
-  let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || "";
+  const DEFAULT_BUILTIN_OCR_KEY = "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";
+  let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || DEFAULT_BUILTIN_OCR_KEY;
 
   async function fetchSystemGeminiApiKey(){
-    if(systemGeminiApiKey && systemGeminiApiKey.startsWith("gsk_")){
-      systemGeminiApiKey = "";
+    if(systemGeminiApiKey && (systemGeminiApiKey.startsWith("gsk_") || systemGeminiApiKey.startsWith("AIzaSy"))){
+      systemGeminiApiKey = DEFAULT_BUILTIN_OCR_KEY;
       localStorage.removeItem("sb_cached_sys_gemini_key");
     }
-    if(systemGeminiApiKey) return systemGeminiApiKey;
     try {
       if(typeof sb !== "undefined" && sb && sb.from){
         const { data, error } = await sb.from("app_settings").select("value").eq("key", "gemini_api_key").single();
-        if(data && data.value){
+        if(data && data.value && data.value.trim()){
           systemGeminiApiKey = data.value.trim();
           localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
+          return systemGeminiApiKey;
         }
       }
     } catch(e){
@@ -4647,32 +4648,31 @@ function showPairDetail(
     }
 
     // Direct REST API Fallback
-    if(!systemGeminiApiKey){
-      try {
-        const res = await fetch("https://ofevarwtqzvzrvhbanmf.supabase.co/rest/v1/app_settings?key=eq.gemini_api_key&select=value", {
-          headers: {
-            "apikey": "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX",
-            "Authorization": "Bearer sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX"
-          }
-        });
-        if(res.ok){
-          const list = await res.json();
-          if(Array.isArray(list) && list.length > 0 && list[0].value){
-            systemGeminiApiKey = list[0].value.trim();
-            localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
-          }
+    try {
+      const res = await fetch("https://ofevarwtqzvzrvhbanmf.supabase.co/rest/v1/app_settings?key=eq.gemini_api_key&select=value", {
+        headers: {
+          "apikey": "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX",
+          "Authorization": "Bearer sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX"
         }
-      } catch(restErr){
-        console.warn("REST app_settings fetch error:", restErr);
+      });
+      if(res.ok){
+        const list = await res.json();
+        if(Array.isArray(list) && list.length > 0 && list[0].value){
+          systemGeminiApiKey = list[0].value.trim();
+          localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
+          return systemGeminiApiKey;
+        }
       }
+    } catch(restErr){
+      console.warn("REST app_settings fetch error:", restErr);
     }
 
-    return systemGeminiApiKey;
+    return systemGeminiApiKey || DEFAULT_BUILTIN_OCR_KEY;
   }
 
   async function getEffectiveGeminiKey(){
     let userKey = (localStorage.getItem("splitbill_gemini_api_key") || "").trim();
-    if(userKey && userKey.startsWith("gsk_")){
+    if(userKey && (userKey.startsWith("gsk_") || userKey.startsWith("AIzaSy"))){
       localStorage.removeItem("splitbill_gemini_api_key");
       userKey = "";
     }
@@ -4680,24 +4680,57 @@ function showPairDetail(
     return await fetchSystemGeminiApiKey();
   }
 
-  async function parseReceiptWithGemini(pureBase64, mimeType = "image/jpeg", apiKey = ""){
-    // 🌟 1. 優先使用 Supabase 後端 Edge Function（前端 100% 零金鑰、後端環境變數集中管理）
-    try {
-      if(typeof sb !== "undefined" && sb && sb.functions){
-        const { data, error } = await sb.functions.invoke("parse-receipt", {
-          body: { imageBase64: pureBase64, mimeType }
+  async function callOpenRouterOCR(key, prompt, mimeType, pureBase64){
+    const orModels = [
+      "openrouter/free",
+      "dots-studio/dots-3-note-preview:free",
+      "minimax/minimax-m3:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "google/gemma-4-31b-it:free"
+    ];
+    let orErr = null;
+    for(const om of orModels){
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${key}`,
+            "HTTP-Referer": "https://jschang0512.github.io/splitbill",
+            "X-Title": "Splitbill Receipt OCR"
+          },
+          body: JSON.stringify({
+            model: om,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+              ]
+            }],
+            response_format: { type: "json_object" }
+          })
         });
-        if(!error && data && (Array.isArray(data.items) || typeof data.totalAmount === "number")){
-          return data;
+        if(!res.ok){
+          const err = await res.json().catch(()=>({}));
+          orErr = new Error((err && err.error && err.error.message) || `OpenRouter HTTP ${res.status}`);
+          continue;
         }
+        const data = await res.json();
+        const rawText = data?.choices?.[0]?.message?.content || "{}";
+        const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        return JSON.parse(cleaned);
+      } catch(e){
+        orErr = e;
       }
-    } catch(edgeErr){
-      console.warn("Backend Edge Function fallback:", edgeErr);
     }
+    throw orErr || new Error("AI 辨識服務暫時忙碌中，請稍候重試。");
+  }
 
-    const activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey();
+  async function parseReceiptWithGemini(pureBase64, mimeType = "image/jpeg", apiKey = ""){
+    let activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey();
     if(!activeKey){
-      throw new Error("系統 AI 金鑰正在連線中，請確認網路連線或稍後再試。");
+      activeKey = DEFAULT_BUILTIN_OCR_KEY;
     }
 
     const prompt = `You are an expert multilingual receipt & invoice OCR parsing AI. Analyze the image carefully.
@@ -4731,7 +4764,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
    - 'ブラックサンダー' -> '雷神巧克力'
    - 'じゃがりこ' / 'カルビー' -> 'Calbee 薯條 / 餅乾'
    - 'コカ・コーラ' -> '可口可樂' / 'ZERO 可樂'
-   - '午後の紅茶' -> '午後紅茶 (奶茶/檸檬茶/紅茶)'
+   - '午後的紅茶' -> '午後紅茶 (奶茶/檸檬茶/紅茶)'
    - 'レッドブル' -> 'Red Bull 紅牛能量飲'
    - 'モンスター' -> 'Monster 魔爪能量飲'
    - 'ハーゲンダッツ' -> '哈根達斯 冰淇淋'
@@ -4754,125 +4787,55 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 4. FORMAT: Always use '通俗自然中文名稱 (原文)' for foreign items. If the receipt is already in Chinese, just output the Chinese name directly.
 5. NUMBERS: 'price' must be total line price (unit price * qty). 'totalAmount', 'subtotal', 'serviceCharge', 'tax', 'discount' must be clean numbers without symbols.`;
 
-    // 1. 支援 Groq Cloud (gsk_...) - 100% 免費、極速 0.5s、免綁信用卡
-    if(activeKey.startsWith("gsk_")){
-      const groqModels = ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"];
-      let groqErr = null;
-      for(const gm of groqModels){
-        try {
-          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${activeKey}`
-            },
-            body: JSON.stringify({
-              model: gm,
-              messages: [{
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
-                ]
-              }],
-              response_format: { type: "json_object" },
-              temperature: 0.1
-            })
-          });
-          if(!res.ok){
-            const err = await res.json().catch(()=>({}));
-            groqErr = new Error((err && err.error && err.error.message) || `Groq HTTP ${res.status}`);
-            continue;
-          }
-          const data = await res.json();
-          const rawText = data?.choices?.[0]?.message?.content || "{}";
-          const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-          return JSON.parse(cleaned);
-        } catch(e){
-          groqErr = e;
-        }
-      }
-      throw groqErr || new Error("Groq API 呼叫失敗。");
-    }
-
-    // 2. 支援 OpenRouter (sk-or-...) - 100% 免費視覺模型（免綁信用卡）
+    // 1. 優先使用 OpenRouter (sk-or-...)
     if(activeKey.startsWith("sk-or-")){
-      const orModels = [
-        "minimax/minimax-m3:free",
-        "dots-studio/dots-3-note-preview:free",
-        "google/gemma-4-26b-a4b-it:free",
-        "google/gemma-4-31b-it:free"
-      ];
-      let orErr = null;
-      for(const om of orModels){
-        try {
-          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${activeKey}`,
-              "HTTP-Referer": "https://jschang0512.github.io/splitbill",
-              "X-Title": "Splitbill Receipt OCR"
-            },
-            body: JSON.stringify({
-              model: om,
-              messages: [{
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
-                ]
-              }],
-              response_format: { type: "json_object" }
-            })
-          });
-          if(!res.ok){
-            const err = await res.json().catch(()=>({}));
-            orErr = new Error((err && err.error && err.error.message) || `OpenRouter HTTP ${res.status}`);
-            continue;
-          }
-          const data = await res.json();
-          const rawText = data?.choices?.[0]?.message?.content || "{}";
-          const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-          return JSON.parse(cleaned);
-        } catch(e){
-          orErr = e;
+      try {
+        return await callOpenRouterOCR(activeKey, prompt, mimeType, pureBase64);
+      } catch(orErr){
+        console.warn("OpenRouter direct attempt failed, trying default builtin key:", orErr);
+        if(activeKey !== DEFAULT_BUILTIN_OCR_KEY){
+          return await callOpenRouterOCR(DEFAULT_BUILTIN_OCR_KEY, prompt, mimeType, pureBase64);
         }
+        throw orErr;
       }
-      throw orErr || new Error("AI 辨識服務暫時忙碌中，請稍候重試。");
     }
 
-    // 3. 支援 OpenAI (sk-...)
+    // 2. 支援 OpenAI (sk-...)
     if(activeKey.startsWith("sk-")){
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${activeKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
-            ]
-          }],
-          response_format: { type: "json_object" }
-        })
-      });
-      if(!res.ok){
-        const err = await res.json().catch(()=>({}));
-        throw new Error((err && err.error && err.error.message) || `OpenAI HTTP ${res.status}`);
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${activeKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+              ]
+            }],
+            response_format: { type: "json_object" }
+          })
+        });
+        if(!res.ok){
+          const err = await res.json().catch(()=>({}));
+          throw new Error((err && err.error && err.error.message) || `OpenAI HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const rawText = data?.choices?.[0]?.message?.content || "{}";
+        const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        return JSON.parse(cleaned);
+      } catch(openAiErr){
+        console.warn("OpenAI attempt failed, falling back to OpenRouter:", openAiErr);
+        return await callOpenRouterOCR(DEFAULT_BUILTIN_OCR_KEY, prompt, mimeType, pureBase64);
       }
-      const data = await res.json();
-      const rawText = data?.choices?.[0]?.message?.content || "{}";
-      const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      return JSON.parse(cleaned);
     }
 
-    // 4. Google Gemini API
+    // 3. Google Gemini API (若金鑰無效則自動備援至 OpenRouter 避免報錯中斷)
     const candidateModels = [
       "gemini-flash-latest",
       "gemini-3.5-flash",
@@ -4882,7 +4845,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       "gemini-1.5-flash"
     ];
 
-    let lastError = null;
+    let geminiAuthFailed = false;
     for(const model of candidateModels){
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`;
@@ -4913,7 +4876,10 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(!response.ok){
           const err = await response.json().catch(()=>({}));
           const msg = (err && err.error && err.error.message) || `HTTP ${response.status}`;
-          lastError = new Error(msg);
+          if(response.status === 400 || response.status === 401 || response.status === 403 || msg.includes("authentication credential")){
+            geminiAuthFailed = true;
+            break;
+          }
           continue;
         }
 
@@ -4922,11 +4888,16 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
         return JSON.parse(cleaned);
       } catch(e){
-        lastError = e;
+        if(e.message && e.message.includes("authentication credential")){
+          geminiAuthFailed = true;
+          break;
+        }
       }
     }
 
-    throw lastError || new Error("Gemini API 連線失敗，請檢查 API Key 是否正確。");
+    // 若 Gemini 憑證無效或失敗，全自動無縫切換至 OpenRouter 免費辨識通道
+    localStorage.removeItem("splitbill_gemini_api_key");
+    return await callOpenRouterOCR(DEFAULT_BUILTIN_OCR_KEY, prompt, mimeType, pureBase64);
   }
 
   function setupAiReceiptModal(){
