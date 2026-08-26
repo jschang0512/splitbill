@@ -4272,9 +4272,14 @@ function showPairDetail(
     });
   }
 
+  const DEFAULT_AI_KEY = "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";
   let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || "";
 
   async function fetchSystemGeminiApiKey(){
+    if(systemGeminiApiKey && systemGeminiApiKey.startsWith("gsk_")){
+      systemGeminiApiKey = "";
+      localStorage.removeItem("sb_cached_sys_gemini_key");
+    }
     if(systemGeminiApiKey) return systemGeminiApiKey;
     try {
       const { data, error } = await sb.from("app_settings").select("value").eq("key", "gemini_api_key").single();
@@ -4285,11 +4290,15 @@ function showPairDetail(
     } catch(e){
       console.warn("fetchSystemGeminiApiKey error:", e);
     }
-    return systemGeminiApiKey;
+    return systemGeminiApiKey || DEFAULT_AI_KEY;
   }
 
   async function getEffectiveGeminiKey(){
-    const userKey = (localStorage.getItem("splitbill_gemini_api_key") || "").trim();
+    let userKey = (localStorage.getItem("splitbill_gemini_api_key") || "").trim();
+    if(userKey && userKey.startsWith("gsk_")){
+      localStorage.removeItem("splitbill_gemini_api_key");
+      userKey = "";
+    }
     if(userKey) return userKey;
     return await fetchSystemGeminiApiKey();
   }
@@ -4569,8 +4578,6 @@ Rules:
     }
 
     async function openModal(initialScreen = "upload"){
-      const key = await getEffectiveGeminiKey();
-      if(keyHint) keyHint.classList.toggle("hidden", !!key);
       showScreen(initialScreen);
       modal.classList.add("show");
     }
@@ -4846,11 +4853,6 @@ Rules:
       cropConfirmBtn.addEventListener("click", async ()=>{
         if(!currentRawImage) return;
         const key = await getEffectiveGeminiKey();
-        if(!key){
-          await sbAlert("尚未取得 Gemini API Key，請先至「設定 ➔ 偏好設定」輸入或確認雲端設定。", "📷 尚未設定 API Key");
-          return;
-        }
-
         showScreen("loading");
 
         try {

@@ -480,9 +480,6 @@ if("serviceWorker" in navigator){
         <button type="button" class="btn secondary small" id="aiReceiptSelectFileBtn" style="margin-top:10px;width:auto;padding:7px 18px;">📷 立即拍照／選擇圖片</button>
       </div>
 
-      <div class="ai-receipt-key-hint hidden" id="aiReceiptKeyHint">
-        ⚠️ 尚未設定 Google Gemini API Key，<a href="settings.html" style="color:var(--accent-text);font-weight:700;text-decoration:underline;">請先前往設定頁輸入</a>（免費申請，每日 1,500 次呼叫額度）。
-      </div>
     </div>
 
     <!-- 步驟 1.5：手動旋轉與裁切發票 -->
@@ -507,7 +504,7 @@ if("serviceWorker" in navigator){
     <div class="ai-receipt-screen hidden" id="aiReceiptLoadingScreen">
       <div class="ai-receipt-loading-box">
         <div class="ai-receipt-spinner"></div>
-        <div class="ai-receipt-loading-title">🧠 Gemini AI 辨識中…</div>
+        <div class="ai-receipt-loading-title">🧠 AI 智慧解析中…</div>
         <div class="ai-receipt-loading-desc">正在掃描品項名稱、數量、單價與服務費…</div>
       </div>
     </div>

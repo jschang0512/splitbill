@@ -1,7 +1,7 @@
 {
-  "version": "393",
+  "version": "396",
   "updatedAt": "2026-08-27",
   "changelog": [
-    "全面整合 OpenRouter 免費視覺模型（Dots OCR / Minimax），免綁信用卡 100% 成功連線自動發票拆單"
+    "全系統預設啟用共享 AI 視覺辨識，移除手動金鑰設定區塊，所有使用者開箱即用"
   ]
 }
