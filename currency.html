@@ -213,7 +213,7 @@ if("serviceWorker" in navigator){
       <div class="card">
         <div class="exp-header-row">
           <h2 id="expFormTitle" style="margin:0;">🧾 新增支出</h2>
-          <button type="button" class="btn-ai-receipt" id="aiReceiptBtn" title="拍照發票自動辨識品項與拆單">📷 拍照自動拆單</button>
+          <button type="button" class="btn-ai-receipt" id="aiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 照片自動拆單</button>
         </div>
         <div class="edit-banner hidden" id="editBanner">
           ✎ 編輯模式 <button type="button" class="link-btn" id="cancelEditBtn">取消編輯</button>
@@ -465,21 +465,33 @@ if("serviceWorker" in navigator){
     <div class="calc-header">
       <div class="ai-receipt-modal-title">
         <span class="ai-receipt-modal-icon">📷</span>
-        <span>AI 收據拍照自動拆單</span>
+        <span>AI 收據照片自動拆單</span>
       </div>
       <button type="button" class="calc-close" id="aiReceiptModalCloseBtn">✕</button>
     </div>
 
-    <!-- 步驟 1：上傳 / 拍照 -->
+    <!-- 步驟 1：上傳 / 拍照（選擇相機或相簿） -->
     <div class="ai-receipt-screen" id="aiReceiptUploadScreen">
       <div class="ai-receipt-dropzone" id="aiReceiptDropzone">
         <div class="ai-receipt-drop-icon">🧾</div>
-        <div class="ai-receipt-drop-text">點擊拍照或上傳發票/收據照片</div>
-        <div class="ai-receipt-drop-subtext">支援相機即時拍攝、相簿照片、或直接貼上截圖 (Ctrl+V)</div>
+        <div class="ai-receipt-drop-text" style="font-size:15px;font-weight:700;">選擇發票/收據照片來源</div>
+        <div class="ai-receipt-drop-subtext">支援相機即時拍攝、手機相簿、或直接貼上截圖 (Ctrl+V)</div>
+        
+        <!-- 隱藏的 Input 檔案選擇器（相機 vs 相簿） -->
+        <input type="file" id="aiReceiptCameraInput" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="aiReceiptGalleryInput" accept="image/*" style="display:none;">
         <input type="file" id="aiReceiptFileInput" accept="image/*" style="display:none;">
-        <button type="button" class="btn secondary small" id="aiReceiptSelectFileBtn" style="margin-top:10px;width:auto;padding:7px 18px;">📷 立即拍照／選擇圖片</button>
-      </div>
 
+        <!-- 雙按鈕：拍照 vs 相簿 -->
+        <div style="display:flex;gap:10px;margin-top:14px;width:100%;max-width:320px;">
+          <button type="button" class="btn" id="aiReceiptCameraBtn" style="flex:1;padding:10px 6px;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:5px;">
+            <span>📸</span> 開啟相機
+          </button>
+          <button type="button" class="btn secondary" id="aiReceiptGalleryBtn" style="flex:1;padding:10px 6px;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:5px;">
+            <span>🖼️</span> 選擇相簿
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 步驟 1.5：手動旋轉與裁切發票 -->

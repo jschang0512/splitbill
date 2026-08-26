@@ -4272,7 +4272,6 @@ function showPairDetail(
     });
   }
 
-  const DEFAULT_AI_KEY = "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";
   let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || "";
 
   async function fetchSystemGeminiApiKey(){
@@ -4290,7 +4289,7 @@ function showPairDetail(
     } catch(e){
       console.warn("fetchSystemGeminiApiKey error:", e);
     }
-    return systemGeminiApiKey || DEFAULT_AI_KEY;
+    return systemGeminiApiKey;
   }
 
   async function getEffectiveGeminiKey(){
@@ -4527,10 +4526,13 @@ Rules:
     const modal = document.getElementById("aiReceiptModal");
     const openBtn = document.getElementById("aiReceiptBtn");
     const closeBtn = document.getElementById("aiReceiptModalCloseBtn");
+    const cameraInp = document.getElementById("aiReceiptCameraInput");
+    const galleryInp = document.getElementById("aiReceiptGalleryInput");
     const fileInp = document.getElementById("aiReceiptFileInput");
+    const cameraBtn = document.getElementById("aiReceiptCameraBtn");
+    const galleryBtn = document.getElementById("aiReceiptGalleryBtn");
     const selectFileBtn = document.getElementById("aiReceiptSelectFileBtn");
     const dropzone = document.getElementById("aiReceiptDropzone");
-    const keyHint = document.getElementById("aiReceiptKeyHint");
 
     const uploadScreen = document.getElementById("aiReceiptUploadScreen");
     const cropScreen = document.getElementById("aiReceiptCropScreen");
@@ -4566,7 +4568,7 @@ Rules:
     let currentRawImage = null;
     let cropAngle = 0; // 0, 90, 180, 270
     let cropRect = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 }; // normalized 0..1
-    let dragMode = null; // "move" | "tl" | "tr" | "bl" | "br"
+    let dragMode = null; // "move" | "tl" | "tr" | "bl" | "br" | "t" | "b" | "l" | "r"
     let dragStartX = 0, dragStartY = 0;
     let dragStartRect = null;
 
@@ -4586,21 +4588,37 @@ Rules:
       modal.classList.remove("show");
     }
 
-    // 當點擊頂部「📷 拍照自動拆單」時，直接喚起相機或相簿檔案選取器
+    // 點擊頂部「📷 照片自動拆單」按鈕，開啟選擇面板
     openBtn.addEventListener("click", ()=>{
-      if(fileInp) fileInp.click();
+      openModal("upload");
     });
 
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
     modal.addEventListener("click", (e)=>{ if(e.target === modal) closeModal(); });
 
-    if(selectFileBtn && fileInp){
-      selectFileBtn.addEventListener("click", ()=>{ fileInp.click(); });
+    // 拍照 vs 相簿按鈕綁定
+    if(cameraBtn && cameraInp){
+      cameraBtn.addEventListener("click", ()=> cameraInp.click());
     }
-    if(dropzone && fileInp){
-      dropzone.addEventListener("click", (e)=>{
-        if(e.target !== selectFileBtn) fileInp.click();
-      });
+    if(galleryBtn && galleryInp){
+      galleryBtn.addEventListener("click", ()=> galleryInp.click());
+    }
+    if(selectFileBtn && fileInp){
+      selectFileBtn.addEventListener("click", ()=> fileInp.click());
+    }
+
+    [cameraInp, galleryInp, fileInp].forEach(inp => {
+      if(inp){
+        inp.addEventListener("change", ()=>{
+          if(inp.files && inp.files[0]){
+            loadReceiptImageForCrop(inp.files[0]);
+            inp.value = "";
+          }
+        });
+      }
+    });
+
+    if(dropzone){
       dropzone.addEventListener("dragover", (e)=>{ e.preventDefault(); dropzone.classList.add("dragover"); });
       dropzone.addEventListener("dragleave", ()=>{ dropzone.classList.remove("dragover"); });
       dropzone.addEventListener("drop", (e)=>{
@@ -4608,15 +4626,6 @@ Rules:
         dropzone.classList.remove("dragover");
         if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]){
           loadReceiptImageForCrop(e.dataTransfer.files[0]);
-        }
-      });
-    }
-
-    if(fileInp){
-      fileInp.addEventListener("change", ()=>{
-        if(fileInp.files && fileInp.files[0]){
-          loadReceiptImageForCrop(fileInp.files[0]);
-          fileInp.value = "";
         }
       });
     }
@@ -4642,7 +4651,8 @@ Rules:
         img.onload = () => {
           currentRawImage = img;
           cropAngle = 0;
-          cropRect = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 };
+          // 預設全覆蓋自由長方形裁切框
+          cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 };
           openModal("crop");
           renderCropCanvas();
         };
@@ -4704,7 +4714,7 @@ Rules:
       const rw = cropRect.w * dispW;
       const rh = cropRect.h * dispH;
 
-      ctx.fillStyle = "rgba(0, 0, 0, 0.52)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
       ctx.fillRect(0, 0, dispW, ry); // 上
       ctx.fillRect(0, ry, rx, rh); // 左
       ctx.fillRect(rx + rw, ry, dispW - (rx + rw), rh); // 右
@@ -4716,7 +4726,7 @@ Rules:
       ctx.strokeRect(rx, ry, rw, rh);
 
       // 繪製九宮格輔助線
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
@@ -4727,11 +4737,26 @@ Rules:
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 繪製 4 個頂角拖曳把手
-      const handleSize = 14;
+      // 繪製 4 個頂角 L 型加強邊角與圓形觸控點
+      const cornerBracketLen = Math.min(22, Math.min(rw, rh) / 2);
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      // TL
+      ctx.moveTo(rx, ry + cornerBracketLen); ctx.lineTo(rx, ry); ctx.lineTo(rx + cornerBracketLen, ry);
+      // TR
+      ctx.moveTo(rx + rw - cornerBracketLen, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + cornerBracketLen);
+      // BL
+      ctx.moveTo(rx, ry + rh - cornerBracketLen); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + cornerBracketLen, ry + rh);
+      // BR
+      ctx.moveTo(rx + rw - cornerBracketLen, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - cornerBracketLen);
+      ctx.stroke();
+
+      // 繪製 4 個頂角圓形觸控把手
+      const handleRadius = 7.5;
       ctx.fillStyle = "#FFFFFF";
       ctx.strokeStyle = "#5A4B7C";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
 
       const corners = [
         [rx, ry], // tl
@@ -4742,71 +4767,139 @@ Rules:
 
       corners.forEach(([cx, cy]) => {
         ctx.beginPath();
-        ctx.arc(cx, cy, handleSize / 2, 0, Math.PI * 2);
+        ctx.arc(cx, cy, handleRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       });
 
+      // 繪製 4 邊中點觸控圓點（便於單軸拉動）
+      if(rw > 60 && rh > 60){
+        const midPoints = [
+          [rx + rw / 2, ry], // top
+          [rx + rw / 2, ry + rh], // bottom
+          [rx, ry + rh / 2], // left
+          [rx + rw, ry + rh / 2] // right
+        ];
+        ctx.fillStyle = "#E8E2F4";
+        ctx.strokeStyle = "#5A4B7C";
+        ctx.lineWidth = 2;
+        midPoints.forEach(([mx, my]) => {
+          ctx.beginPath();
+          ctx.arc(mx, my, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
       ctx.restore();
     }
 
-    // 裁切互動手勢（支援 Pointer Events 手機觸控與電腦滑鼠）
+    // 裁切互動手勢（精準支援 Pointer Events 手機多點觸控與電腦滑鼠拉動）
     if(cropCanvas){
       function getCanvasPointer(e){
         const rect = cropCanvas.getBoundingClientRect();
         return {
-          x: (e.clientX - rect.left) / cropCanvas.width,
-          y: (e.clientY - rect.top) / cropCanvas.height
+          px: e.clientX - rect.left,
+          py: e.clientY - rect.top,
+          normX: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+          normY: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+          dispW: rect.width,
+          dispH: rect.height
         };
       }
 
       cropCanvas.addEventListener("pointerdown", (e)=>{
         e.preventDefault();
-        cropCanvas.setPointerCapture(e.pointerId);
-        const { x, y } = getCanvasPointer(e);
-        dragStartX = x;
-        dragStartY = y;
+        try { cropCanvas.setPointerCapture(e.pointerId); } catch(err){}
+        const p = getCanvasPointer(e);
+        dragStartX = p.normX;
+        dragStartY = p.normY;
         dragStartRect = { ...cropRect };
 
-        const threshold = 0.08;
-        const rx = cropRect.x, ry = cropRect.y, rw = cropRect.w, rh = cropRect.h;
+        const rx = cropRect.x * p.dispW;
+        const ry = cropRect.y * p.dispH;
+        const rw = cropRect.w * p.dispW;
+        const rh = cropRect.h * p.dispH;
+        const hitRadius = 32; // 手機觸控超大 32px 感應半徑
 
-        if(Math.abs(x - rx) < threshold && Math.abs(y - ry) < threshold) dragMode = "tl";
-        else if(Math.abs(x - (rx + rw)) < threshold && Math.abs(y - ry) < threshold) dragMode = "tr";
-        else if(Math.abs(x - rx) < threshold && Math.abs(y - (ry + rh)) < threshold) dragMode = "bl";
-        else if(Math.abs(x - (rx + rw)) < threshold && Math.abs(y - (ry + rh)) < threshold) dragMode = "br";
-        else if(x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) dragMode = "move";
+        const dTL = Math.hypot(p.px - rx, p.py - ry);
+        const dTR = Math.hypot(p.px - (rx + rw), p.py - ry);
+        const dBL = Math.hypot(p.px - rx, p.py - (ry + rh));
+        const dBR = Math.hypot(p.px - (rx + rw), p.py - (ry + rh));
+
+        if(dTL <= hitRadius) dragMode = "tl";
+        else if(dTR <= hitRadius) dragMode = "tr";
+        else if(dBL <= hitRadius) dragMode = "bl";
+        else if(dBR <= hitRadius) dragMode = "br";
+        // 4 邊緣拖曳判定
+        else if(Math.abs(p.py - ry) <= 18 && p.px >= rx && p.px <= rx + rw) dragMode = "t";
+        else if(Math.abs(p.py - (ry + rh)) <= 18 && p.px >= rx && p.px <= rx + rw) dragMode = "b";
+        else if(Math.abs(p.px - rx) <= 18 && p.py >= ry && p.py <= ry + rh) dragMode = "l";
+        else if(Math.abs(p.px - (rx + rw)) <= 18 && p.py >= ry && p.py <= ry + rh) dragMode = "r";
+        // 框內中心移動判定
+        else if(p.px >= rx && p.px <= rx + rw && p.py >= ry && p.py <= ry + rh) dragMode = "move";
         else dragMode = null;
       });
 
       cropCanvas.addEventListener("pointermove", (e)=>{
-        if(!dragMode || !dragStartRect) return;
-        e.preventDefault();
-        const { x, y } = getCanvasPointer(e);
-        const dx = x - dragStartX;
-        const dy = y - dragStartY;
+        const p = getCanvasPointer(e);
+        if(!dragMode || !dragStartRect){
+          // 滑鼠 Hover 動態游標提示
+          const rx = cropRect.x * p.dispW;
+          const ry = cropRect.y * p.dispH;
+          const rw = cropRect.w * p.dispW;
+          const rh = cropRect.h * p.dispH;
+          const dTL = Math.hypot(p.px - rx, p.py - ry);
+          const dTR = Math.hypot(p.px - (rx + rw), p.py - ry);
+          const dBL = Math.hypot(p.px - rx, p.py - (ry + rh));
+          const dBR = Math.hypot(p.px - (rx + rw), p.py - (ry + rh));
 
-        let { x: nx, y: ny, w: nw, h: nh } = dragStartRect;
+          if(dTL <= 25 || dBR <= 25) cropCanvas.style.cursor = "nwse-resize";
+          else if(dTR <= 25 || dBL <= 25) cropCanvas.style.cursor = "nesw-resize";
+          else if(Math.abs(p.py - ry) <= 14 || Math.abs(p.py - (ry + rh)) <= 14) cropCanvas.style.cursor = "ns-resize";
+          else if(Math.abs(p.px - rx) <= 14 || Math.abs(p.px - (rx + rw)) <= 14) cropCanvas.style.cursor = "ew-resize";
+          else if(p.px >= rx && p.px <= rx + rw && p.py >= ry && p.py <= ry + rh) cropCanvas.style.cursor = "move";
+          else cropCanvas.style.cursor = "default";
+          return;
+        }
+
+        e.preventDefault();
+        const dx = p.normX - dragStartX;
+        const dy = p.normY - dragStartY;
+
+        let { x: sx, y: sy, w: sw, h: sh } = dragStartRect;
+        let nx = sx, ny = sy, nw = sw, nh = sh;
+        const minW = 0.04, minH = 0.04;
 
         if(dragMode === "move"){
-          nx = Math.max(0, Math.min(1 - nw, nx + dx));
-          ny = Math.max(0, Math.min(1 - nh, ny + dy));
+          nx = Math.max(0, Math.min(1 - sw, sx + dx));
+          ny = Math.max(0, Math.min(1 - sh, sy + dy));
         } else if(dragMode === "tl"){
-          nx = Math.max(0, Math.min(dragStartRect.x + dragStartRect.w - 0.1, nx + dx));
-          ny = Math.max(0, Math.min(dragStartRect.y + dragStartRect.h - 0.1, ny + dy));
-          nw = dragStartRect.x + dragStartRect.w - nx;
-          nh = dragStartRect.y + dragStartRect.h - ny;
+          nx = Math.max(0, Math.min(sx + sw - minW, sx + dx));
+          ny = Math.max(0, Math.min(sy + sh - minH, sy + dy));
+          nw = (sx + sw) - nx;
+          nh = (sy + sh) - ny;
         } else if(dragMode === "tr"){
-          ny = Math.max(0, Math.min(dragStartRect.y + dragStartRect.h - 0.1, ny + dy));
-          nw = Math.max(0.1, Math.min(1 - nx, dragStartRect.w + dx));
-          nh = dragStartRect.y + dragStartRect.h - ny;
+          ny = Math.max(0, Math.min(sy + sh - minH, sy + dy));
+          nw = Math.max(minW, Math.min(1 - sx, sw + dx));
+          nh = (sy + sh) - ny;
         } else if(dragMode === "bl"){
-          nx = Math.max(0, Math.min(dragStartRect.x + dragStartRect.w - 0.1, nx + dx));
-          nw = dragStartRect.x + dragStartRect.w - nx;
-          nh = Math.max(0.1, Math.min(1 - ny, dragStartRect.h + dy));
+          nx = Math.max(0, Math.min(sx + sw - minW, sx + dx));
+          nw = (sx + sw) - nx;
+          nh = Math.max(minH, Math.min(1 - sy, sh + dy));
         } else if(dragMode === "br"){
-          nw = Math.max(0.1, Math.min(1 - nx, dragStartRect.w + dx));
-          nh = Math.max(0.1, Math.min(1 - ny, dragStartRect.h + dy));
+          nw = Math.max(minW, Math.min(1 - sx, sw + dx));
+          nh = Math.max(minH, Math.min(1 - sy, sh + dy));
+        } else if(dragMode === "t"){
+          ny = Math.max(0, Math.min(sy + sh - minH, sy + dy));
+          nh = (sy + sh) - ny;
+        } else if(dragMode === "b"){
+          nh = Math.max(minH, Math.min(1 - sy, sh + dy));
+        } else if(dragMode === "l"){
+          nx = Math.max(0, Math.min(sx + sw - minW, sx + dx));
+          nw = (sx + sw) - nx;
+        } else if(dragMode === "r"){
+          nw = Math.max(minW, Math.min(1 - sx, sw + dx));
         }
 
         cropRect = { x: nx, y: ny, w: nw, h: nh };
@@ -4841,10 +4934,10 @@ Rules:
       });
     }
 
-    // 重新拍照按鈕
+    // 重新選擇照片按鈕
     if(cropRetakeBtn){
       cropRetakeBtn.addEventListener("click", ()=>{
-        if(fileInp) fileInp.click();
+        openModal("upload");
       });
     }
 
