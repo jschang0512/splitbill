@@ -479,47 +479,83 @@ textarea{ resize:vertical; min-height:70px; }
 }
 :root[data-theme="dark"] .check-pill.checked{ background:color-mix(in srgb, #7A6B9E 22%, var(--line)); }
 
-.amt-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-top:4px; }
+.amt-grid{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:10px;
+  margin-top:6px;
+  width:100%;
+  box-sizing:border-box;
+}
+@media (max-width: 520px){
+  .amt-grid{
+    grid-template-columns:1fr !important;
+  }
+}
 .amt-row{
   display:flex;
   align-items:center;
-  gap:6px;
+  justify-content:space-between;
+  gap:8px;
   min-width:0;
-  overflow:hidden;
   box-sizing:border-box;
   background:var(--paper);
   border:1px solid var(--line);
-  border-radius:10px;
-  padding:6px 8px;
+  border-radius:12px;
+  padding:8px 12px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.02);
 }
-.amt-row-name{ flex:0 0 auto; font-size:12px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:64px; }
+.amt-row-name{
+  flex:0 0 auto;
+  font-size:13px;
+  font-weight:700;
+  color:var(--ink);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  min-width:55px;
+  max-width:90px;
+}
 .amt-row-input{
   flex:1;
   min-width:0;
-  width:auto;
-  border:none;
-  background:none;
-  padding:2px 0;
-  font-size:13px;
+  border:1px solid var(--line);
+  background:var(--input-bg);
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:14px;
+  font-weight:700;
+  font-family:"JetBrains Mono",monospace;
   text-align:right;
+  color:var(--ink);
+  box-sizing:border-box;
+  transition:all .15s ease;
 }
-.amt-row-input:focus{ outline:none; }
+.amt-row-input:focus{
+  outline:none;
+  border-color:var(--btn-primary);
+  background:var(--paper);
+  box-shadow:0 0 0 2px rgba(114,97,150,0.15);
+}
 .amt-row-calc-btn{
-  flex:0 0 auto;
-  width:22px;
-  height:22px;
-  border-radius:6px;
+  flex:0 0 28px;
+  width:28px;
+  height:28px;
+  border-radius:8px;
   border:1px solid var(--line);
   background:var(--card);
-  font-size:11px;
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   line-height:1;
   padding:0;
   cursor:pointer;
   color:var(--ink-soft);
-  transition:background .15s ease, border-color .15s ease, transform .1s ease;
+  transition:all .15s ease;
 }
 .amt-row-calc-btn:active{ transform:scale(.92); }
-.amt-row-calc-btn.has-calc{ background:#7A6B9E; border-color:#7A6B9E; color:#FFFFFF; }
+.amt-row-calc-btn.has-calc{ background:var(--btn-primary); border-color:var(--btn-primary); color:#FFFFFF; }
 .input-calc-wrap{
   position:relative;
   display:flex;
@@ -1778,13 +1814,18 @@ button.dd-btn {
   font-weight:700;
   color:var(--ink-soft);
   cursor:pointer;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
   transition:color .2s ease, transform .1s ease;
 }
 .app-tab:active{ transform:scale(.96); }
 .app-tab:not(.active):hover{ color:var(--ink); }
 .app-tab.active{
   background:transparent;
-  color:var(--btn-primary-fg);
+  color:#FFFFFF !important;
 }
 :root[data-theme="dark"] .app-tabs{
   background:var(--input-bg);
@@ -3764,19 +3805,31 @@ button.dd-btn {
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:3px 0;
-  font-size:12.5px;
+  gap:10px;
+  padding:5px 0;
+  font-size:13px;
+  border-bottom:1px dashed var(--line);
+}
+.exp-debt-row-item:last-child{
+  border-bottom:none;
 }
 .exp-debt-row-name{
   display:inline-flex;
   align-items:center;
   gap:6px;
   color:var(--ink);
+  font-weight:700;
+  flex-shrink:0;
+  white-space:nowrap;
+  min-width:65px;
 }
 .exp-debt-row-right{
   display:inline-flex;
   align-items:center;
+  justify-content:flex-end;
   gap:8px;
+  flex:1;
+  min-width:0;
 }
 .exp-debt-calc-badge{
   font-size:11px;
@@ -3787,6 +3840,17 @@ button.dd-btn {
   background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));
   color:var(--btn-primary);
   border:1px solid color-mix(in srgb, var(--btn-primary) 28%, transparent);
+  max-width:140px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex-shrink:1;
+}
+.exp-debt-row-right b{
+  font-family:"JetBrains Mono",monospace;
+  font-size:13.5px;
+  white-space:nowrap;
+  flex-shrink:0;
 }
 .exp-debt-status-tag{
   font-size:10.5px;
@@ -4145,13 +4209,32 @@ button.dd-btn {
   }
   .settings-avatar-card {
     display: flex !important;
-    gap: 10px !important;
+    flex-direction: column !important;
     align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    gap: 12px !important;
+    padding: 16px 12px !important;
+  }
+  .settings-avatar-badge-wrap {
+    position: relative !important;
+    display: inline-flex !important;
+    margin: 0 auto !important;
   }
   .settings-avatar-preview {
-    width: 52px !important;
-    height: 52px !important;
-    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    width: auto !important;
+    height: auto !important;
+  }
+  .settings-avatar-preview .sb-avatar {
+    width: 76px !important;
+    height: 76px !important;
+    font-size: 26px !important;
+  }
+  .avatar-zoom-badge {
+    position: absolute !important;
+    bottom: 0px !important;
+    right: 0px !important;
   }
   .settings-row {
     gap: 8px !important;
@@ -4188,17 +4271,41 @@ button.dd-btn {
     font-size: 13px !important;
   }
 
-  /* 12. 服務費/稅額折疊卡片在手機上的排版 */
+  /* 12. 服務費/稅額與個人自付折疊卡片在手機上的排版（寬度滿版、按鈕不換行） */
   #expAddonsContainer,
   #expTaxContainer {
-    padding: 10px 12px !important;
-    border-radius: 14px !important;
-    margin: 10px 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 12px 0 !important;
+    background: transparent !important;
+    border: none !important;
   }
-  .addon-btn,
+  .exp-addons-toggle {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+  }
+  .exp-addons-body {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 14px 12px !important;
+    border-radius: 14px !important;
+  }
+  .ai-tax-split-toggle {
+    display: flex !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
   .ai-tax-btn {
-    font-size: 11px !important;
-    padding: 6px 8px !important;
+    flex: 1 1 0 !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    padding: 8px 10px !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    border-radius: 8px !important;
   }
 
   /* 13. 頂部狀態列與導覽 */

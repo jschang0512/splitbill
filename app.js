@@ -4595,7 +4595,7 @@ function showPairDetail(
   let receiptClaimItems = [];
   let taxSplitMode = "ratio"; // "ratio" | "equal"
 
-  function compressImageForAI(file, maxDimension = 1200, quality = 0.85){
+  function compressImageForAI(file, maxDimension = 2048, quality = 0.92){
     return new Promise((resolve, reject) => {
       const img = new Image();
       const reader = new FileReader();
@@ -4626,14 +4626,9 @@ function showPairDetail(
     });
   }
 
-  const DEFAULT_BUILTIN_OCR_KEY = "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";
-  let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || DEFAULT_BUILTIN_OCR_KEY;
+  let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || "";
 
   async function fetchSystemGeminiApiKey(){
-    if(systemGeminiApiKey && (systemGeminiApiKey.startsWith("gsk_") || systemGeminiApiKey.startsWith("AIzaSy"))){
-      systemGeminiApiKey = DEFAULT_BUILTIN_OCR_KEY;
-      localStorage.removeItem("sb_cached_sys_gemini_key");
-    }
     try {
       if(typeof sb !== "undefined" && sb && sb.from){
         const { data, error } = await sb.from("app_settings").select("value").eq("key", "gemini_api_key").single();
@@ -4667,78 +4662,19 @@ function showPairDetail(
       console.warn("REST app_settings fetch error:", restErr);
     }
 
-    return systemGeminiApiKey || DEFAULT_BUILTIN_OCR_KEY;
+    return systemGeminiApiKey || "";
   }
 
   async function getEffectiveGeminiKey(){
     let userKey = (localStorage.getItem("splitbill_gemini_api_key") || "").trim();
-    if(userKey && (userKey.startsWith("gsk_") || userKey.startsWith("AIzaSy"))){
-      localStorage.removeItem("splitbill_gemini_api_key");
-      userKey = "";
-    }
     if(userKey) return userKey;
     return await fetchSystemGeminiApiKey();
   }
 
-  async function callOpenRouterOCR(key, prompt, mimeType, pureBase64){
-    // 🌟 優先選用兼顧高解析度與回應速度的視覺模型
-    const orModels = [
-      "openrouter/free",
-      "google/gemma-4-26b-a4b-it:free",
-      "minimax/minimax-m3:free",
-      "dots-studio/dots-3-note-preview:free"
-    ];
-    let orErr = null;
-    for(const om of orModels){
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8500); // 8.5秒逾時自動換下一個高速模型
-
-      try {
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${key}`,
-            "HTTP-Referer": "https://jschang0512.github.io/splitbill",
-            "X-Title": "Splitbill Receipt OCR"
-          },
-          body: JSON.stringify({
-            model: om,
-            messages: [{
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
-              ]
-            }],
-            response_format: { type: "json_object" },
-            max_tokens: 1200,
-            temperature: 0.1
-          })
-        });
-        clearTimeout(timeoutId);
-        if(!res.ok){
-          const err = await res.json().catch(()=>({}));
-          orErr = new Error((err && err.error && err.error.message) || `OpenRouter HTTP ${res.status}`);
-          continue;
-        }
-        const data = await res.json();
-        const rawText = data?.choices?.[0]?.message?.content || "{}";
-        const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
-        return JSON.parse(cleaned);
-      } catch(e){
-        clearTimeout(timeoutId);
-        orErr = e;
-      }
-    }
-    throw orErr || new Error("AI 辨識服務暫時忙碌中，請稍候重試。");
-  }
-
   async function parseReceiptWithGemini(pureBase64, mimeType = "image/jpeg", apiKey = ""){
-    let activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey();
+    const activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey();
     if(!activeKey){
-      activeKey = DEFAULT_BUILTIN_OCR_KEY;
+      throw new Error("請先在「⚙️ 設定」中填寫 Gemini API Key，或由管理員於資料庫設定系統預設金鑰。");
     }
 
     const prompt = `You are an expert multilingual receipt & invoice OCR parsing AI. Analyze the image carefully.
@@ -4795,66 +4731,93 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 4. FORMAT: Always use '通俗自然中文名稱 (原文)' for foreign items. If the receipt is already in Chinese, just output the Chinese name directly.
 5. NUMBERS: 'price' must be total line price (unit price * qty). 'totalAmount', 'subtotal', 'serviceCharge', 'tax', 'discount' must be clean numbers without symbols.`;
 
-    // 1. 優先使用 OpenRouter (sk-or-...)
+    // 1. 支援 OpenRouter (sk-or-...)
     if(activeKey.startsWith("sk-or-")){
-      try {
-        return await callOpenRouterOCR(activeKey, prompt, mimeType, pureBase64);
-      } catch(orErr){
-        console.warn("OpenRouter direct attempt failed, trying default builtin key:", orErr);
-        if(activeKey !== DEFAULT_BUILTIN_OCR_KEY){
-          return await callOpenRouterOCR(DEFAULT_BUILTIN_OCR_KEY, prompt, mimeType, pureBase64);
+      const orModels = [
+        "openrouter/auto",
+        "openrouter/free",
+        "google/gemma-4-26b-a4b-it:free",
+        "google/gemma-4-31b-it:free"
+      ];
+      let lastOrErr = null;
+      for(const om of orModels){
+        try {
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${activeKey}`,
+              "HTTP-Referer": "https://jschang0512.github.io/splitbill",
+              "X-Title": "Splitbill Receipt OCR"
+            },
+            body: JSON.stringify({
+              model: om,
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+                ]
+              }],
+              max_tokens: 8192,
+              temperature: 0.1
+            })
+          });
+          if(!res.ok){
+            const err = await res.json().catch(()=>({}));
+            lastOrErr = new Error((err && err.error && err.error.message) || `OpenRouter HTTP ${res.status}`);
+            continue;
+          }
+          const data = await res.json();
+          const rawText = data?.choices?.[0]?.message?.content || "{}";
+          const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
+          return JSON.parse(cleaned);
+        } catch(e){
+          lastOrErr = e;
         }
-        throw orErr;
       }
+      throw lastOrErr || new Error("OpenRouter AI 辨識失敗，請稍候重試。");
     }
 
     // 2. 支援 OpenAI (sk-...)
     if(activeKey.startsWith("sk-")){
-      try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${activeKey}`
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [{
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
-              ]
-            }],
-            response_format: { type: "json_object" },
-            max_tokens: 1200
-          })
-        });
-        if(!res.ok){
-          const err = await res.json().catch(()=>({}));
-          throw new Error((err && err.error && err.error.message) || `OpenAI HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        const rawText = data?.choices?.[0]?.message?.content || "{}";
-        const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
-        return JSON.parse(cleaned);
-      } catch(openAiErr){
-        console.warn("OpenAI attempt failed, falling back to OpenRouter:", openAiErr);
-        return await callOpenRouterOCR(DEFAULT_BUILTIN_OCR_KEY, prompt, mimeType, pureBase64);
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${activeKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+            ]
+          }],
+          max_tokens: 8192,
+          temperature: 0.1
+        })
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({}));
+        throw new Error((err && err.error && err.error.message) || `OpenAI HTTP ${res.status}`);
       }
+      const data = await res.json();
+      const rawText = data?.choices?.[0]?.message?.content || "{}";
+      const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
+      return JSON.parse(cleaned);
     }
 
-    // 3. Google Gemini API (若金鑰無效則自動備援至 OpenRouter 避免報錯中斷)
+    // 3. 原生 Google Gemini API (支援官方最新多模態模型)
     const candidateModels = [
-      "gemini-flash-latest",
-      "gemini-3.5-flash",
-      "gemini-3.6-flash",
-      "gemini-3.1-flash-lite",
       "gemini-2.5-flash",
-      "gemini-1.5-flash"
+      "gemini-1.5-flash",
+      "gemini-flash-latest"
     ];
 
-    let geminiAuthFailed = false;
+    let lastErr = null;
     for(const model of candidateModels){
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`;
@@ -4878,7 +4841,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             }],
             generationConfig: {
               responseMimeType: "application/json",
-              maxOutputTokens: 1200
+              maxOutputTokens: 8192,
+              temperature: 0.1
             }
           })
         });
@@ -4886,10 +4850,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(!response.ok){
           const err = await response.json().catch(()=>({}));
           const msg = (err && err.error && err.error.message) || `HTTP ${response.status}`;
-          if(response.status === 400 || response.status === 401 || response.status === 403 || msg.includes("authentication credential")){
-            geminiAuthFailed = true;
-            break;
-          }
+          lastErr = new Error(msg);
           continue;
         }
 
@@ -4898,19 +4859,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const cleaned = rawText.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
         return JSON.parse(cleaned);
       } catch(e){
-        if(e.message && e.message.includes("authentication credential")){
-          geminiAuthFailed = true;
-          break;
-        }
+        lastErr = e;
       }
     }
 
-    // 若 Gemini 憑證無效或失敗，全自動無縫切換至 OpenRouter 免費辨識通道
-    localStorage.removeItem("splitbill_gemini_api_key");
-    return await callOpenRouterOCR(DEFAULT_BUILTIN_OCR_KEY, prompt, mimeType, pureBase64);
+    throw lastErr || new Error("AI 辨識收據失敗，請確認網路連線或金鑰是否正確。");
   }
 
-  function setupAiReceiptModal(){
+    function setupAiReceiptModal(){
     const modal = document.getElementById("aiReceiptModal");
     const openBtn = document.getElementById("aiReceiptBtn");
     const closeBtn = document.getElementById("aiReceiptModalCloseBtn");
@@ -5520,7 +5476,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const targetH = Math.round(rotH * cropRect.h);
 
           const offCanvas = document.createElement("canvas");
-          const maxDim = 1100;
+          const maxDim = 2048;
           let finalW = targetW, finalH = targetH;
           if(finalW > maxDim || finalH > maxDim){
             if(finalW > finalH){
@@ -5551,7 +5507,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const sy = Math.round(rotH * cropRect.y);
           offCtx.drawImage(tempRotCanvas, sx, sy, targetW, targetH, 0, 0, finalW, finalH);
 
-          const base64Data = offCanvas.toDataURL("image/jpeg", 0.82);
+          const base64Data = offCanvas.toDataURL("image/jpeg", 0.92);
           const pureBase64 = base64Data.split(",")[1];
 
           const parsed = await parseReceiptWithGemini(pureBase64, "image/jpeg", key);

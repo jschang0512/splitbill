@@ -245,8 +245,8 @@ if("serviceWorker" in navigator){
 
             <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:6px;">分配方式</label>
             <div class="ai-tax-split-toggle" style="margin-bottom:8px;">
-              <button type="button" class="ai-tax-btn active" data-manual-tax-mode="ratio" id="expManualTaxRatioBtn" title="吃較多/消費額較多者按比例分攤較多稅額">依照個人消費額比例分配</button>
-              <button type="button" class="ai-tax-btn" data-manual-tax-mode="equal" id="expManualTaxEqualBtn" title="所有參與者平均分攤稅額">全員平分</button>
+              <button type="button" class="ai-tax-btn active" data-manual-tax-mode="ratio" id="expManualTaxRatioBtn" title="依個人消費金額比例分攤服務費與稅額">依消費比例</button>
+              <button type="button" class="ai-tax-btn" data-manual-tax-mode="equal" id="expManualTaxEqualBtn" title="所有參與者平均分攤服務費與稅額">全員平分</button>
             </div>
 
             <div class="exp-tax-preview hidden" id="expTaxPreview" style="font-size:12px;padding:8px 12px;background:var(--card-subtle);border-radius:8px;color:var(--ink-soft);line-height:1.6;"></div>
@@ -618,8 +618,8 @@ if("serviceWorker" in navigator){
           <span id="aiReceiptDiscountRow" class="hidden">折扣: <b id="aiReceiptDiscountText">$0</b></span>
         </div>
         <div class="ai-tax-split-toggle">
-          <button type="button" class="ai-tax-btn active" data-tax-mode="ratio" id="aiTaxRatioBtn" title="吃較多金額者按比例負擔較多服務費">依消費比例分攤服務費</button>
-          <button type="button" class="ai-tax-btn" data-tax-mode="equal" id="aiTaxEqualBtn" title="所有參與者平均分攤服務費">全員平分服務費</button>
+          <button type="button" class="ai-tax-btn active" data-tax-mode="ratio" id="aiTaxRatioBtn" title="依個人消費金額比例分攤服務費與稅額">依消費比例</button>
+          <button type="button" class="ai-tax-btn" data-tax-mode="equal" id="aiTaxEqualBtn" title="所有參與者平均分攤服務費與稅額">全員平分</button>
         </div>
       </div>
 
@@ -682,6 +682,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=413"></script>
+<script src="app.js?v=416"></script>
 </body>
 </html>
