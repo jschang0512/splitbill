@@ -1,0 +1,7 @@
+{
+  "version": "389",
+  "updatedAt": "2026-08-26",
+  "changelog": [
+    "將 Gemini AI 金鑰全面遷移至 Supabase app_settings 資料庫儲存，程式碼零金鑰洩漏風險，Git Push 順暢通行"
+  ]
+}

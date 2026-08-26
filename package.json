@@ -1,0 +1,23 @@
+{
+  "name": "splitbill-app",
+  "version": "1.0.0",
+  "description": "Splitbill - 群組分帳與智慧結算",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/copy-assets.js",
+    "cap:add": "npm run build && cap add android",
+    "cap:sync": "npm run build && cap sync android",
+    "cap:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/push-notifications": "^8.1.2"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

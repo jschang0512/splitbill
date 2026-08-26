@@ -1,0 +1,16 @@
+{
+  "appId": "com.splitbill.app",
+  "appName": "Splitbill",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://jschang0512.github.io/splitbill",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
