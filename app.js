@@ -859,10 +859,92 @@
     return { totalAddon, items };
   }
 
+  // ---------- 服務費 / 稅額 (選填) ----------
+  let manualTaxSplitMode = "ratio"; // "ratio" | "equal"
+
+  function getManualExpenseTotals(){
+    const subtotal = Number(document.getElementById("expAmount")?.value) || 0;
+    const tax = Number(document.getElementById("expTaxAmount")?.value) || 0;
+    const total = subtotal + tax;
+    return { subtotal, tax, total };
+  }
+
+  function updateTaxPreview(){
+    const previewEl = document.getElementById("expTaxPreview");
+    if(!previewEl) return;
+    const { subtotal, tax, total } = getManualExpenseTotals();
+    if(tax <= 0){
+      previewEl.classList.add("hidden");
+      return;
+    }
+    previewEl.classList.remove("hidden");
+    const modeText = manualTaxSplitMode === "ratio" ? "依照個人消費額比例分配" : "全員平分";
+    previewEl.innerHTML = `
+      <div>📊 <b>費用加總</b>：不含稅 ${SYM}${formatAmt(subtotal)} + 服務費/稅 ${SYM}${formatAmt(tax)} = <b>總支出 ${SYM}${formatAmt(total)}</b></div>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin-top:3px;">
+        分配方式：${modeText}
+      </div>
+    `;
+  }
+
+  const expTaxToggle = document.getElementById("expTaxToggle");
+  const expTaxBody = document.getElementById("expTaxBody");
+  const expTaxCaret = document.getElementById("expTaxCaret");
+  const expTaxInp = document.getElementById("expTaxAmount");
+  const expTaxCalcBtn = document.getElementById("expTaxCalcBtn");
+  const expManualTaxRatioBtn = document.getElementById("expManualTaxRatioBtn");
+  const expManualTaxEqualBtn = document.getElementById("expManualTaxEqualBtn");
+
+  if(expTaxToggle && expTaxBody){
+    expTaxToggle.addEventListener("click", ()=>{
+      const isHidden = expTaxBody.classList.contains("hidden");
+      expTaxBody.classList.toggle("hidden", !isHidden);
+      expTaxToggle.classList.toggle("open", isHidden);
+      if(expTaxCaret) expTaxCaret.classList.toggle("open", isHidden);
+      if(isHidden) updateTaxPreview();
+    });
+  }
+
+  if(expManualTaxRatioBtn && expManualTaxEqualBtn){
+    expManualTaxRatioBtn.addEventListener("click", ()=>{
+      manualTaxSplitMode = "ratio";
+      expManualTaxRatioBtn.classList.add("active");
+      expManualTaxEqualBtn.classList.remove("active");
+      updateTaxPreview();
+      updatePayerSumCheck();
+      updateShareSumCheck();
+      updateAddonsPreview();
+    });
+    expManualTaxEqualBtn.addEventListener("click", ()=>{
+      manualTaxSplitMode = "equal";
+      expManualTaxEqualBtn.classList.add("active");
+      expManualTaxRatioBtn.classList.remove("active");
+      updateTaxPreview();
+      updatePayerSumCheck();
+      updateShareSumCheck();
+      updateAddonsPreview();
+    });
+  }
+
+  if(expTaxInp){
+    expTaxInp.addEventListener("input", ()=>{
+      clearRowCalc(expTaxInp);
+      updateTaxPreview();
+      updatePayerSumCheck();
+      updateShareSumCheck();
+      updateAddonsPreview();
+    });
+  }
+  if(expTaxCalcBtn && expTaxInp){
+    expTaxCalcBtn.addEventListener("click", ()=>{
+      openCalc(expTaxInp, "服務費 / 稅額");
+    });
+  }
+
   function updateAddonsPreview(){
     const previewEl = document.getElementById("expAddonsPreview");
     if(!previewEl) return;
-    const totalExp = Number(document.getElementById("expAmount").value) || 0;
+    const { subtotal, tax, total } = getManualExpenseTotals();
     const { totalAddon } = getAddonsData();
     const participants = Array.from(document.querySelectorAll("#expParticipants input:checked")).map(i=>i.value);
     
@@ -871,13 +953,13 @@
       return;
     }
 
-    const baseAmount = Math.max(0, totalExp - totalAddon);
+    const baseAmount = Math.max(0, subtotal - totalAddon);
     const n = participants.length;
     const baseShare = Math.floor(baseAmount / n);
 
     previewEl.classList.remove("hidden");
     previewEl.innerHTML = `
-      <div>📊 <b>分攤試算</b>：總金額 ${SYM}${formatAmt(totalExp)}</div>
+      <div>📊 <b>分攤試算</b>：不含稅 ${SYM}${formatAmt(subtotal)}${tax > 0 ? ` + 服務費/稅 ${SYM}${formatAmt(tax)} = 總額 ${SYM}${formatAmt(total)}` : ''}</div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:3px;">
         扣除個人自付合計 ${SYM}${formatAmt(totalAddon)} ➔ 共同平分基本額 ${SYM}${formatAmt(baseAmount)}（每人約 ${SYM}${formatAmt(baseShare)}）
       </div>
@@ -899,7 +981,12 @@
 
   const expAmountInput = document.getElementById("expAmount");
   if(expAmountInput){
-    expAmountInput.addEventListener("input", updateAddonsPreview);
+    expAmountInput.addEventListener("input", ()=>{
+      updateTaxPreview();
+      updateAddonsPreview();
+      updatePayerSumCheck();
+      updateShareSumCheck();
+    });
   }
 
   // ---------- 分攤名單：全選／取消全選 ----------
@@ -1097,21 +1184,33 @@
 
   function updatePayerSumCheck(){
     if(payerMode !== "multi"){ document.getElementById("payerSumCheck").innerHTML = ""; return; }
-    const total = Number(document.getElementById("expAmount").value) || 0;
+    const { total } = getManualExpenseTotals();
     const sum = readAmountRows("expPayers").reduce((s,p)=>s+p.amount, 0);
     document.getElementById("payerSumCheck").innerHTML = sumCheckHTML(total, sum);
   }
   function updateShareSumCheck(){
     if(splitMode !== "custom") return;
-    const total = Number(document.getElementById("expAmount").value) || 0;
-    const sum = readAmountRows("expSharesCustom").reduce((s,p)=>s+p.amount, 0);
-    document.getElementById("shareSumCheck").innerHTML = sumCheckHTML(total, sum);
+    const { subtotal, tax, total } = getManualExpenseTotals();
+    const rows = readAmountRows("expSharesCustom");
+    const sumBase = rows.reduce((s,p)=>s+p.amount, 0);
+    if(tax > 0){
+      const sumWithTax = sumBase + tax;
+      document.getElementById("shareSumCheck").innerHTML = `
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:2px;">
+          自訂基本消費合計 ${SYM}${formatAmt(sumBase)} + 服務費/稅 ${SYM}${formatAmt(tax)} = <b>${SYM}${formatAmt(sumWithTax)}</b>
+        </div>
+        ${sumCheckHTML(total, sumWithTax)}
+      `;
+    } else {
+      document.getElementById("shareSumCheck").innerHTML = sumCheckHTML(total, sumBase);
+    }
   }
 
   const addExpBtn = document.getElementById("addExpenseBtn");
   if(addExpBtn){
     addExpBtn.addEventListener("click", async ()=>{
-      const amount = Number(document.getElementById("expAmount").value);
+      const { subtotal, tax: taxAmount, total: totalAmount } = getManualExpenseTotals();
+      const amount = totalAmount;
       const description = document.getElementById("expDesc").value.trim();
       const expense_date = document.getElementById("expDate").value;
       const msg = document.getElementById("expMsg");
@@ -1146,25 +1245,26 @@
         if(!participants.length){ msg.textContent = "至少要選一個人分攤"; msg.className = "msg error"; return; }
 
         const { totalAddon, items: addonItems } = getAddonsData();
-        if(totalAddon > amount){
-          msg.textContent = `個人自付總額 (${SYM}${formatAmt(totalAddon)}) 超過支出總金額 (${SYM}${formatAmt(amount)})`;
+        if(totalAddon > subtotal && subtotal > 0){
+          msg.textContent = `個人自付總額 (${SYM}${formatAmt(totalAddon)}) 超過不含稅總金額 (${SYM}${formatAmt(subtotal)})`;
           msg.className = "msg error";
           return;
         }
 
-        // 編輯模式下，如果金額、分攤名單都跟原本一模一樣且無新加點，直接沿用原本存的
+        // 編輯模式下，如果金額、分攤名單都跟原本一模一樣且無新加點與稅額，直接沿用原本存的
         const origShares = editingExpenseOriginal && editingExpenseOriginal.shares;
         const sameParticipants = origShares && origShares.length === participants.length &&
           new Set(origShares.map(s => s.member_id)).size === participants.length &&
           participants.every(id => origShares.some(s => s.member_id === id));
         const sameAmount = origShares && Math.abs(Number(editingExpenseOriginal.amount) - amount) < 0.005;
         const hasAddons = totalAddon > 0;
+        const hasTax = taxAmount > 0;
 
-        if(editingExpenseId && sameParticipants && sameAmount && !hasAddons){
+        if(editingExpenseId && sameParticipants && sameAmount && !hasAddons && !hasTax){
           shares = origShares.map(s => ({ member_id: s.member_id, amount: Number(s.amount), calc: s.calc }));
         } else {
           // 扣除個人加點後，剩餘款項由全員平分
-          const baseAmount = Math.max(0, amount - totalAddon);
+          const baseAmount = Math.max(0, subtotal - totalAddon);
           const n = participants.length;
           const base = Math.floor(baseAmount / n);
           const remainder = Math.round(baseAmount - base * n);
@@ -1184,37 +1284,128 @@
           ];
 
           const shareAmt = {};
-          const shareCalc = {};
-          participants.forEach(id => { shareAmt[id] = base; });
-          priority.slice(0, remainder).forEach(id => { shareAmt[id] += 1; });
+          const memberPreTax = {};
+          participants.forEach(id => {
+            shareAmt[id] = base;
+            memberPreTax[id] = base;
+          });
+          priority.slice(0, remainder).forEach(id => {
+            shareAmt[id] += 1;
+            memberPreTax[id] += 1;
+          });
 
           // 加回各自的個人自付金額
           participants.forEach(id => {
             const addData = addonItems[id];
             if(addData && addData.finalAmt > 0){
-              const originalBase = shareAmt[id];
               shareAmt[id] += addData.finalAmt;
-              shareCalc[id] = `平分${originalBase}+自付${addData.finalAmt}`;
+              memberPreTax[id] += addData.finalAmt;
             }
           });
 
+          // 分配服務費 / 稅額
+          const memberTax = {};
+          if(taxAmount > 0){
+            if(manualTaxSplitMode === "ratio" && subtotal > 0){
+              let taxSum = 0;
+              participants.forEach(id => {
+                const rawTax = Math.round((memberPreTax[id] / subtotal) * taxAmount);
+                memberTax[id] = rawTax;
+                taxSum += rawTax;
+              });
+              const taxDiff = taxAmount - taxSum;
+              if(taxDiff !== 0 && participants.length > 0){
+                memberTax[participants[0]] += taxDiff;
+              }
+            } else {
+              const baseTax = Math.floor(taxAmount / n);
+              const taxRem = taxAmount - (baseTax * n);
+              participants.forEach((id, idx) => {
+                memberTax[id] = baseTax + (idx < taxRem ? 1 : 0);
+              });
+            }
+          }
+
           shares = participants.map(id => {
-            const obj = { member_id: id, amount: shareAmt[id] };
-            if(shareCalc[id]) obj.calc = shareCalc[id];
+            const baseVal = shareAmt[id];
+            const taxVal = memberTax[id] || 0;
+            const finalVal = baseVal + taxVal;
+            const addData = addonItems[id];
+
+            let calcStr = "";
+            if(addData && addData.finalAmt > 0 && taxVal > 0){
+              calcStr = `平分${shareAmt[id] - addData.finalAmt}+自付${addData.finalAmt}+稅額${taxVal}`;
+            } else if(addData && addData.finalAmt > 0){
+              calcStr = `平分${shareAmt[id] - addData.finalAmt}+自付${addData.finalAmt}`;
+            } else if(taxVal > 0){
+              calcStr = `平分${baseVal}+稅額${taxVal}`;
+            }
+
+            const obj = { member_id: id, amount: finalVal };
+            if(calcStr) obj.calc = calcStr;
             return obj;
           });
         }
       } else {
-        shares = readAmountRows("expSharesCustom");
-        if(!shares.length){ msg.textContent = "至少要有一個人分攤"; msg.className = "msg error"; return; }
-        const shareSum = shares.reduce((s,p)=>s+p.amount, 0);
-        if(Math.abs(shareSum - amount) >= 0.5){
-          const diff = Math.round((amount - shareSum) * 100) / 100;
-          msg.textContent = diff > 0
-            ? `分攤總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
-            : `分攤總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`;
-          msg.className = "msg error";
-          return;
+        const customRows = readAmountRows("expSharesCustom");
+        if(!customRows.length){ msg.textContent = "至少要有一個人分攤"; msg.className = "msg error"; return; }
+        const customBaseSum = customRows.reduce((s,p)=>s+p.amount, 0);
+
+        if(taxAmount > 0){
+          if(subtotal > 0 && Math.abs(customBaseSum - subtotal) >= 0.5){
+            const diff = Math.round((subtotal - customBaseSum) * 100) / 100;
+            msg.textContent = diff > 0
+              ? `自訂消費總額還差 ${SYM}${formatAmt(diff)}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上`
+              : `自訂消費總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上`;
+            msg.className = "msg error";
+            return;
+          }
+
+          const activeCustom = customRows.filter(r => r.amount > 0);
+          const memberTax = {};
+          if(activeCustom.length > 0){
+            if(manualTaxSplitMode === "ratio" && customBaseSum > 0){
+              let taxSum = 0;
+              activeCustom.forEach(r => {
+                const rawTax = Math.round((r.amount / customBaseSum) * taxAmount);
+                memberTax[r.member_id] = rawTax;
+                taxSum += rawTax;
+              });
+              const taxDiff = taxAmount - taxSum;
+              if(taxDiff !== 0){
+                memberTax[activeCustom[0].member_id] += taxDiff;
+              }
+            } else {
+              const baseTax = Math.floor(taxAmount / activeCustom.length);
+              const taxRem = taxAmount - (baseTax * activeCustom.length);
+              activeCustom.forEach((r, idx) => {
+                memberTax[r.member_id] = baseTax + (idx < taxRem ? 1 : 0);
+              });
+            }
+          }
+
+          shares = customRows.map(r => {
+            const taxVal = memberTax[r.member_id] || 0;
+            const finalVal = r.amount + taxVal;
+            const calc = taxVal > 0 ? `自訂${r.amount}+稅額${taxVal}` : (r.calc || "");
+            const obj = { member_id: r.member_id, amount: finalVal };
+            if(calc) obj.calc = calc;
+            return obj;
+          });
+        } else {
+          if(Math.abs(customBaseSum - amount) >= 0.5){
+            const diff = Math.round((amount - customBaseSum) * 100) / 100;
+            msg.textContent = diff > 0
+              ? `分攤總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
+              : `分攤總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`;
+            msg.className = "msg error";
+            return;
+          }
+          shares = customRows.map(r => {
+            const obj = { member_id: r.member_id, amount: r.amount };
+            if(r.calc) obj.calc = r.calc;
+            return obj;
+          });
         }
       }
 
@@ -1251,6 +1442,13 @@
       if(wasEditing) exitEditMode();
       const expAmtInp = document.getElementById("expAmount");
       if(expAmtInp){ expAmtInp.value = ""; clearRowCalc(expAmtInp); }
+      const expTaxInp = document.getElementById("expTaxAmount");
+      if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
+      manualTaxSplitMode = "ratio";
+      if(expManualTaxRatioBtn) expManualTaxRatioBtn.classList.add("active");
+      if(expManualTaxEqualBtn) expManualTaxEqualBtn.classList.remove("active");
+      const expTaxPreview = document.getElementById("expTaxPreview");
+      if(expTaxPreview) expTaxPreview.classList.add("hidden");
       document.getElementById("expDesc").value = "";
       document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
       document.getElementById("payerSumCheck").innerHTML = "";
@@ -1439,6 +1637,13 @@
     document.getElementById("expFormTitle").textContent = "🧾 新增支出";
     const expAmtInp = document.getElementById("expAmount");
     if(expAmtInp){ expAmtInp.value = ""; clearRowCalc(expAmtInp); }
+    const expTaxInp = document.getElementById("expTaxAmount");
+    if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
+    manualTaxSplitMode = "ratio";
+    if(expManualTaxRatioBtn) expManualTaxRatioBtn.classList.add("active");
+    if(expManualTaxEqualBtn) expManualTaxEqualBtn.classList.remove("active");
+    const expTaxPreview = document.getElementById("expTaxPreview");
+    if(expTaxPreview) expTaxPreview.classList.add("hidden");
     clearTempEditOptions();
   }
 
@@ -1448,12 +1653,16 @@
       exitEditMode();
       document.getElementById("addExpenseBtn").textContent = "加入這筆支出";
       document.getElementById("expAmount").value = "";
+      const expTaxInp = document.getElementById("expTaxAmount");
+      if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
       document.getElementById("expDesc").value = "";
       document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
       document.getElementById("payerSumCheck").innerHTML = "";
       document.getElementById("shareSumCheck").innerHTML = "";
       const addonsPreview = document.getElementById("expAddonsPreview");
       if(addonsPreview) addonsPreview.classList.add("hidden");
+      const expTaxPreview = document.getElementById("expTaxPreview");
+      if(expTaxPreview) expTaxPreview.classList.add("hidden");
     });
   }
 
@@ -1860,7 +2069,9 @@
 
   function cleanXcurText(str){
     return (str || "")
+      .replace(/<!--[\s\S]*?-->/gi, "")
       .replace(/<!--AI_RECEIPT_DATA:[\s\S]*?-->/gi, "")
+      .replace(/AI_RECEIPT_DATA:[\s\S]*/gi, "")
       .replace(/\s*\[xcur[:_][^\]]+\]/gi, "")
       .trim();
   }
@@ -3694,12 +3905,15 @@ function showPairDetail(
           })
           .join("、");
 
+      const firstLine = getFirstLineDesc(e.description || "未命名支出");
+      const isAiSplit = Boolean(e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細")));
+
       html += `
         <div class="debt-expense-card">
           <div class="debt-expense-top">
             <div class="debt-expense-info">
               <div class="debt-expense-name">
-                ${escapeHtml(cleanXcurText(e.description || "未命名支出"))}${isXcurStr(e.description) ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}
+                ${escapeHtml(firstLine)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI拆單</span>' : ""}${isXcurStr(e.description) ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}
               </div>
               <div class="debt-expense-date">
                 ${escapeHtml(e.expense_date || "")}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}（${escapeHtml(memberById[e.created_by] || "?")}）
@@ -4486,11 +4700,11 @@ function showPairDetail(
       throw new Error("系統 AI 金鑰正在連線中，請確認網路連線或稍後再試。");
     }
 
-    const prompt = `You are an expert receipt & invoice OCR parsing AI. Analyze the image carefully.
-Extract all details and output in STRICT JSON format (no markdown, no backticks, only valid raw JSON):
+    const prompt = `You are an expert multilingual receipt & invoice OCR parsing AI. Analyze the image carefully.
+Extract all receipt details and output in STRICT JSON format (no markdown, no backticks, only valid raw JSON):
 {
-  "storeName": "Store or Restaurant Name translated to Traditional Chinese with original in parentheses if foreign (e.g. '唐吉訶德 (ドン・キホーテ)', '一蘭拉麵 (一蘭)', '星巴克 (Starbucks)')",
-  "currencyCode": "Detected 3-letter currency code (e.g. 'JPY', 'TWD', 'KRW', 'USD', 'EUR', 'THB', 'VND', 'SGD', 'HKD', 'CNY', 'GBP', 'AUD', etc.)",
+  "storeName": "Natural Traditional Chinese name with original in parentheses (e.g. '唐吉訶德 (ドン・キホーテ)', '一蘭拉麵 (一蘭)', '星巴克 (Starbucks)')",
+  "currencyCode": "Detected 3-letter currency code (e.g. 'JPY', 'TWD', 'KRW', 'USD', 'EUR', 'THB', 'VND', 'SGD', 'HKD', 'CNY', 'GBP', 'AUD')",
   "date": "Receipt date in YYYY-MM-DD format if found, otherwise empty string",
   "time": "Receipt time in HH:MM format if found, otherwise empty string",
   "subtotal": 0,
@@ -4500,23 +4714,45 @@ Extract all details and output in STRICT JSON format (no markdown, no backticks,
   "totalAmount": 0,
   "items": [
     {
-      "name": "Item name formatted as: Traditional Chinese Translation (Original Name) if foreign, or just Chinese if already Chinese (e.g. '雀巢 KitKat 巧克棒 (★キットカット 部活応援ゴ)', '章魚燒 (たこ焼き)', '生啤酒 (生ビール)')",
+      "name": "Natural, recognizable Traditional Chinese Name (Original Foreign Name)",
       "price": 0,
       "qty": 1
     }
   ]
 }
-Rules:
-1. Translate foreign dish/product names and store name to Traditional Chinese with original name in parentheses: '中文翻譯 (原文)'.
-2. 'currencyCode': Determine the currency of the receipt ('JPY' for Japanese Yen / ¥, 'TWD' for NT$, 'KRW' for ₩, 'USD' for $, 'EUR' for €, 'THB' for ฿, 'VND' for ₫, etc.).
-3. 'date': Extract the receipt date (YYYY-MM-DD) if visible.
-4. 'time': Extract the receipt time (HH:MM) if visible.
-5. 'price' for each item should be the TOTAL price for that line item (unit price * qty).
-6. If service charge / tip is present, put it in 'serviceCharge'.
-7. If tax is present separately, put it in 'tax'.
-8. If discounts are present, put them in 'discount' as a positive number.
-9. 'totalAmount' must be the final total bill amount.
-10. All prices and amounts must be clean numbers, without currency symbols.`;
+
+CRITICAL TRANSLATION & NAMING GUIDELINES:
+1. NEVER do rigid, awkward, word-for-word machine translation. Translations must be natural, appetizing, and match everyday Traditional Chinese (Taiwan/Hong Kong) common usage and vocabulary.
+2. FAMOUS BRAND NAMES & POPULAR PRODUCTS: Keep widely recognized English or popular brand names rather than awkward phonetic literal translations:
+   - 'キットカット' (KitKat) -> 'KitKat 巧克力' (DO NOT translate to '奇巧' or '奇巧巧克力')
+   - 'オトナの甘さ' / 'オトナの甘' -> '大人味微甜 / 黑巧克力' (DO NOT translate to '成人甜味')
+   - Example: '★キットカット オトナの甘' -> 'KitKat 大人味巧克力 (★キットカット オトナの甘)'
+   - 'ポッキー' (Pocky) -> 'Pocky 巧克力棒' (DO NOT translate to '百奇')
+   - 'ブラックサンダー' -> '雷神巧克力'
+   - 'じゃがりこ' / 'カルビー' -> 'Calbee 薯條 / 餅乾'
+   - 'コカ・コーラ' -> '可口可樂' / 'ZERO 可樂'
+   - '午後の紅茶' -> '午後紅茶 (奶茶/檸檬茶/紅茶)'
+   - 'レッドブル' -> 'Red Bull 紅牛能量飲'
+   - 'モンスター' -> 'Monster 魔爪能量飲'
+   - 'ハーゲンダッツ' -> '哈根達斯 冰淇淋'
+   - 'スターバックス' -> '星巴克'
+3. RESTAURANT & FOOD DISHES: Use clear, everyday dining terms:
+   - '唐揚げ' -> '日式唐揚炸雞'
+   - '生ビール' / '生中' -> '生啤酒 (中杯)'
+   - 'ハイボール' -> 'Highball 角嗨/威士忌蘇打'
+   - 'サワー' -> '沙瓦'
+   - 'カルビ' -> '牛五花'
+   - 'ロース' -> '牛里肌 / 豬里肌'
+   - 'ハラミ' -> '牛橫膈膜'
+   - 'タン' / '牛タン' -> '牛舌'
+   - 'つくね' -> '雞肉丸'
+   - '枝豆' -> '毛豆'
+   - 'お通し' -> '開胃小菜 / 居酒屋前菜'
+   - '替玉' -> '加麵 / 續麵'
+   - '餃子' -> '煎餃'
+   - 'デザート' -> '甜點'
+4. FORMAT: Always use '通俗自然中文名稱 (原文)' for foreign items. If the receipt is already in Chinese, just output the Chinese name directly.
+5. NUMBERS: 'price' must be total line price (unit price * qty). 'totalAmount', 'subtotal', 'serviceCharge', 'tax', 'discount' must be clean numbers without symbols.`;
 
     // 1. 支援 Groq Cloud (gsk_...) - 100% 免費、極速 0.5s、免綁信用卡
     if(activeKey.startsWith("gsk_")){
@@ -5688,7 +5924,8 @@ Rules:
     // 🌟 一鍵直接記帳（無需跳回支出表單）
     if(aiDirectSaveBtn){
       aiDirectSaveBtn.addEventListener("click", async ()=>{
-        const storeName = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
+        const rawStore = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
+        const storeName = getFirstLineDesc(rawStore).replace(/\(AI自動拆單\)/g, "").trim() || "聚餐收據";
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
         const calculatedTotal = Math.round(subtotal + netExtraFees);
         const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;

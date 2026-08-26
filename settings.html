@@ -1111,24 +1111,51 @@ if(backBtn){
     });
   }
 
+  function getEffectiveAvatarUrl(){
+    // 1. 若 DOM 中的大頭貼預覽有 img 元素且 src 有值，直接取該圖片的 src（保證與畫面上看到的 100% 絕對一致）
+    const previewImg = document.querySelector("#settingsAvatarPreview img");
+    if(previewImg && previewImg.src && !previewImg.src.includes("undefined") && !previewImg.src.includes("null")){
+      return previewImg.src;
+    }
+    // 2. 優先從 Supabase members 資料庫的 avatar_url
+    if(myMember && myMember.avatar_url) return myMember.avatar_url;
+    if(window.myMember && window.myMember.avatar_url) return window.myMember.avatar_url;
+    // 3. 從本地快取
+    if(myMember && myMember.id){
+      const cached = localStorage.getItem("sb_avatar_" + myMember.id);
+      if(cached) return cached;
+    }
+    if(currentUser && currentUser.id){
+      const cached = localStorage.getItem("sb_avatar_" + currentUser.id);
+      if(cached) return cached;
+    }
+    const myAvatar = localStorage.getItem("sb_my_avatar");
+    if(myAvatar) return myAvatar;
+    // 4. 最後才是 user_metadata
+    if(currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url){
+      return currentUser.user_metadata.avatar_url;
+    }
+    return "";
+  }
+
   function renderSettingsAvatarPreview(){
     const previewEl = document.getElementById("settingsAvatarPreview");
     const removeBtn = document.getElementById("removeAvatarBtn");
     const zoomBtn = document.getElementById("avatarZoomBtn");
     if(!previewEl) return;
-    const currentAvatar = (currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) ||
-                          (myMember && myMember.avatar_url) ||
+    const currentAvatar = (myMember && myMember.avatar_url) ||
+                          (window.myMember && window.myMember.avatar_url) ||
+                          (currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) ||
                           localStorage.getItem("sb_my_avatar") || "";
     const memberObj = myMember ? { ...myMember, avatar_url: currentAvatar } : { name: currentUser ? currentUser.email : "?", avatar_url: currentAvatar };
     previewEl.innerHTML = renderAvatarHTML(memberObj, "avatar-xl");
-    if(removeBtn) removeBtn.classList.toggle("hidden", !currentAvatar);
-    if(zoomBtn) zoomBtn.classList.toggle("hidden", !currentAvatar);
+    const hasPhoto = Boolean(currentAvatar || previewEl.querySelector("img"));
+    if(removeBtn) removeBtn.classList.toggle("hidden", !hasPhoto);
+    if(zoomBtn) zoomBtn.classList.toggle("hidden", !hasPhoto);
   }
 
   function openAvatarModal(){
-    const currentAvatar = (currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) ||
-                          (myMember && myMember.avatar_url) ||
-                          localStorage.getItem("sb_my_avatar") || "";
+    const currentAvatar = getEffectiveAvatarUrl();
     if(!currentAvatar){
       sbAlert("目前使用姓名首字頭像，上傳相片後即可查看大圖！", "👤 大頭貼");
       return;

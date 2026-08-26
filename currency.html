@@ -218,10 +218,39 @@ if("serviceWorker" in navigator){
         <div class="edit-banner hidden" id="editBanner">
           ✎ 編輯模式 <button type="button" class="link-btn" id="cancelEditBtn">取消編輯</button>
         </div>
-        <label id="expAmountLabel"></label>
+        <label id="expAmountLabel">不含稅/免稅 總金額</label>
         <div class="input-calc-wrap">
-          <input type="number" id="expAmount" placeholder="例如 850" min="1" step="1">
+          <input type="number" id="expAmount" placeholder="例如 850" min="0" step="1">
           <button type="button" class="amt-row-calc-btn input-calc-btn" id="expAmountCalcBtn" title="小計算機">🧮</button>
+        </div>
+
+        <!-- 服務費 / 稅額（選填折疊卡片） -->
+        <div class="exp-addons-container" id="expTaxContainer" style="margin-top: 10px; margin-bottom: 12px;">
+          <button type="button" class="exp-addons-toggle" id="expTaxToggle">
+            <div class="exp-addons-toggle-left">
+              <span class="exp-addons-icon">🏷️</span>
+              <span class="exp-addons-title">服務費 / 稅額</span>
+              <span class="exp-addons-badge">選填</span>
+            </div>
+            <span class="exp-addons-caret" id="expTaxCaret">▾</span>
+          </button>
+          <div class="exp-addons-body hidden" id="expTaxBody">
+            <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
+            
+            <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;display:block;margin-top:6px;">服務費 / 稅額金額</label>
+            <div class="input-calc-wrap" style="margin-bottom:10px;">
+              <input type="number" id="expTaxAmount" placeholder="例如 85" min="0" step="1">
+              <button type="button" class="amt-row-calc-btn input-calc-btn" id="expTaxCalcBtn" title="小計算機">🧮</button>
+            </div>
+
+            <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:6px;">分配方式</label>
+            <div class="ai-tax-split-toggle" style="margin-bottom:8px;">
+              <button type="button" class="ai-tax-btn active" data-manual-tax-mode="ratio" id="expManualTaxRatioBtn" title="吃較多/消費額較多者按比例分攤較多稅額">依照個人消費額比例分配</button>
+              <button type="button" class="ai-tax-btn" data-manual-tax-mode="equal" id="expManualTaxEqualBtn" title="所有參與者平均分攤稅額">全員平分</button>
+            </div>
+
+            <div class="exp-tax-preview hidden" id="expTaxPreview" style="font-size:12px;padding:8px 12px;background:var(--card-subtle);border-radius:8px;color:var(--ink-soft);line-height:1.6;"></div>
+          </div>
         </div>
 
         <label>項目說明</label>
@@ -651,6 +680,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=403"></script>
+<script src="app.js?v=407"></script>
 </body>
 </html>
