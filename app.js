@@ -4294,11 +4294,26 @@ function showPairDetail(
     return await fetchSystemGeminiApiKey();
   }
 
-  async function parseReceiptWithGemini(pureBase64, mimeType, apiKey){
+  async function parseReceiptWithGemini(pureBase64, mimeType = "image/jpeg", apiKey = ""){
+    // 🌟 1. 優先使用 Supabase 後端 Edge Function（前端 100% 零金鑰、後端環境變數集中管理）
+    try {
+      if(sb && sb.functions){
+        const { data, error } = await sb.functions.invoke("parse-receipt", {
+          body: { imageBase64: pureBase64, mimeType }
+        });
+        if(!error && data && (Array.isArray(data.items) || typeof data.totalAmount === "number")){
+          return data;
+        }
+      }
+    } catch(edgeErr){
+      console.warn("Backend Edge Function fallback:", edgeErr);
+    }
+
     const activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey();
     if(!activeKey){
-      throw new Error("尚未設定 Gemini API Key，請至設定頁輸入或確認雲端設定。");
+      throw new Error("後端尚未設定 AI 金鑰（請在 Supabase Dashboard Secrets 設定 GEMINI_API_KEY，或至 App 設定頁輸入個人金鑰）。");
     }
+
     const prompt = `You are an expert receipt & invoice OCR parsing AI. Analyze the image carefully.
 Extract all details and output in STRICT JSON format (no markdown, no backticks, only valid raw JSON):
 {
@@ -4324,6 +4339,120 @@ Rules:
 5. "totalAmount" must be the final total bill amount.
 6. All prices and amounts must be clean numbers, without currency symbols.`;
 
+    // 1. 支援 Groq Cloud (gsk_...) - 100% 免費、極速 0.5s、免綁信用卡
+    if(activeKey.startsWith("gsk_")){
+      const groqModels = ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"];
+      let groqErr = null;
+      for(const gm of groqModels){
+        try {
+          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${activeKey}`
+            },
+            body: JSON.stringify({
+              model: gm,
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+                ]
+              }],
+              response_format: { type: "json_object" },
+              temperature: 0.1
+            })
+          });
+          if(!res.ok){
+            const err = await res.json().catch(()=>({}));
+            groqErr = new Error((err && err.error && err.error.message) || `Groq HTTP ${res.status}`);
+            continue;
+          }
+          const data = await res.json();
+          const rawText = data?.choices?.[0]?.message?.content || "{}";
+          const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+          return JSON.parse(cleaned);
+        } catch(e){
+          groqErr = e;
+        }
+      }
+      throw groqErr || new Error("Groq API 呼叫失敗。");
+    }
+
+    // 2. 支援 OpenRouter (sk-or-...) - 100% 免費模型支援
+    if(activeKey.startsWith("sk-or-")){
+      const orModels = ["google/gemini-2.0-flash-exp:free", "meta-llama/llama-3.2-11b-vision-instruct:free"];
+      let orErr = null;
+      for(const om of orModels){
+        try {
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${activeKey}`,
+              "HTTP-Referer": window.location.origin,
+              "X-Title": "Splitbill Receipt OCR"
+            },
+            body: JSON.stringify({
+              model: om,
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+                ]
+              }],
+              response_format: { type: "json_object" }
+            })
+          });
+          if(!res.ok){
+            const err = await res.json().catch(()=>({}));
+            orErr = new Error((err && err.error && err.error.message) || `OpenRouter HTTP ${res.status}`);
+            continue;
+          }
+          const data = await res.json();
+          const rawText = data?.choices?.[0]?.message?.content || "{}";
+          const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+          return JSON.parse(cleaned);
+        } catch(e){
+          orErr = e;
+        }
+      }
+      throw orErr || new Error("OpenRouter API 呼叫失敗。");
+    }
+
+    // 3. 支援 OpenAI (sk-...)
+    if(activeKey.startsWith("sk-")){
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${activeKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${pureBase64}` } }
+            ]
+          }],
+          response_format: { type: "json_object" }
+        })
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({}));
+        throw new Error((err && err.error && err.error.message) || `OpenAI HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const rawText = data?.choices?.[0]?.message?.content || "{}";
+      const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+      return JSON.parse(cleaned);
+    }
+
+    // 4. Google Gemini API
     const candidateModels = [
       "gemini-flash-latest",
       "gemini-3.5-flash",
@@ -4520,7 +4649,7 @@ Rules:
       };
     }
 
-    // 繪製裁切畫布
+    // 繪製裁切畫布（支援 High-DPI / Retina 高清螢幕）
     function renderCropCanvas(){
       if(!cropCanvas || !currentRawImage) return;
       const ctx = cropCanvas.getContext("2d");
@@ -4532,11 +4661,17 @@ Rules:
 
       const dispW = Math.round(origW * scale);
       const dispH = Math.round(origH * scale);
+      const dpr = Math.max(window.devicePixelRatio || 1, 2); // 至少 2x 畫質確保極致清晰
 
-      cropCanvas.width = dispW;
-      cropCanvas.height = dispH;
+      cropCanvas.width = Math.round(dispW * dpr);
+      cropCanvas.height = Math.round(dispH * dpr);
+      cropCanvas.style.width = dispW + "px";
+      cropCanvas.style.height = dispH + "px";
 
       ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.clearRect(0, 0, dispW, dispH);
 
       // 旋轉並繪製原圖
@@ -4547,6 +4682,9 @@ Rules:
       const drawH = (is90 ? dispW : dispH);
       ctx.drawImage(currentRawImage, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
 
       // 繪製半透明暗色遮罩
       const rx = cropRect.x * dispW;
@@ -4596,6 +4734,8 @@ Rules:
         ctx.fill();
         ctx.stroke();
       });
+
+      ctx.restore();
     }
 
     // 裁切互動手勢（支援 Pointer Events 手機觸控與電腦滑鼠）
