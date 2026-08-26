@@ -4237,7 +4237,8 @@ button.dd-btn {
   max-width:320px;
   justify-content:center;
 }
-.ai-source-buttons-row button{
+.ai-source-buttons-row button,
+.ai-source-buttons-row label.btn{
   flex:1;
   padding:10px 14px;
   font-size:13.5px;
@@ -4246,6 +4247,8 @@ button.dd-btn {
   align-items:center;
   justify-content:center;
   gap:6px;
+  box-sizing:border-box;
+  text-decoration:none;
 }
 
 .ai-receipt-loading-logo-wrap{

@@ -5118,23 +5118,34 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
     modal.addEventListener("click", (e)=>{ if(e.target === modal) closeModal(); });
 
-    // 拍照 vs 相簿按鈕綁定
+    // 拍照 vs 相簿按鈕綁定（相容手機原生與 JS 觸發）
     if(cameraBtn && cameraInp){
-      cameraBtn.addEventListener("click", ()=> cameraInp.click());
+      cameraBtn.addEventListener("click", (e)=> {
+        // 如果是由 label 原生觸發則不重複 click()
+        if(e.target !== cameraInp) {
+          try { cameraInp.click(); } catch(err){}
+        }
+      });
     }
     if(galleryBtn && galleryInp){
-      galleryBtn.addEventListener("click", ()=> galleryInp.click());
+      galleryBtn.addEventListener("click", (e)=> {
+        if(e.target !== galleryInp) {
+          try { galleryInp.click(); } catch(err){}
+        }
+      });
     }
     if(selectFileBtn && fileInp){
-      selectFileBtn.addEventListener("click", ()=> fileInp.click());
+      selectFileBtn.addEventListener("click", ()=> {
+        try { fileInp.click(); } catch(err){}
+      });
     }
 
     [cameraInp, galleryInp, fileInp].forEach(inp => {
       if(inp){
-        inp.addEventListener("change", ()=>{
-          if(inp.files && inp.files[0]){
-            loadReceiptImageForCrop(inp.files[0]);
-            inp.value = "";
+        inp.addEventListener("change", (e)=>{
+          const file = (inp.files && inp.files[0]) || (e.target && e.target.files && e.target.files[0]);
+          if(file){
+            loadReceiptImageForCrop(file);
           }
         });
       }
@@ -5165,21 +5176,84 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       }
     });
 
-    // 載入圖片並進入裁切模式
+    // 載入圖片並進入裁切模式（支援相機高畫質照片與手機降採樣防崩潰）
     function loadReceiptImageForCrop(file){
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      if(!file) return;
+
+      const finishCropInit = (loadedImg) => {
+        currentRawImage = loadedImg;
+        cropAngle = 0;
+        cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 };
+        openModal("crop");
+        setTimeout(()=>{
+          renderCropCanvas();
+        }, 30);
+      };
+
+      try {
+        const objectUrl = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
-          currentRawImage = img;
-          cropAngle = 0;
-          cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 };
-          openModal("crop");
-          renderCropCanvas();
+          let { width, height } = img;
+          const maxDim = 2048;
+          if(width > maxDim || height > maxDim){
+            const ratio = maxDim / Math.max(width, height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const scaledImg = new Image();
+            scaledImg.onload = () => {
+              URL.revokeObjectURL(objectUrl);
+              finishCropInit(scaledImg);
+            };
+            scaledImg.onerror = () => {
+              URL.revokeObjectURL(objectUrl);
+              finishCropInit(img);
+            };
+            scaledImg.src = canvas.toDataURL("image/jpeg", 0.92);
+            return;
+          }
+
+          URL.revokeObjectURL(objectUrl);
+          finishCropInit(img);
         };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          // 備援 FileReader
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => finishCropInit(fallbackImg);
+            fallbackImg.onerror = () => {
+              sbAlert("無法載入此照片，請換另一張照片重試。", "載入失敗");
+            };
+            fallbackImg.src = e.target.result;
+          };
+          reader.onerror = () => {
+            sbAlert("無法讀取此相片檔案，請重試。", "讀取失敗");
+          };
+          reader.readAsDataURL(file);
+        };
+
+        img.src = objectUrl;
+      } catch(err){
+        console.error("loadReceiptImageForCrop error:", err);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const fallbackImg = new Image();
+          fallbackImg.onload = () => finishCropInit(fallbackImg);
+          fallbackImg.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
     }
 
     // 取得旋轉後的圖片寬高
