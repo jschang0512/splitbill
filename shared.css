@@ -4175,15 +4175,52 @@ button.dd-btn {
   padding:40px 20px;
   text-align:center;
 }
-.ai-receipt-spinner{
-  width:44px;
-  height:44px;
-  margin:0 auto 16px;
-  border:3.5px solid rgba(122,107,158,.2);
-  border-top-color:var(--btn-primary);
-  border-radius:50%;
-  animation:sbSpin .8s linear infinite;
+.ai-source-buttons-row{
+  display:flex;
+  gap:10px;
+  margin:16px auto 0 auto;
+  width:100%;
+  max-width:320px;
+  justify-content:center;
 }
+.ai-source-buttons-row button{
+  flex:1;
+  padding:10px 14px;
+  font-size:13.5px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+
+.ai-receipt-loading-logo-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 auto 16px;
+}
+.ai-loading-splash-logo{
+  width:64px;
+  height:64px;
+  filter:drop-shadow(0 8px 24px rgba(122,107,158,.35));
+  animation:aiLogoRotate 3s linear infinite;
+}
+.ai-loading-splash-logo .s1,
+.ai-loading-splash-logo .s2,
+.ai-loading-splash-logo .s3{
+  fill:url(#logoGrad);
+  transform-origin:center;
+  animation:pwaSplashSlice 1.1s ease-in-out infinite backwards;
+}
+.ai-loading-splash-logo .s1{ animation-delay:0s; }
+.ai-loading-splash-logo .s2{ animation-delay:.36s; }
+.ai-loading-splash-logo .s3{ animation-delay:.72s; }
+@keyframes aiLogoRotate{
+  0%{ transform:rotate(0deg); }
+  100%{ transform:rotate(360deg); }
+}
+
 .ai-receipt-loading-title{
   font-size:16px;
   font-weight:700;
@@ -4206,19 +4243,37 @@ button.dd-btn {
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  padding:10px 14px;
+  padding:8px 12px;
   background:var(--input-bg);
   border:1px solid var(--line);
   border-radius:12px;
   margin-top:8px;
 }
-.ai-receipt-store-name{
+.ai-receipt-store-wrap{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:1;
+  min-width:0;
+}
+.ai-receipt-store-icon{
+  font-size:15px;
+  flex-shrink:0;
+}
+.ai-receipt-store-input{
+  width:100%;
+  border:none;
+  background:transparent;
   font-size:14px;
   font-weight:700;
   color:var(--ink);
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  padding:4px 6px;
+  border-radius:6px;
+  outline:none;
+}
+.ai-receipt-store-input:focus{
+  background:var(--paper);
+  outline:1px solid var(--btn-primary);
 }
 .ai-receipt-store-total{
   font-size:15px;
@@ -4226,6 +4281,7 @@ button.dd-btn {
   color:var(--btn-primary);
   white-space:nowrap;
   font-family:'JetBrains Mono',monospace;
+  flex-shrink:0;
 }
 
 .ai-receipt-tax-panel{
@@ -4313,44 +4369,63 @@ button.dd-btn {
   min-width:0;
 }
 .ai-receipt-item-name{
-  font-size:13.5px;
-  font-weight:700;
-  color:var(--ink);
   flex:1;
-  border:none;
-  background:transparent;
-  padding:2px 4px;
-  border-radius:4px;
-  min-width:60px;
+  min-width:100px;
+  background:var(--input-bg);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:13.5px;
+  font-weight:600;
+  color:var(--ink);
+  outline:none;
+  transition:all .15s ease;
 }
 .ai-receipt-item-name:focus{
+  background:var(--paper);
+  border-color:var(--btn-primary);
+}
+.ai-receipt-price-wrap{
+  display:flex;
+  align-items:center;
+  gap:3px;
   background:var(--input-bg);
-  outline:1px solid var(--btn-primary);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:2px 8px;
+  width:90px;
+  flex-shrink:0;
+  transition:all .15s ease;
+}
+.ai-receipt-price-wrap:focus-within{
+  background:var(--paper);
+  border-color:var(--btn-primary);
+}
+.ai-receipt-cur-prefix{
+  font-size:12px;
+  color:var(--ink-soft);
+  font-weight:700;
 }
 .ai-receipt-item-price{
+  width:100%;
+  border:none;
+  background:transparent;
+  text-align:right;
   font-size:14px;
   font-weight:800;
   font-family:'JetBrains Mono',monospace;
   color:var(--ink);
-  width:75px;
-  text-align:right;
-  border:none;
-  background:transparent;
-  padding:2px 4px;
-  border-radius:4px;
-}
-.ai-receipt-item-price:focus{
-  background:var(--input-bg);
-  outline:1px solid var(--btn-primary);
+  outline:none;
+  padding:4px 0;
 }
 .ai-receipt-item-del{
   background:none;
   border:none;
   color:var(--ink-soft);
-  font-size:13px;
+  font-size:14px;
   cursor:pointer;
-  padding:2px 6px;
-  border-radius:4px;
+  padding:4px 8px;
+  border-radius:6px;
 }
 .ai-receipt-item-del:hover{
   color:var(--negative-text);
@@ -4438,11 +4513,95 @@ button.dd-btn {
   color:var(--btn-primary);
 }
 
-.ai-receipt-actions{
-  margin-top:16px;
+/* 直接記帳面板 */
+.ai-receipt-record-panel{
+  margin-top:14px;
+  padding:12px;
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:12px;
+}
+.ai-record-panel-title{
+  font-size:13px;
+  font-weight:700;
+  color:var(--ink);
+  margin-bottom:10px;
+}
+.ai-payer-mode-toggle{
+  display:flex;
+  gap:6px;
+  margin-bottom:10px;
+}
+.ai-payer-mode-btn{
+  flex:1;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:600;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:var(--input-bg);
+  color:var(--ink-soft);
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.ai-payer-mode-btn.active{
+  background:var(--btn-primary);
+  color:#FFFFFF;
+  border-color:var(--btn-primary);
+  font-weight:700;
+}
+.ai-select-custom, .ai-input-custom{
+  width:100%;
+  padding:7px 10px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:var(--input-bg);
+  font-size:13px;
+  color:var(--ink);
+  outline:none;
+}
+.ai-select-custom:focus, .ai-input-custom:focus{
+  border-color:var(--btn-primary);
+  background:var(--paper);
+}
+.ai-payer-multi-list{
   display:flex;
   flex-direction:column;
+  gap:6px;
+  margin-top:6px;
+}
+.ai-payer-multi-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   gap:8px;
+}
+.ai-payer-sum-check{
+  font-size:11.5px;
+  margin-top:6px;
+  text-align:right;
+}
+
+/* 金額組成預覽卡 */
+.ai-breakdown-preview-card{
+  margin-top:12px;
+  padding:10px 12px;
+  background:var(--input-bg);
+  border:1px dashed var(--line);
+  border-radius:10px;
+  font-size:12px;
+}
+.ai-breakdown-title{
+  font-weight:700;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+}
+.ai-breakdown-content{
+  color:var(--ink);
+  line-height:1.5;
+  white-space:pre-wrap;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11.5px;
 }
 
 

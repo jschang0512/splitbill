@@ -272,7 +272,9 @@
       if(m.avatar_url){
         localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
         if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
-        if(m.name) localStorage.setItem("sb_avatar_" + m.name, m.avatar_url);
+      } else {
+        localStorage.removeItem("sb_avatar_" + m.id);
+        if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
       }
       m.accountName = m.name; // 保留帳號原始姓名（不含暱稱/標籤），設定頁「姓名」欄位要用
       if(m.nickname) m.name = m.nickname; // 這個群組如果有另外設定暱稱，畫面上一律優先顯示暱稱
@@ -596,12 +598,10 @@
     window.myMember = myMember;
 
     let myAvatar = "";
-    if(user && user.user_metadata && typeof user.user_metadata.avatar_url !== "undefined"){
-      myAvatar = user.user_metadata.avatar_url || "";
-    } else if(myMember && myMember.avatar_url){
+    if(myMember && myMember.avatar_url){
       myAvatar = myMember.avatar_url;
-    } else {
-      myAvatar = localStorage.getItem("sb_my_avatar") || "";
+    } else if(user && user.user_metadata && user.user_metadata.avatar_url){
+      myAvatar = user.user_metadata.avatar_url;
     }
 
     if(myMember){
@@ -611,8 +611,6 @@
         if(user && user.id) localStorage.setItem("sb_avatar_" + user.id, myAvatar);
         localStorage.setItem("sb_avatar_" + myMember.id, myAvatar);
         if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, myAvatar);
-        if(myMember.name) localStorage.setItem("sb_avatar_" + myMember.name, myAvatar);
-        if(myMember.accountName) localStorage.setItem("sb_avatar_" + myMember.accountName, myAvatar);
       } else {
         localStorage.removeItem("sb_avatar_" + myMember.id);
         if(myMember.user_id) localStorage.removeItem("sb_avatar_" + myMember.user_id);
@@ -4281,14 +4279,38 @@ function showPairDetail(
     }
     if(systemGeminiApiKey) return systemGeminiApiKey;
     try {
-      const { data, error } = await sb.from("app_settings").select("value").eq("key", "gemini_api_key").single();
-      if(data && data.value){
-        systemGeminiApiKey = data.value.trim();
-        localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
+      if(typeof sb !== "undefined" && sb && sb.from){
+        const { data, error } = await sb.from("app_settings").select("value").eq("key", "gemini_api_key").single();
+        if(data && data.value){
+          systemGeminiApiKey = data.value.trim();
+          localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
+        }
       }
     } catch(e){
-      console.warn("fetchSystemGeminiApiKey error:", e);
+      console.warn("fetchSystemGeminiApiKey Supabase error, trying REST fallback:", e);
     }
+
+    // Direct REST API Fallback
+    if(!systemGeminiApiKey){
+      try {
+        const res = await fetch("https://ofevarwtqzvzrvhbanmf.supabase.co/rest/v1/app_settings?key=eq.gemini_api_key&select=value", {
+          headers: {
+            "apikey": "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX",
+            "Authorization": "Bearer sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX"
+          }
+        });
+        if(res.ok){
+          const list = await res.json();
+          if(Array.isArray(list) && list.length > 0 && list[0].value){
+            systemGeminiApiKey = list[0].value.trim();
+            localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
+          }
+        }
+      } catch(restErr){
+        console.warn("REST app_settings fetch error:", restErr);
+      }
+    }
+
     return systemGeminiApiKey;
   }
 
@@ -4305,7 +4327,7 @@ function showPairDetail(
   async function parseReceiptWithGemini(pureBase64, mimeType = "image/jpeg", apiKey = ""){
     // 🌟 1. 優先使用 Supabase 後端 Edge Function（前端 100% 零金鑰、後端環境變數集中管理）
     try {
-      if(sb && sb.functions){
+      if(typeof sb !== "undefined" && sb && sb.functions){
         const { data, error } = await sb.functions.invoke("parse-receipt", {
           body: { imageBase64: pureBase64, mimeType }
         });
@@ -4319,7 +4341,7 @@ function showPairDetail(
 
     const activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey();
     if(!activeKey){
-      throw new Error("後端尚未設定 AI 金鑰（請在 Supabase Dashboard Secrets 設定 GEMINI_API_KEY，或至 App 設定頁輸入個人金鑰）。");
+      throw new Error("系統 AI 金鑰正在連線中，請確認網路連線或稍後再試。");
     }
 
     const prompt = `You are an expert receipt & invoice OCR parsing AI. Analyze the image carefully.
@@ -4333,7 +4355,7 @@ Extract all details and output in STRICT JSON format (no markdown, no backticks,
   "totalAmount": 0,
   "items": [
     {
-      "name": "Item or dish name",
+      "name": "Item or dish name (NEVER leave empty, use original language)",
       "price": 0,
       "qty": 1
     }
@@ -4404,7 +4426,7 @@ Rules:
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${activeKey}`,
-              "HTTP-Referer": window.location.origin,
+              "HTTP-Referer": "https://jschang0512.github.io/splitbill",
               "X-Title": "Splitbill Receipt OCR"
             },
             body: JSON.stringify({
@@ -4432,7 +4454,7 @@ Rules:
           orErr = e;
         }
       }
-      throw orErr || new Error("OpenRouter API 呼叫失敗。");
+      throw orErr || new Error("AI 辨識服務暫時忙碌中，請稍候重試。");
     }
 
     // 3. 支援 OpenAI (sk-...)
@@ -4546,7 +4568,7 @@ Rules:
     const cropRetakeBtn = document.getElementById("aiCropRetakeBtn");
     const cropConfirmBtn = document.getElementById("aiCropConfirmBtn");
 
-    const storeNameEl = document.getElementById("aiReceiptStoreName");
+    const storeInputEl = document.getElementById("aiReceiptStoreInput");
     const storeTotalEl = document.getElementById("aiReceiptStoreTotal");
     const subtotalTextEl = document.getElementById("aiReceiptSubtotalText");
     const serviceTextEl = document.getElementById("aiReceiptServiceText");
@@ -4557,8 +4579,22 @@ Rules:
     const addItemBtn = document.getElementById("aiReceiptAddItemBtn");
     const ratioBtn = document.getElementById("aiTaxRatioBtn");
     const equalBtn = document.getElementById("aiTaxEqualBtn");
-    const applyBtn = document.getElementById("aiReceiptApplyBtn");
     const retakeBtn = document.getElementById("aiReceiptRetakeBtn");
+
+    // 直接記帳相關元素
+    const aiPayerModeSingle = document.getElementById("aiPayerModeSingle");
+    const aiPayerModeMulti = document.getElementById("aiPayerModeMulti");
+    const aiPayerSingleRow = document.getElementById("aiPayerSingleRow");
+    const aiPayerMultiPanel = document.getElementById("aiPayerMultiPanel");
+    const aiPaidBySingle = document.getElementById("aiPaidBySingle");
+    const aiPayerMultiList = document.getElementById("aiPayerMultiList");
+    const aiPayerSumCheck = document.getElementById("aiPayerSumCheck");
+    const aiExpenseDate = document.getElementById("aiExpenseDate");
+    const aiExpenseTime = document.getElementById("aiExpenseTime");
+    const aiBreakdownContent = document.getElementById("aiBreakdownContent");
+    const aiDirectSaveBtn = document.getElementById("aiReceiptDirectSaveBtn");
+
+    let aiPayerMode = "single";
 
     if(!modal || !openBtn) return;
     if(isAiReceiptModalInitialized) return;
@@ -4567,7 +4603,7 @@ Rules:
     // Cropper State
     let currentRawImage = null;
     let cropAngle = 0; // 0, 90, 180, 270
-    let cropRect = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 }; // normalized 0..1
+    let cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 }; // 預設全覆蓋長方形
     let dragMode = null; // "move" | "tl" | "tr" | "bl" | "br" | "t" | "b" | "l" | "r"
     let dragStartX = 0, dragStartY = 0;
     let dragStartRect = null;
@@ -4651,7 +4687,6 @@ Rules:
         img.onload = () => {
           currentRawImage = img;
           cropAngle = 0;
-          // 預設全覆蓋自由長方形裁切框
           cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 };
           openModal("crop");
           renderCropCanvas();
@@ -4683,7 +4718,7 @@ Rules:
 
       const dispW = Math.round(origW * scale);
       const dispH = Math.round(origH * scale);
-      const dpr = Math.max(window.devicePixelRatio || 1, 2); // 至少 2x 畫質確保極致清晰
+      const dpr = Math.max(window.devicePixelRatio || 1, 2);
 
       cropCanvas.width = Math.round(dispW * dpr);
       cropCanvas.height = Math.round(dispH * dpr);
@@ -4737,18 +4772,14 @@ Rules:
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 繪製 4 個頂角 L 型加強邊角與圓形觸控點
+      // 繪製 4 個頂角 L 型加強邊角
       const cornerBracketLen = Math.min(22, Math.min(rw, rh) / 2);
       ctx.strokeStyle = "#FFFFFF";
       ctx.lineWidth = 3.5;
       ctx.beginPath();
-      // TL
       ctx.moveTo(rx, ry + cornerBracketLen); ctx.lineTo(rx, ry); ctx.lineTo(rx + cornerBracketLen, ry);
-      // TR
       ctx.moveTo(rx + rw - cornerBracketLen, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + cornerBracketLen);
-      // BL
       ctx.moveTo(rx, ry + rh - cornerBracketLen); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + cornerBracketLen, ry + rh);
-      // BR
       ctx.moveTo(rx + rw - cornerBracketLen, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - cornerBracketLen);
       ctx.stroke();
 
@@ -4759,10 +4790,10 @@ Rules:
       ctx.lineWidth = 2.5;
 
       const corners = [
-        [rx, ry], // tl
-        [rx + rw, ry], // tr
-        [rx, ry + rh], // bl
-        [rx + rw, ry + rh] // br
+        [rx, ry],
+        [rx + rw, ry],
+        [rx, ry + rh],
+        [rx + rw, ry + rh]
       ];
 
       corners.forEach(([cx, cy]) => {
@@ -4772,13 +4803,13 @@ Rules:
         ctx.stroke();
       });
 
-      // 繪製 4 邊中點觸控圓點（便於單軸拉動）
+      // 繪製 4 邊中點觸控圓點
       if(rw > 60 && rh > 60){
         const midPoints = [
-          [rx + rw / 2, ry], // top
-          [rx + rw / 2, ry + rh], // bottom
-          [rx, ry + rh / 2], // left
-          [rx + rw, ry + rh / 2] // right
+          [rx + rw / 2, ry],
+          [rx + rw / 2, ry + rh],
+          [rx, ry + rh / 2],
+          [rx + rw, ry + rh / 2]
         ];
         ctx.fillStyle = "#E8E2F4";
         ctx.strokeStyle = "#5A4B7C";
@@ -4820,7 +4851,7 @@ Rules:
         const ry = cropRect.y * p.dispH;
         const rw = cropRect.w * p.dispW;
         const rh = cropRect.h * p.dispH;
-        const hitRadius = 32; // 手機觸控超大 32px 感應半徑
+        const hitRadius = 32;
 
         const dTL = Math.hypot(p.px - rx, p.py - ry);
         const dTR = Math.hypot(p.px - (rx + rw), p.py - ry);
@@ -4831,12 +4862,10 @@ Rules:
         else if(dTR <= hitRadius) dragMode = "tr";
         else if(dBL <= hitRadius) dragMode = "bl";
         else if(dBR <= hitRadius) dragMode = "br";
-        // 4 邊緣拖曳判定
         else if(Math.abs(p.py - ry) <= 18 && p.px >= rx && p.px <= rx + rw) dragMode = "t";
         else if(Math.abs(p.py - (ry + rh)) <= 18 && p.px >= rx && p.px <= rx + rw) dragMode = "b";
         else if(Math.abs(p.px - rx) <= 18 && p.py >= ry && p.py <= ry + rh) dragMode = "l";
         else if(Math.abs(p.px - (rx + rw)) <= 18 && p.py >= ry && p.py <= ry + rh) dragMode = "r";
-        // 框內中心移動判定
         else if(p.px >= rx && p.px <= rx + rw && p.py >= ry && p.py <= ry + rh) dragMode = "move";
         else dragMode = null;
       });
@@ -4844,7 +4873,6 @@ Rules:
       cropCanvas.addEventListener("pointermove", (e)=>{
         const p = getCanvasPointer(e);
         if(!dragMode || !dragStartRect){
-          // 滑鼠 Hover 動態游標提示
           const rx = cropRect.x * p.dispW;
           const ry = cropRect.y * p.dispH;
           const rw = cropRect.w * p.dispW;
@@ -4917,16 +4945,14 @@ Rules:
       cropCanvas.addEventListener("pointercancel", endPointer);
     }
 
-    // 旋轉 90 度按鈕
     if(cropRotateBtn){
       cropRotateBtn.addEventListener("click", ()=>{
         cropAngle = (cropAngle + 90) % 360;
-        cropRect = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 };
+        cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 };
         renderCropCanvas();
       });
     }
 
-    // 重設裁切按鈕
     if(cropResetBtn){
       cropResetBtn.addEventListener("click", ()=>{
         cropRect = { x: 0, y: 0, w: 1, h: 1 };
@@ -4934,7 +4960,6 @@ Rules:
       });
     }
 
-    // 重新選擇照片按鈕
     if(cropRetakeBtn){
       cropRetakeBtn.addEventListener("click", ()=>{
         openModal("upload");
@@ -4949,7 +4974,6 @@ Rules:
         showScreen("loading");
 
         try {
-          // 在高解析度 Canvas 上執行旋轉與裁切
           const { w: rotW, h: rotH } = getRotatedDimensions();
           const targetW = Math.round(rotW * cropRect.w);
           const targetH = Math.round(rotH * cropRect.h);
@@ -4971,7 +4995,6 @@ Rules:
           offCanvas.height = finalH;
           const offCtx = offCanvas.getContext("2d");
 
-          // 繪製裁切區域
           const tempRotCanvas = document.createElement("canvas");
           tempRotCanvas.width = rotW;
           tempRotCanvas.height = rotH;
@@ -4993,13 +5016,16 @@ Rules:
           const parsed = await parseReceiptWithGemini(pureBase64, "image/jpeg", key);
           currentReceiptData = parsed;
           
-          receiptClaimItems = (parsed.items || []).map((it, idx) => ({
-            id: "item_" + idx + "_" + Date.now(),
-            name: it.name || `品項 ${idx + 1}`,
-            price: Number(it.price) || 0,
-            qty: Number(it.qty) || 1,
-            claimedMemberIds: []
-          }));
+          receiptClaimItems = (parsed.items || []).map((it, idx) => {
+            const rawName = (it.name || it.item || it.description || it.title || it.dish || "").trim();
+            return {
+              id: "item_" + idx + "_" + Date.now(),
+              name: rawName || `品項 ${idx + 1}`,
+              price: Number(it.price || it.amount || it.total || 0),
+              qty: Number(it.qty || 1),
+              claimedMemberIds: []
+            };
+          });
 
           if(!receiptClaimItems.length){
             receiptClaimItems.push({
@@ -5014,18 +5040,108 @@ Rules:
           renderClaimBoard();
           showScreen("claim");
         } catch(err){
-          console.error("Gemini 辨識收據失敗：", err);
+          console.error("AI 辨識收據失敗：", err);
           await sbAlert("AI 辨識收據失敗：" + (err.message || "未知錯誤") + "。請確認 API Key 是否正確，或嘗試重新拍攝一張清晰的照片。", "📷 辨識失敗");
           showScreen("crop");
         }
       });
     }
 
+    // 付款模式切換監聽
+    if(aiPayerModeSingle && aiPayerModeMulti){
+      aiPayerModeSingle.addEventListener("click", ()=>{
+        aiPayerMode = "single";
+        updatePayerModeUI();
+      });
+      aiPayerModeMulti.addEventListener("click", ()=>{
+        aiPayerMode = "multi";
+        updatePayerModeUI();
+      });
+    }
+
+    function updatePayerModeUI(){
+      if(aiPayerModeSingle) aiPayerModeSingle.classList.toggle("active", aiPayerMode === "single");
+      if(aiPayerModeMulti) aiPayerModeMulti.classList.toggle("active", aiPayerMode === "multi");
+      if(aiPayerSingleRow) aiPayerSingleRow.classList.toggle("hidden", aiPayerMode !== "single");
+      if(aiPayerMultiPanel) aiPayerMultiPanel.classList.toggle("hidden", aiPayerMode !== "multi");
+      updateMultiPayerSumCheck();
+    }
+
+    function updateMultiPayerSumCheck(){
+      if(aiPayerMode !== "multi" || !aiPayerSumCheck) return;
+      const { subtotal, netExtraFees } = calculateMemberTotals();
+      const calculatedTotal = Math.round(subtotal + netExtraFees);
+      const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+
+      let sum = 0;
+      if(aiPayerMultiList){
+        aiPayerMultiList.querySelectorAll(".ai-multi-payer-input").forEach(inp => {
+          sum += Number(inp.value) || 0;
+        });
+      }
+      const diff = Math.round((finalTotal - sum) * 100) / 100;
+      if(Math.abs(diff) < 0.5){
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--positive-text);font-weight:700;">✓ 付款金額完全相符 (${SYM}${formatAmt(sum)})</span>`;
+      } else if(diff > 0){
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和還差 ${SYM}${formatAmt(diff)}（目標 ${SYM}${formatAmt(finalTotal)}）</span>`;
+      } else {
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和超過 ${SYM}${formatAmt(Math.abs(diff))}（目標 ${SYM}${formatAmt(finalTotal)}）</span>`;
+      }
+    }
+
     function renderClaimBoard(){
       if(!currentReceiptData) return;
 
-      if(storeNameEl) storeNameEl.textContent = "🏪 " + (currentReceiptData.storeName || "聚餐收據");
-      if(storeTotalEl) storeTotalEl.textContent = `總計 ${SYM}${formatAmt(currentReceiptData.totalAmount || 0)}`;
+      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+
+      // 1. 可編輯店家名稱
+      if(storeInputEl){
+        storeInputEl.value = currentReceiptData.storeName || "聚餐收據";
+      }
+
+      // 2. 日期與時間預設當前時間
+      if(aiExpenseDate && !aiExpenseDate.value){
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        aiExpenseDate.value = `${yyyy}-${mm}-${dd}`;
+      }
+      if(aiExpenseTime && !aiExpenseTime.value){
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        aiExpenseTime.value = `${hh}:${min}`;
+      }
+
+      // 3. 單人付款下拉選單
+      if(aiPaidBySingle){
+        aiPaidBySingle.innerHTML = activeMembers.map(m => `
+          <option value="${m.id}" ${myMember && myMember.id === m.id ? 'selected' : ''}>
+            ${escapeHtml(m.name || emailToName(m.email))}
+          </option>
+        `).join("");
+      }
+
+      // 4. 多人付款清單
+      if(aiPayerMultiList){
+        aiPayerMultiList.innerHTML = activeMembers.map(m => `
+          <div class="ai-payer-multi-row">
+            <span style="display:flex;align-items:center;gap:5px;font-size:12.5px;">
+              ${renderAvatarHTML(m, "avatar-xs")}
+              ${escapeHtml(m.name || emailToName(m.email))}
+            </span>
+            <div class="ai-receipt-price-wrap" style="width:105px;">
+              <span class="ai-receipt-cur-prefix">${SYM}</span>
+              <input type="number" class="ai-receipt-item-price ai-multi-payer-input" data-id="${m.id}" placeholder="0" min="0" step="any">
+            </div>
+          </div>
+        `).join("");
+
+        aiPayerMultiList.querySelectorAll(".ai-multi-payer-input").forEach(inp => {
+          inp.addEventListener("input", updateMultiPayerSumCheck);
+        });
+      }
 
       const subtotal = receiptClaimItems.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
       const service = Number(currentReceiptData.serviceCharge) || 0;
@@ -5042,9 +5158,7 @@ Rules:
       if(ratioBtn) ratioBtn.classList.toggle("active", taxSplitMode === "ratio");
       if(equalBtn) equalBtn.classList.toggle("active", taxSplitMode === "equal");
 
-      // 渲染品項清單
-      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
-
+      // 5. 渲染品項清單（可修改品名與金額）
       if(itemsListEl){
         itemsListEl.innerHTML = receiptClaimItems.map((item) => {
           const isAllClaimed = activeMembers.length > 0 && activeMembers.every(m => item.claimedMemberIds.includes(m.id));
@@ -5064,9 +5178,11 @@ Rules:
             <div class="ai-receipt-item-card" data-id="${item.id}">
               <div class="ai-receipt-item-top">
                 <div class="ai-receipt-item-info">
-                  <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name)}" data-id="${item.id}">
-                  <span style="font-size:12px;color:var(--ink-soft);">${SYM}</span>
-                  <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" data-id="${item.id}">
+                  <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品項名稱 (可點擊修改)" data-id="${item.id}">
+                  <div class="ai-receipt-price-wrap">
+                    <span class="ai-receipt-cur-prefix">${SYM}</span>
+                    <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="金額" data-id="${item.id}">
+                  </div>
                 </div>
                 <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="刪除此品項">✕</button>
               </div>
@@ -5083,6 +5199,7 @@ Rules:
           inp.addEventListener("input", (e)=>{
             const it = receiptClaimItems.find(x => x.id === e.target.dataset.id);
             if(it) it.name = e.target.value;
+            updateCalculationsAndBadges();
           });
         });
 
@@ -5134,6 +5251,7 @@ Rules:
       }
 
       updateCalculationsAndBadges();
+      updatePayerModeUI();
     }
 
     function calculateMemberTotals(){
@@ -5187,9 +5305,37 @@ Rules:
       return { memberCalcMap, subtotal, netExtraFees };
     }
 
+    function generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal){
+      const lines = [];
+      const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
+      lines.push(`🏪 店家：${store}`);
+      lines.push(`💰 總額：${SYM}${formatAmt(finalTotal)} (小計 ${SYM}${formatAmt(subtotal)} + 服務費/稅 ${SYM}${formatAmt(netExtraFees)})`);
+      lines.push(`\n📋 品項明細：`);
+      receiptClaimItems.forEach((it, idx) => {
+        const claimNames = it.claimedMemberIds.map(id => memberById[id] || id).join("、");
+        const count = it.claimedMemberIds.length;
+        const perPerson = count > 1 ? ` (每人 ${SYM}${formatAmt(Math.round(it.price / count))})` : "";
+        lines.push(`  ${idx + 1}. ${it.name || '品項'} ${SYM}${formatAmt(it.price)} ➔ ${claimNames || '無人認領'}${perPerson}`);
+      });
+      lines.push(`\n👥 各成員應付金額：`);
+      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+      activeMembers.forEach(m => {
+        const d = memberCalcMap[m.id];
+        if(d && d.total > 0){
+          const taxPart = d.taxShare ? ` (含服務費 ${SYM}${formatAmt(Math.round(d.taxShare))})` : "";
+          lines.push(`  ・${m.name}：${SYM}${formatAmt(d.total)}${taxPart}`);
+        }
+      });
+      return lines.join("\n");
+    }
+
     function updateCalculationsAndBadges(){
-      const { memberCalcMap, subtotal } = calculateMemberTotals();
+      const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
+      const calculatedTotal = Math.round(subtotal + netExtraFees);
+      const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+
       if(subtotalTextEl) subtotalTextEl.textContent = `${SYM}${formatAmt(subtotal)}`;
+      if(storeTotalEl) storeTotalEl.textContent = `總計 ${SYM}${formatAmt(finalTotal)}`;
 
       if(membersGridEl){
         const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
@@ -5206,6 +5352,12 @@ Rules:
           `;
         }).join("");
       }
+
+      if(aiBreakdownContent){
+        aiBreakdownContent.textContent = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+      }
+
+      updateMultiPayerSumCheck();
     }
 
     if(addItemBtn){
@@ -5241,69 +5393,109 @@ Rules:
       });
     }
 
-    if(applyBtn){
-      applyBtn.addEventListener("click", async ()=>{
+    // 🌟 一鍵直接記帳（無需跳回支出表單）
+    if(aiDirectSaveBtn){
+      aiDirectSaveBtn.addEventListener("click", async ()=>{
+        const storeName = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
         const calculatedTotal = Math.round(subtotal + netExtraFees);
-        const finalTotal = currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+        const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
 
-        // 1. 填入項目說明
-        const expDescInp = document.getElementById("expDesc");
-        if(expDescInp && (!expDescInp.value || expDescInp.value === "聚餐支出")){
-          expDescInp.value = currentReceiptData.storeName || "聚餐 / 購物支出";
+        if(!finalTotal || finalTotal <= 0){
+          await sbAlert("總金額不能為 0！請確認品項金額。", "金額錯誤");
+          return;
         }
 
-        // 2. 填入總金額
-        const expAmountInp = document.getElementById("expAmount");
-        if(expAmountInp){
-          expAmountInp.value = finalTotal;
+        // 1. 付款人校驗
+        let payers = [];
+        if(aiPayerMode === "single"){
+          const payerId = aiPaidBySingle ? aiPaidBySingle.value : (myMember && myMember.id);
+          if(!payerId){
+            await sbAlert("請選擇付款人！", "付款人未選");
+            return;
+          }
+          payers = [{ member_id: payerId, amount: finalTotal }];
+        } else {
+          if(aiPayerMultiList){
+            aiPayerMultiList.querySelectorAll(".ai-multi-payer-input").forEach(inp => {
+              const amt = Number(inp.value) || 0;
+              if(amt > 0) payers.push({ member_id: inp.dataset.id, amount: amt });
+            });
+          }
+          if(!payers.length){
+            await sbAlert("多人付款模式下至少需有一人輸入付款金額！", "付款人未填");
+            return;
+          }
+          const payerSum = payers.reduce((acc, p) => acc + p.amount, 0);
+          if(Math.abs(payerSum - finalTotal) >= 0.5){
+            await sbAlert(`付款人總額 (${SYM}${formatAmt(payerSum)}) 與支出總額 (${SYM}${formatAmt(finalTotal)}) 不符，請調整！`, "付款總額不符");
+            return;
+          }
         }
 
-        // 3. 勾選所有有認領消費的成員（若無人認領則勾選全員）
+        // 2. 分攤人與份額校驗
         const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
-        const claimingMemberIds = activeMembers.filter(m => (memberCalcMap[m.id]?.total || 0) > 0).map(m => m.id);
-        const targetMemberIds = claimingMemberIds.length > 0 ? claimingMemberIds : activeMembers.map(m => m.id);
-
-        document.querySelectorAll("#expParticipants input[type=checkbox]").forEach(chk => {
-          chk.checked = targetMemberIds.includes(chk.value);
-          const pill = chk.closest(".check-pill");
-          if(pill) pill.classList.toggle("checked", chk.checked);
+        let shares = activeMembers.filter(m => (memberCalcMap[m.id]?.total || 0) > 0).map(m => {
+          const d = memberCalcMap[m.id];
+          return {
+            member_id: m.id,
+            amount: d.total,
+            calc: d.formulas.join("+") + (d.taxShare ? `+服務費${Math.round(d.taxShare)}` : "")
+          };
         });
 
-        // 4. 展開個人自付額區塊並填入每人金額
-        const addonsBody = document.getElementById("expAddonsBody");
-        const addonsToggle = document.getElementById("expAddonsToggle");
-        const addonsCaret = document.getElementById("expAddonsCaret");
-        if(addonsBody){
-          addonsBody.classList.remove("hidden");
-          if(addonsToggle) addonsToggle.classList.add("open");
-          if(addonsCaret) addonsCaret.classList.add("open");
-          renderAddonsList();
-
-          // 填入每位成員的自付金額與算式
-          document.querySelectorAll("#expAddonsList .amt-row").forEach(row => {
-            const inp = row.querySelector(".exp-addon-input");
-            if(inp){
-              const mId = inp.dataset.id;
-              const data = memberCalcMap[mId];
-              if(data && data.total > 0){
-                inp.value = data.total;
-                if(data.formulas.length > 0){
-                  const taxStr = data.taxShare ? `+${Math.round(data.taxShare)}` : "";
-                  inp.dataset.calc = data.formulas.join("+") + taxStr;
-                }
-              } else {
-                inp.value = "";
-                inp.removeAttribute("data-calc");
-              }
-            }
-          });
-
-          updateAddonsPreview();
+        // 若無人點選認領，則全員平分
+        if(!shares.length){
+          const base = Math.floor(finalTotal / activeMembers.length);
+          const rem = finalTotal - (base * activeMembers.length);
+          shares = activeMembers.map((m, idx) => ({
+            member_id: m.id,
+            amount: base + (idx < rem ? 1 : 0),
+            calc: "全員平分"
+          }));
         }
 
-        closeModal();
-        await sbAlert(`已成功帶入「${currentReceiptData.storeName || '收據'}」總額 ${SYM}${formatAmt(finalTotal)} 與各成員專屬自付金額！`, "📷 AI 拆單完成");
+        // 微調分攤加總確保與 finalTotal 100% 吻合
+        const shareSum = shares.reduce((acc, s) => acc + s.amount, 0);
+        const diff = finalTotal - shareSum;
+        if(diff !== 0 && shares.length > 0){
+          shares[0].amount += diff;
+        }
+
+        // 3. 組合金額組成明細文字
+        const breakdownSummary = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+        const fullDescription = `${storeName} (AI自動拆單)\n${breakdownSummary}`;
+        const expenseDate = (aiExpenseDate && aiExpenseDate.value) || new Date().toISOString().split("T")[0];
+
+        aiDirectSaveBtn.disabled = true;
+        aiDirectSaveBtn.textContent = "⏳ 正在記錄中…";
+
+        try {
+          const payload = {
+            amount: finalTotal,
+            description: fullDescription,
+            expense_date: expenseDate,
+            created_by: myMember ? myMember.id : activeMembers[0].id,
+            payers,
+            shares,
+            currency: CURRENCY
+          };
+
+          const { error } = await sb.from("expenses").insert(payload);
+          if(error){
+            throw error;
+          }
+
+          closeModal();
+          await refreshExpenses();
+          await sbAlert(`🎉 已成功直接記錄「${storeName}」總額 ${SYM}${formatAmt(finalTotal)}！`, "記帳成功");
+        } catch(saveErr){
+          console.error("Direct save expense error:", saveErr);
+          await sbAlert("記帳失敗：" + (saveErr.message || "伺服器錯誤"), "記帳失敗");
+        } finally {
+          aiDirectSaveBtn.disabled = false;
+          aiDirectSaveBtn.textContent = "💾 確認無誤，立即記帳";
+        }
       });
     }
   }

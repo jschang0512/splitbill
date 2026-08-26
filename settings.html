@@ -661,7 +661,9 @@ if(backBtn){
       if(m.avatar_url){
         localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
         if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
-        if(m.name) localStorage.setItem("sb_avatar_" + m.name, m.avatar_url);
+      } else {
+        localStorage.removeItem("sb_avatar_" + m.id);
+        if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
       }
       m.accountName = m.name;
       if(m.nickname) m.name = m.nickname;
@@ -1600,31 +1602,25 @@ if(backBtn){
       window.myMember = myMember;
 
       let myAvatar = "";
-      if(currentUser && currentUser.user_metadata && typeof currentUser.user_metadata.avatar_url !== "undefined"){
-        myAvatar = currentUser.user_metadata.avatar_url || "";
-      } else if(myMember && myMember.avatar_url){
+      if(myMember && myMember.avatar_url){
         myAvatar = myMember.avatar_url;
-      } else {
-        myAvatar = localStorage.getItem("sb_my_avatar") || "";
+      } else if(currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url){
+        myAvatar = currentUser.user_metadata.avatar_url;
       }
 
-      if(myAvatar){
-        localStorage.setItem("sb_my_avatar", myAvatar);
-        if(currentUser && currentUser.id) localStorage.setItem("sb_avatar_" + currentUser.id, myAvatar);
-        if(myMember){
-          myMember.avatar_url = myAvatar;
+      if(myMember){
+        myMember.avatar_url = myAvatar;
+        if(myAvatar){
+          localStorage.setItem("sb_my_avatar", myAvatar);
+          if(currentUser && currentUser.id) localStorage.setItem("sb_avatar_" + currentUser.id, myAvatar);
           localStorage.setItem("sb_avatar_" + myMember.id, myAvatar);
           if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, myAvatar);
-          if(myMember.name) localStorage.setItem("sb_avatar_" + myMember.name, myAvatar);
-          if(myMember.accountName) localStorage.setItem("sb_avatar_" + myMember.accountName, myAvatar);
-        }
-      } else {
-        if(myMember){
+        } else {
           localStorage.removeItem("sb_avatar_" + myMember.id);
           if(myMember.user_id) localStorage.removeItem("sb_avatar_" + myMember.user_id);
+          if(currentUser) localStorage.removeItem("sb_avatar_" + currentUser.id);
+          localStorage.removeItem("sb_my_avatar");
         }
-        if(currentUser) localStorage.removeItem("sb_avatar_" + currentUser.id);
-        localStorage.removeItem("sb_my_avatar");
       }
 
       const whoamiEl = document.getElementById("whoamiName");

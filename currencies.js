@@ -266,46 +266,37 @@ function renderAvatarHTML(memberOrName, sizeClass = "avatar-sm"){
     name = String(memberOrName || "?");
   }
 
-  // 自動從全域 MEMBERS 補全 user_id 與關聯資訊
+  // 1. 精準從全域 MEMBERS 尋找對應成員的 avatar_url（以 ID 或 user_id 優先）
   if(typeof MEMBERS !== "undefined" && Array.isArray(MEMBERS)){
-    const matched = MEMBERS.find(m => (id && m.id === id) || (userId && m.user_id === userId) || (name && (m.name === name || m.accountName === name || m.nickname === name)));
+    let matched = null;
+    if(id) matched = MEMBERS.find(m => m.id === id);
+    if(!matched && userId) matched = MEMBERS.find(m => m.user_id === userId);
+    if(!matched && name && name !== "?") matched = MEMBERS.find(m => m.name === name || m.accountName === name);
+
     if(matched){
       if(!id && matched.id) id = matched.id;
       if(!userId && matched.user_id) userId = matched.user_id;
       if(!name && (matched.name || matched.accountName)) name = matched.name || matched.accountName;
-      if(!avatarUrl && matched.avatar_url) avatarUrl = matched.avatar_url;
+      if(matched.avatar_url) avatarUrl = matched.avatar_url;
     }
   }
 
-  // 1. 判斷是否為目前登入者（跨所有群組通用）
-  const myUserAvatar = (window.currentUser && window.currentUser.user_metadata && window.currentUser.user_metadata.avatar_url) ||
-                       (window.myMember && window.myMember.avatar_url) ||
-                       localStorage.getItem("sb_my_avatar") || "";
-
+  // 2. 判斷是否為目前登入者（以 Supabase 資料庫中的 myMember.avatar_url 為第一優先）
   const isMe = (window.currentUser && userId && userId === window.currentUser.id) ||
                (window.myMember && id && id === window.myMember.id) ||
-               (window.currentUser && id && id === window.currentUser.id) ||
-               (window.currentUser && !id && !userId && (
-                 name === (window.myMember && window.myMember.name) ||
-                 name === (window.myMember && window.myMember.accountName) ||
-                 name === (window.currentUser && window.currentUser.email)
-               ));
+               (window.currentUser && id && id === window.currentUser.id);
 
-  if(isMe && myUserAvatar){
-    avatarUrl = myUserAvatar;
+  if(isMe){
+    const myDbAvatar = (window.myMember && window.myMember.avatar_url) ||
+                       (window.currentUser && window.currentUser.user_metadata && window.currentUser.user_metadata.avatar_url) || "";
+    if(myDbAvatar) avatarUrl = myDbAvatar;
   }
 
-  // 2. 從 global cache 抓
-  if(!avatarUrl && window.memberAvatars){
-    avatarUrl = (userId && window.memberAvatars[userId]) || (id && window.memberAvatars[id]) || (name && window.memberAvatars[name]) || "";
-  }
-
-  // 3. 從 localStorage 抓成員快取（以 user_id 跨群組通用優先）
+  // 3. 從本地快取抓取（嚴格限制只用 userId 或 id，絕不用 name 避免同名誤抓）
   if(!avatarUrl){
     try{
       if(userId) avatarUrl = localStorage.getItem("sb_avatar_" + userId) || "";
       if(!avatarUrl && id) avatarUrl = localStorage.getItem("sb_avatar_" + id) || "";
-      if(!avatarUrl && name) avatarUrl = localStorage.getItem("sb_avatar_" + name) || "";
     }catch(e){}
   }
 

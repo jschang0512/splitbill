@@ -340,7 +340,9 @@ renderNavLinks();
       if(m.avatar_url){
         localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
         if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
-        if(m.name) localStorage.setItem("sb_avatar_" + m.name, m.avatar_url);
+      } else {
+        localStorage.removeItem("sb_avatar_" + m.id);
+        if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
       }
       m.accountName = m.name;
       if(m.nickname) m.name = m.nickname;
@@ -1011,31 +1013,25 @@ renderNavLinks();
       window.myMember = myMember;
 
       let myAvatar = "";
-      if(user && user.user_metadata && typeof user.user_metadata.avatar_url !== "undefined"){
-        myAvatar = user.user_metadata.avatar_url || "";
-      } else if(myMember && myMember.avatar_url){
+      if(myMember && myMember.avatar_url){
         myAvatar = myMember.avatar_url;
-      } else {
-        myAvatar = localStorage.getItem("sb_my_avatar") || "";
+      } else if(user && user.user_metadata && user.user_metadata.avatar_url){
+        myAvatar = user.user_metadata.avatar_url;
       }
 
-      if(myAvatar){
-        localStorage.setItem("sb_my_avatar", myAvatar);
-        if(user && user.id) localStorage.setItem("sb_avatar_" + user.id, myAvatar);
-        if(myMember){
-          myMember.avatar_url = myAvatar;
+      if(myMember){
+        myMember.avatar_url = myAvatar;
+        if(myAvatar){
+          localStorage.setItem("sb_my_avatar", myAvatar);
+          if(user && user.id) localStorage.setItem("sb_avatar_" + user.id, myAvatar);
           localStorage.setItem("sb_avatar_" + myMember.id, myAvatar);
           if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, myAvatar);
-          if(myMember.name) localStorage.setItem("sb_avatar_" + myMember.name, myAvatar);
-          if(myMember.accountName) localStorage.setItem("sb_avatar_" + myMember.accountName, myAvatar);
-        }
-      } else {
-        if(myMember){
+        } else {
           localStorage.removeItem("sb_avatar_" + myMember.id);
           if(myMember.user_id) localStorage.removeItem("sb_avatar_" + myMember.user_id);
+          if(user) localStorage.removeItem("sb_avatar_" + user.id);
+          localStorage.removeItem("sb_my_avatar");
         }
-        if(user) localStorage.removeItem("sb_avatar_" + user.id);
-        localStorage.removeItem("sb_my_avatar");
       }
 
       {

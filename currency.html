@@ -482,12 +482,12 @@ if("serviceWorker" in navigator){
         <input type="file" id="aiReceiptGalleryInput" accept="image/*" style="display:none;">
         <input type="file" id="aiReceiptFileInput" accept="image/*" style="display:none;">
 
-        <!-- 雙按鈕：拍照 vs 相簿 -->
-        <div style="display:flex;gap:10px;margin-top:14px;width:100%;max-width:320px;">
-          <button type="button" class="btn" id="aiReceiptCameraBtn" style="flex:1;padding:10px 6px;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:5px;">
+        <!-- 雙按鈕：拍照 vs 相簿（完美置中） -->
+        <div class="ai-source-buttons-row">
+          <button type="button" class="btn" id="aiReceiptCameraBtn">
             <span>📸</span> 開啟相機
           </button>
-          <button type="button" class="btn secondary" id="aiReceiptGalleryBtn" style="flex:1;padding:10px 6px;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:5px;">
+          <button type="button" class="btn secondary" id="aiReceiptGalleryBtn">
             <span>🖼️</span> 選擇相簿
           </button>
         </div>
@@ -497,34 +497,43 @@ if("serviceWorker" in navigator){
     <!-- 步驟 1.5：手動旋轉與裁切發票 -->
     <div class="ai-receipt-screen hidden" id="aiReceiptCropScreen">
       <div class="ai-crop-instructions">
-        <span>✂️ 拖曳調整裁切框，框選發票明細（避開桌邊雜物）：</span>
+        <span>✂️ 拖曳調整裁切框，框選發票明細（長條或寬版皆可）：</span>
       </div>
       <div class="ai-crop-viewport" id="aiCropViewport">
         <canvas id="aiCropCanvas"></canvas>
       </div>
       <div class="ai-crop-toolbar">
         <button type="button" class="btn secondary small" id="aiCropRotateBtn">🔄 旋轉 90°</button>
-        <button type="button" class="btn secondary small" id="aiCropResetBtn">📐 全圖重設</button>
-        <button type="button" class="btn secondary small" id="aiCropRetakeBtn">📷 重新拍照</button>
+        <button type="button" class="btn secondary small" id="aiCropResetBtn">📐 全圖選取</button>
+        <button type="button" class="btn secondary small" id="aiCropRetakeBtn">📷 重新選圖</button>
       </div>
       <div style="margin-top: 12px;">
         <button type="button" class="btn" id="aiCropConfirmBtn" style="width: 100%;">✨ 裁切完成，開始 AI 辨識</button>
       </div>
     </div>
 
-    <!-- 步驟 2：AI 辨識中 -->
+    <!-- 步驟 2：AI 辨識中（經典 Logo 三瓣呼吸旋轉動畫） -->
     <div class="ai-receipt-screen hidden" id="aiReceiptLoadingScreen">
       <div class="ai-receipt-loading-box">
-        <div class="ai-receipt-spinner"></div>
+        <div class="ai-receipt-loading-logo-wrap">
+          <svg class="pwa-splash-logo ai-loading-splash-logo" viewBox="0 0 512 512" aria-hidden="true">
+            <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+            <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+            <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+          </svg>
+        </div>
         <div class="ai-receipt-loading-title">🧠 AI 智慧解析中…</div>
         <div class="ai-receipt-loading-desc">正在掃描品項名稱、數量、單價與服務費…</div>
       </div>
     </div>
 
-    <!-- 步驟 3：點菜認領看板 -->
+    <!-- 步驟 3：點菜認領與直接記帳看板 -->
     <div class="ai-receipt-screen hidden" id="aiReceiptClaimScreen">
       <div class="ai-receipt-store-bar">
-        <div class="ai-receipt-store-name" id="aiReceiptStoreName">🏪 餐廳/收據</div>
+        <div class="ai-receipt-store-wrap">
+          <span class="ai-receipt-store-icon">🏪</span>
+          <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或聚餐名稱 (可修改)">
+        </div>
         <div class="ai-receipt-store-total" id="aiReceiptStoreTotal">總計 NT$ 0</div>
       </div>
 
@@ -542,7 +551,7 @@ if("serviceWorker" in navigator){
 
       <div class="ai-receipt-items-container">
         <div class="ai-receipt-items-header">
-          <span>品項清單（點擊成員頭像認領）</span>
+          <span>品項清單（可點擊品名/金額修改，點頭像認領）</span>
           <button type="button" class="link-btn" id="aiReceiptAddItemBtn">+ 新增品項</button>
         </div>
         <div class="ai-receipt-items-list" id="aiReceiptItemsList"></div>
@@ -553,9 +562,50 @@ if("serviceWorker" in navigator){
         <div class="ai-receipt-members-grid" id="aiReceiptMembersGrid"></div>
       </div>
 
-      <div class="ai-receipt-actions">
-        <button type="button" class="btn" id="aiReceiptApplyBtn">✨ 確認並帶入支出表單</button>
-        <button type="button" class="btn secondary small" id="aiReceiptRetakeBtn">🔄 重新辨識其他照片</button>
+      <!-- 直接在此選擇付款人與時間，一鍵立即記帳 -->
+      <div class="ai-receipt-record-panel">
+        <div class="ai-record-panel-title">💳 付款人與時間設定（直接記帳）</div>
+        
+        <!-- 付款模式切換 -->
+        <div class="ai-payer-mode-toggle">
+          <button type="button" class="ai-payer-mode-btn active" id="aiPayerModeSingle">單人付款</button>
+          <button type="button" class="ai-payer-mode-btn" id="aiPayerModeMulti">多人付款</button>
+        </div>
+
+        <!-- 單人付款選擇 -->
+        <div class="ai-payer-single-row" id="aiPayerSingleRow">
+          <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">誰付的錢：</label>
+          <select id="aiPaidBySingle" class="ai-select-custom"></select>
+        </div>
+
+        <!-- 多人付款列表 -->
+        <div class="ai-payer-multi-panel hidden" id="aiPayerMultiPanel">
+          <div class="ai-payer-multi-list" id="aiPayerMultiList"></div>
+          <div class="ai-payer-sum-check" id="aiPayerSumCheck"></div>
+        </div>
+
+        <!-- 時間 -->
+        <div class="ai-record-meta-row" style="display:flex;gap:10px;margin-top:10px;">
+          <div style="flex:1;">
+            <label style="font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:4px;">日期：</label>
+            <input type="date" id="aiExpenseDate" class="ai-input-custom" style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:4px;">時間：</label>
+            <input type="time" id="aiExpenseTime" class="ai-input-custom" style="width:100%;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 金額組成明細預覽 -->
+      <div class="ai-breakdown-preview-card" id="aiBreakdownPreviewCard">
+        <div class="ai-breakdown-title">📊 金額組成明細（將自動記入備註）：</div>
+        <div class="ai-breakdown-content" id="aiBreakdownContent"></div>
+      </div>
+
+      <div class="ai-receipt-actions" style="display:flex;gap:10px;margin-top:16px;">
+        <button type="button" class="btn secondary" id="aiReceiptRetakeBtn" style="padding:11px 14px;font-size:13.5px;width:auto;">📷 重選照片</button>
+        <button type="button" class="btn" id="aiReceiptDirectSaveBtn" style="flex:1;padding:11px 16px;font-size:14.5px;font-weight:700;">💾 確認無誤，立即記帳</button>
       </div>
     </div>
   </div>
@@ -591,6 +641,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js"></script>
+<script src="app.js?v=401"></script>
 </body>
 </html>
