@@ -5293,8 +5293,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     const cameraInp = document.getElementById("aiReceiptCameraInput");
     const galleryInp = document.getElementById("aiReceiptGalleryInput");
     const fileInp = document.getElementById("aiReceiptFileInput");
-    const cameraBtn = document.getElementById("aiReceiptCameraBtn");
-    const galleryBtn = document.getElementById("aiReceiptGalleryBtn");
     const selectFileBtn = document.getElementById("aiReceiptSelectFileBtn");
     const dropzone = document.getElementById("aiReceiptDropzone");
 
@@ -5541,22 +5539,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
     modal.addEventListener("click", (e)=>{ if(e.target === modal) closeModal(); });
 
-    // 拍照 vs 相簿按鈕綁定（相容手機原生與 JS 觸發）
-    if(cameraBtn && cameraInp){
-      cameraBtn.addEventListener("click", (e)=> {
-        // 如果是由 label 原生觸發則不重複 click()
-        if(e.target !== cameraInp) {
-          try { cameraInp.click(); } catch(err){}
-        }
-      });
-    }
-    if(galleryBtn && galleryInp){
-      galleryBtn.addEventListener("click", (e)=> {
-        if(e.target !== galleryInp) {
-          try { galleryInp.click(); } catch(err){}
-        }
-      });
-    }
+    // 拍照/相簿按鈕本身就是 <label for="...">，點下去瀏覽器就會原生觸發
+    // 對應的 <input type="file">，不需要再額外用 JS 補一次 .click()——
+    // 這裡原本兩層都會觸發（label 原生一次 + JS 判斷 e.target 不是 input
+    // 本尊、又補click 一次），在桌機/Android 大多沒事，但在 iOS
+    // Safari／WKWebView 上一次手勢連續觸發兩次選檔會讓相機/相簿的
+    // pending 對話框互相打架，導致拍完照或選完照片後 change 事件
+    // 沒有正常觸發，卡在上傳畫面跳不到裁切/擷取那一步。拿掉多餘的
+    // JS 觸發，只留瀏覽器原生的 label 行為即可。
     if(selectFileBtn && fileInp){
       selectFileBtn.addEventListener("click", ()=> {
         try { fileInp.click(); } catch(err){}
