@@ -1,7 +1,7 @@
 {
-  "version": "428",
-  "updatedAt": "2026-08-27",
+  "version": "448",
+  "updatedAt": "2026-08-28",
   "changelog": [
-    "全面統一 AI 拆單介面之區塊標題與容器版面結構（標題文字、圖示、層級、位置與邊界完全一致）"
+    "v447: 修正 renderClaimBoard 仍使??MEMBERS ?��? getActiveMembers() 導致?�員?��??��??�空白?�根??bug；修�?generateBreakdownSummary ??generateCompactBreakdownSummary ??memberCalcMap ?�詢??String ??m.id 導致?��?顯示?�零?��?�?
   ]
 }

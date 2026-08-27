@@ -3801,56 +3801,111 @@ button.dd-btn {
   flex-direction:column;
   gap:5px;
 }
-.exp-debt-row-item{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:5px 0;
-  font-size:13px;
-  border-bottom:1px dashed var(--line);
+.exp-debt-row-item-wrap{
+  border-bottom: 1px dashed var(--line);
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
 }
-.exp-debt-row-item:last-child{
-  border-bottom:none;
+.exp-debt-row-item-wrap:last-child{
+  border-bottom: none;
+}
+.exp-debt-row-item{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 13px;
 }
 .exp-debt-row-name{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  color:var(--ink);
-  font-weight:700;
-  flex-shrink:0;
-  white-space:nowrap;
-  min-width:65px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: 65px;
 }
 .exp-debt-row-right{
-  display:inline-flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:8px;
-  flex:1;
-  min-width:0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
-.exp-debt-calc-badge{
-  font-size:11px;
-  font-family:"JetBrains Mono",monospace;
-  font-weight:600;
-  padding:2px 7px;
-  border-radius:6px;
-  background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));
-  color:var(--btn-primary);
-  border:1px solid color-mix(in srgb, var(--btn-primary) 28%, transparent);
-  max-width:140px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  flex-shrink:1;
+/* 倒三角算式展開按鈕 */
+.exp-debt-calc-toggle{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: color-mix(in srgb, var(--btn-primary) 12%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 24%, transparent);
+  border-radius: 6px;
+  color: var(--btn-primary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .18s ease;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
 }
+.exp-debt-calc-toggle:hover{
+  background: var(--btn-primary);
+  color: #FFFFFF;
+  border-color: var(--btn-primary);
+  transform: scale(1.06);
+}
+.exp-calc-toggle-icon{
+  transition: transform .2s ease;
+  line-height: 1;
+  display: inline-block;
+}
+.exp-debt-row-item-wrap.is-expanded .exp-calc-toggle-icon{
+  transform: rotate(180deg);
+}
+
+/* 展開後的算式列（下一行，靠右對齊） */
+.exp-debt-calc-expand-row{
+  display: none;
+  justify-content: flex-end;
+  padding: 3px 0 5px 0;
+  animation: expandCalcIn .18s ease-out;
+}
+.exp-debt-row-item-wrap.is-expanded .exp-debt-calc-expand-row{
+  display: flex;
+}
+.exp-debt-calc-badge-expanded{
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--btn-primary) 10%, var(--paper));
+  color: var(--btn-primary);
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 22%, transparent);
+  word-break: break-all;
+  white-space: normal;
+  max-width: 100%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+@keyframes expandCalcIn{
+  from{ opacity: 0; transform: translateY(-4px); }
+  to{ opacity: 1; transform: translateY(0); }
+}
+
 .exp-debt-row-right b{
-  font-family:"JetBrains Mono",monospace;
-  font-size:13.5px;
-  white-space:nowrap;
-  flex-shrink:0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .exp-debt-status-tag{
   font-size:10.5px;
@@ -4525,6 +4580,9 @@ button.dd-btn {
   max-height:calc(88vh - 75px);
   padding-right:2px;
 }
+.ai-receipt-screen.hidden{
+  display:none !important;
+}
 .ai-receipt-store-bar{
   background: var(--paper);
   border: 1px solid var(--line);
@@ -4617,23 +4675,38 @@ button.dd-btn {
   white-space: nowrap;
 }
 .ai-receipt-currency-select-compact{
-  padding: 6px 9px;
+  padding: 5px 8px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--input-bg);
   color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
   outline: none;
   cursor: pointer;
   transition: all .15s ease;
   font-family: inherit;
   white-space: nowrap;
   flex-shrink: 0;
+  height: 36px;
+  box-sizing: border-box;
+  margin: 0;
 }
 .ai-receipt-currency-select-compact:focus{
   border-color: var(--btn-primary);
   background: var(--paper);
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
+}
+.ai-receipt-currency-select-compact option{
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 6px;
+}
+:root[data-theme="dark"] .ai-receipt-currency-select-compact option{
+  background: #25242C;
+  color: #FFFFFF;
 }
 .ai-header-total-right{
   display: flex;
@@ -4643,7 +4716,7 @@ button.dd-btn {
 }
 .ai-total-price-wrap{
   width: 100%;
-  height: 38px;
+  height: 36px;
   border: 1.5px solid var(--btn-primary);
   background: var(--input-bg);
   box-sizing: border-box;
@@ -4655,11 +4728,38 @@ button.dd-btn {
   flex: 1;
 }
 .ai-total-price-input{
-  font-size: 16px;
-  font-weight: 900;
+  font-size: 15px;
+  font-weight: 800;
   color: var(--btn-primary);
   width: 100%;
   min-width: 0;
+}
+
+.ai-receipt-bar-divider{
+  height: 1px;
+  background: color-mix(in srgb, var(--line) 80%, transparent);
+  margin: 4px 0 6px 0;
+}
+
+.ai-total-check-warning{
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: rgba(235, 87, 87, 0.1);
+  border: 1px solid rgba(235, 87, 87, 0.32);
+  border-radius: 9px;
+  color: var(--negative-text, #E57373);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+.ai-total-check-warning b{
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--negative-text, #E57373);
+  font-weight: 700;
+}
+.ai-total-check-warning.hidden{
+  display: none !important;
 }
 
 .ai-receipt-tax-panel{
@@ -4675,37 +4775,39 @@ button.dd-btn {
 .ai-receipt-tax-summary{
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
+  box-sizing: border-box;
 }
 .ai-tax-edit-item{
   flex: 1 1 0;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-size: 12px;
   font-weight: 700;
   color: var(--ink);
+  box-sizing: border-box;
 }
 .ai-tax-label{
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--ink-soft);
   white-space: nowrap;
   flex-shrink: 0;
 }
 .ai-tax-price-wrap{
-  flex: 1 1 0;
-  min-width: 0;
-  width: 100%;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: 100% !important;
   height: 36px;
-  padding: 0 8px;
+  padding: 0 6px !important;
   border-radius: 8px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: var(--input-bg);
   border: 1px solid var(--line);
   transition: all .15s ease;
@@ -4715,6 +4817,55 @@ button.dd-btn {
   border-color: var(--btn-primary);
   box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.15);
 }
+.ai-tax-price-wrap .ai-receipt-cur-prefix{
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+.ai-tax-price-wrap .ai-receipt-item-price{
+  width: 100% !important;
+  min-width: 0 !important;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 0;
+  text-align: right;
+}
+.ai-tax-type-toggle{
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+}
+.ai-tax-type-btn{
+  flex: 1 1 0;
+  padding: 7px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  color: var(--ink-soft);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: all .15s ease;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.ai-tax-type-btn:active{
+  transform: scale(0.97);
+}
+.ai-tax-type-btn.active{
+  background: var(--btn-primary);
+  color: #FFFFFF;
+  border-color: var(--btn-primary);
+  box-shadow: 0 1.5px 4px rgba(108,92,231,0.25);
+}
+
 .ai-tax-split-toggle{
   display: flex;
   gap: 8px;
@@ -5104,12 +5255,18 @@ button.dd-btn {
     flex: 1 1 0;
     min-width: 0;
   }
-  .ai-receipt-price-wrap {
+  .ai-item-main-row .ai-receipt-price-wrap {
     width: 96px;
     min-width: 96px;
     height: 36px;
     padding: 0 6px;
     flex-shrink: 0;
+  }
+  .ai-tax-price-wrap,
+  .ai-total-price-wrap {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
   }
   .ai-receipt-item-del {
     height: 36px;
@@ -5145,7 +5302,7 @@ button.dd-btn {
 }
 .ai-receipt-members-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns:repeat(auto-fill, minmax(115px, 1fr));
   gap:8px;
 }
 .ai-receipt-member-badge{
@@ -5163,6 +5320,125 @@ button.dd-btn {
   font-family:'JetBrains Mono',monospace;
   color:var(--btn-primary);
   font-weight:700;
+}
+
+/* 成員徽章點擊與反向高亮 */
+.ai-receipt-member-badge.clickable {
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  border: 1.5px solid var(--line);
+}
+.ai-receipt-member-badge.clickable:hover {
+  border-color: var(--btn-primary);
+  transform: translateY(-1.5px);
+  box-shadow: 0 3px 8px rgba(108, 92, 231, 0.15);
+}
+.ai-receipt-member-badge.clickable.active {
+  background: linear-gradient(135deg, var(--btn-primary), var(--logo-grad-a, #7A6B9E));
+  color: #ffffff;
+  border-color: var(--btn-primary);
+  box-shadow: 0 3.5px 12px rgba(108, 92, 231, 0.35);
+  transform: translateY(-2px) scale(1.02);
+}
+.ai-receipt-member-badge.clickable.active b {
+  color: #ffffff;
+}
+
+/* 品項認領狀態樣式 (待認領 vs 已認領) 與成員反向高亮 */
+.ai-receipt-item-card.is-unclaimed {
+  border-color: rgba(253, 121, 168, 0.45);
+  background: color-mix(in srgb, #fd79a8 3%, var(--paper));
+}
+.ai-receipt-item-card.is-unclaimed .ai-item-tag-num {
+  background: rgba(253, 121, 168, 0.15);
+  color: #d63031;
+}
+.ai-receipt-item-card.is-highlighted-by-member {
+  border-color: var(--btn-primary) !important;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper)) !important;
+  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.22) !important;
+  transform: translateY(-2px);
+}
+.ai-receipt-item-card.is-dimmed-by-filter {
+  opacity: 0.35 !important;
+  filter: grayscale(35%);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* 卡片頂部浮動標籤 (不推擠輸入框與按鈕排版) */
+.ai-card-float-badge {
+  position: absolute;
+  top: -8px;
+  right: 14px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 1.5px 5px rgba(0,0,0,0.12);
+  transition: all 0.2s ease;
+}
+.ai-card-float-badge.unclaimed {
+  background: #ff7675;
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.4);
+}
+.ai-card-float-badge.per-person {
+  background: var(--btn-primary, #513F7A);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.ai-section-sub-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-left: 6px;
+}
+
+/* 明細複製按鈕群組 */
+.ai-breakdown-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ai-copy-btn-group {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.ai-btn-copy-compact,
+.ai-btn-copy-full {
+  padding: 4px 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.ai-btn-copy-compact:hover,
+.ai-btn-copy-full:hover {
+  background: var(--paper);
+  border-color: var(--btn-primary);
+  color: var(--btn-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.ai-btn-copy-compact:active,
+.ai-btn-copy-full:active {
+  transform: scale(0.96);
 }
 
 /* 直接記帳面板 */

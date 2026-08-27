@@ -873,17 +873,42 @@
 
   // ---------- 服務費 / 稅額 (選填) ----------
   let manualTaxSplitMode = "ratio"; // "ratio" | "equal"
+  let manualTaxType = "inclusive"; // "inclusive" (內含) | "exclusive" (外加)
+
+  const expTaxTypeInclusive = document.getElementById("expTaxTypeInclusive");
+  const expTaxTypeExclusive = document.getElementById("expTaxTypeExclusive");
+  const expTaxContainer = document.getElementById("expTaxContainer");
+  const expAmountLabel = document.getElementById("expAmountLabel");
 
   function getManualExpenseTotals(){
     const subtotal = Number(document.getElementById("expAmount")?.value) || 0;
-    const tax = Number(document.getElementById("expTaxAmount")?.value) || 0;
-    const total = subtotal + tax;
+    const tax = manualTaxType === "inclusive" ? 0 : (Number(document.getElementById("expTaxAmount")?.value) || 0);
+    const total = manualTaxType === "inclusive" ? subtotal : (subtotal + tax);
     return { subtotal, tax, total };
+  }
+
+  function updateManualTaxTypeUI(){
+    if(expTaxTypeInclusive) expTaxTypeInclusive.classList.toggle("active", manualTaxType === "inclusive");
+    if(expTaxTypeExclusive) expTaxTypeExclusive.classList.toggle("active", manualTaxType === "exclusive");
+    if(expTaxContainer){
+      expTaxContainer.classList.toggle("hidden", manualTaxType === "inclusive");
+    }
+    if(expAmountLabel){
+      expAmountLabel.textContent = manualTaxType === "inclusive" ? "支出總金額 (已含稅/免稅)" : "未稅金額 / 餐費小計";
+    }
+    updateTaxPreview();
+    updatePayerSumCheck();
+    updateShareSumCheck();
+    updateAddonsPreview();
   }
 
   function updateTaxPreview(){
     const previewEl = document.getElementById("expTaxPreview");
     if(!previewEl) return;
+    if(manualTaxType === "inclusive"){
+      previewEl.classList.add("hidden");
+      return;
+    }
     const { subtotal, tax, total } = getManualExpenseTotals();
     if(tax <= 0){
       previewEl.classList.add("hidden");
@@ -892,7 +917,7 @@
     previewEl.classList.remove("hidden");
     const modeText = manualTaxSplitMode === "ratio" ? "依照個人消費額比例分配" : "全員平分";
     previewEl.innerHTML = `
-      <div>📊 <b>費用加總</b>：不含稅 ${SYM}${formatAmt(subtotal)} + 服務費/稅 ${SYM}${formatAmt(tax)} = <b>總支出 ${SYM}${formatAmt(total)}</b></div>
+      <div>📊 <b>費用加總</b>：小計 ${SYM}${formatAmt(subtotal)} + 服務費/稅 ${SYM}${formatAmt(tax)} = <b>總支出 ${SYM}${formatAmt(total)}</b></div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:3px;">
         分配方式：${modeText}
       </div>
@@ -906,6 +931,25 @@
   const expTaxCalcBtn = document.getElementById("expTaxCalcBtn");
   const expManualTaxRatioBtn = document.getElementById("expManualTaxRatioBtn");
   const expManualTaxEqualBtn = document.getElementById("expManualTaxEqualBtn");
+
+  if(expTaxTypeInclusive){
+    expTaxTypeInclusive.addEventListener("click", (e)=>{
+      e.preventDefault();
+      manualTaxType = "inclusive";
+      if(expTaxInp) expTaxInp.value = "";
+      updateManualTaxTypeUI();
+    });
+  }
+  if(expTaxTypeExclusive){
+    expTaxTypeExclusive.addEventListener("click", (e)=>{
+      e.preventDefault();
+      manualTaxType = "exclusive";
+      if(expTaxBody) expTaxBody.classList.remove("hidden");
+      if(expTaxToggle) expTaxToggle.classList.add("open");
+      if(expTaxCaret) expTaxCaret.classList.add("open");
+      updateManualTaxTypeUI();
+    });
+  }
 
   if(expTaxToggle && expTaxBody){
     expTaxToggle.addEventListener("click", ()=>{
@@ -1478,10 +1522,8 @@
       const expTaxInp = document.getElementById("expTaxAmount");
       if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
       manualTaxSplitMode = "ratio";
-      if(expManualTaxRatioBtn) expManualTaxRatioBtn.classList.add("active");
-      if(expManualTaxEqualBtn) expManualTaxEqualBtn.classList.remove("active");
-      const expTaxPreview = document.getElementById("expTaxPreview");
-      if(expTaxPreview) expTaxPreview.classList.add("hidden");
+      manualTaxType = "inclusive";
+      updateManualTaxTypeUI();
       document.getElementById("expDesc").value = "";
       if(document.getElementById("expNote")) document.getElementById("expNote").value = "";
       document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
@@ -1502,18 +1544,27 @@
       text = String(descriptionOrExp || "");
     }
     if(!text) return null;
-    const match = text.match(/<!--AI_RECEIPT_DATA:(.*?)-->/);
+
+    // 1. 嘗試解析 JSON 標籤 (支援各類包含/跨行/帶空格變體)
+    const match = text.match(/<!--?\s*AI_RECEIPT_DATA:\s*([\s\S]*?)(-->)?/i);
     if(match && match[1]){
+      let raw = match[1].trim();
+      if(raw.endsWith("-->")) raw = raw.slice(0, -3).trim();
       try {
-        return JSON.parse(decodeURIComponent(match[1]));
+        return JSON.parse(decodeURIComponent(raw));
       } catch(err){
         try {
-          return JSON.parse(match[1]);
-        } catch(e){}
+          return JSON.parse(raw);
+        } catch(e){
+          try {
+            return JSON.parse(unescape(raw));
+          } catch(e2){}
+        }
       }
     }
 
-    if(text.includes("(AI自動拆單)") || text.includes("📋 品項明細") || text.includes("🏪 店家：")){
+    // 2. 嘗試解析純文字排版收據明細
+    if(text.includes("(AI自動拆單)") || text.includes("📋 品項明細") || text.includes("🏪 店家：") || text.includes("➔") || text.match(/\d+\.\s*.*➔/)){
       return parseLegacyAiDescription(text, members);
     }
     return null;
@@ -1525,6 +1576,7 @@
     let storeName = "聚餐收據";
     let subtotal = 0;
     let serviceCharge = 0;
+    let taxType = "exclusive";
     const items = [];
 
     const storeLine = lines.find(l => l.startsWith("🏪 店家："));
@@ -1536,6 +1588,9 @@
 
     const totalLine = lines.find(l => l.startsWith("💰 總額："));
     if(totalLine){
+      if(totalLine.includes("已內含稅") || totalLine.includes("免外加")){
+        taxType = "inclusive";
+      }
       const subMatch = totalLine.match(/小計\s*[^\d]*([\d,]+)/);
       if(subMatch) subtotal = Number(subMatch[1].replace(/,/g, "")) || 0;
       const srvMatch = totalLine.match(/服務費\/稅\s*[^\d]*([\d,]+)/);
@@ -1548,43 +1603,103 @@
       if(m.email) memberNameToId[emailToName(m.email)] = m.id;
     });
 
+    let currentItem = null;
     lines.forEach((l, idx) => {
-      const arrowIdx = l.indexOf("➔");
-      if(arrowIdx === -1) return;
-      const left = l.slice(0, arrowIdx).trim();
-      let claimPart = l.slice(arrowIdx + 1).trim();
-
-      const numMatch = left.match(/^\d+\.\s*(.*)$/);
-      if(!numMatch) return;
-      const content = numMatch[1].trim();
-
-      const priceMatch = content.match(/^(.*?)\s+([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
-      if(!priceMatch) return;
-
-      const name = priceMatch[1].trim();
-      const rawPrice = priceMatch[2].replace(/[^\d.]/g, "");
-      const price = Number(rawPrice) || 0;
-
-      claimPart = claimPart.replace(/\s*\(每人[^\)]*\)/g, "").trim();
-      let claimedMemberIds = [];
-
-      if(claimPart.includes("全員") || claimPart.includes("所有人") || claimPart.includes("全體")){
-        claimedMemberIds = (members || []).map(m => m.id);
-      } else {
-        const names = claimPart.split(/[、,]/).map(n => n.trim()).filter(Boolean);
-        names.forEach(n => {
-          if(memberNameToId[n]) claimedMemberIds.push(memberNameToId[n]);
-        });
+      const numMatch = l.match(/^(\d+)\.\s*(.*)$/);
+      if(numMatch){
+        if(currentItem && currentItem.name){
+          items.push(currentItem);
+        }
+        const rawContent = numMatch[2].trim();
+        const arrowIdx = rawContent.indexOf("➔");
+        if(arrowIdx !== -1){
+          const left = rawContent.slice(0, arrowIdx).trim();
+          let claimPart = rawContent.slice(arrowIdx + 1).trim();
+          const priceMatch = left.match(/^(.*?)\s+([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
+          const name = priceMatch ? priceMatch[1].trim() : left;
+          const price = priceMatch ? Number(priceMatch[2].replace(/[^\d.]/g, "")) || 0 : 0;
+          
+          claimPart = claimPart.replace(/\s*\(每人[^\)]*\)/g, "").trim();
+          let claimedMemberIds = [];
+          if(claimPart.includes("全員") || claimPart.includes("所有人") || claimPart.includes("全體")){
+            claimedMemberIds = (members || []).map(m => m.id);
+          } else {
+            const names = claimPart.split(/[、,]/).map(n => n.trim()).filter(Boolean);
+            names.forEach(n => {
+              if(memberNameToId[n]) claimedMemberIds.push(memberNameToId[n]);
+            });
+          }
+          items.push({
+            id: "item_" + items.length + "_" + Date.now(),
+            name,
+            price,
+            qty: 1,
+            claimedMemberIds
+          });
+          currentItem = null;
+        } else {
+          const priceMatch = rawContent.match(/^(.*?)\s+([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
+          if(priceMatch){
+            currentItem = {
+              id: "item_" + items.length + "_" + Date.now(),
+              name: priceMatch[1].trim(),
+              price: Number(priceMatch[2].replace(/[^\d.]/g, "")) || 0,
+              qty: 1,
+              claimedMemberIds: []
+            };
+          } else {
+            currentItem = {
+              id: "item_" + items.length + "_" + Date.now(),
+              name: rawContent,
+              price: 0,
+              qty: 1,
+              claimedMemberIds: []
+            };
+          }
+        }
+        return;
       }
 
-      items.push({
-        id: "item_" + idx + "_" + Date.now(),
-        name,
-        price,
-        qty: 1,
-        claimedMemberIds
-      });
+      if(currentItem){
+        const priceMatch = l.match(/([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
+        if(priceMatch && currentItem.price === 0 && !l.includes("➔")){
+          const p = Number(priceMatch[1].replace(/[^\d.]/g, "")) || 0;
+          if(p > 0) currentItem.price = p;
+          if(l.startsWith("(") && l.includes(")")){
+            const origMatch = l.match(/^\(([\s\S]*?)\)/);
+            if(origMatch && origMatch[1]){
+              currentItem.name += " (" + origMatch[1] + ")";
+            }
+          }
+          return;
+        }
+
+        if(l.includes("➔")){
+          let claimPart = l.slice(l.indexOf("➔") + 1).trim();
+          claimPart = claimPart.replace(/\s*\(每人[^\)]*\)/g, "").trim();
+          let claimedMemberIds = [];
+          if(claimPart.includes("全員") || claimPart.includes("所有人") || claimPart.includes("全體")){
+            claimedMemberIds = (members || []).map(m => m.id);
+          } else {
+            const names = claimPart.split(/[、,]/).map(n => n.trim()).filter(Boolean);
+            names.forEach(n => {
+              if(memberNameToId[n]) claimedMemberIds.push(memberNameToId[n]);
+            });
+          }
+          currentItem.claimedMemberIds = claimedMemberIds;
+          items.push(currentItem);
+          currentItem = null;
+        }
+      }
     });
+
+    if(currentItem && currentItem.name){
+      items.push(currentItem);
+    }
+
+    if(subtotal === 0 && items.length > 0){
+      subtotal = items.reduce((acc, it) => acc + (it.price || 0), 0);
+    }
 
     return {
       storeName,
@@ -1593,6 +1708,7 @@
       tax: 0,
       discount: 0,
       taxSplitMode: "ratio",
+      taxType,
       items
     };
   }
@@ -1603,12 +1719,38 @@
 
   function startEditExpense(e){
     // 🌟 若為 AI 自動拆單產生的紀錄，直接開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
-    const aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
-    if(aiData && typeof window.openAiReceiptEditMode === "function"){
-      window.openAiReceiptEditMode(e, aiData);
-      return;
+    let aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
+
+    const isAiRecord = Boolean(
+      (e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細"))) ||
+      (e.note && (e.note.includes("<!--AI_RECEIPT_DATA:") || e.note.includes("AI_RECEIPT_DATA:") || e.note.includes("🏪 店家：") || e.note.includes("🏪") || e.note.includes("📋 品項明細")))
+    );
+
+    if(aiData || isAiRecord){
+      if(!aiData){
+        const { title } = splitExpenseTitleAndNote(e.description, e.note);
+        aiData = {
+          storeName: title || "聚餐收據",
+          subtotal: Number(e.amount) || 0,
+          taxType: "inclusive",
+          taxSplitMode: "ratio",
+          items: [{
+            id: "item_0_" + Date.now(),
+            name: title || "消費品項",
+            price: Number(e.amount) || 0,
+            qty: 1,
+            claimedMemberIds: (e.shares || []).map(s => s.member_id)
+          }]
+        };
+      }
+
+      if(typeof window.openAiReceiptEditMode === "function"){
+        window.openAiReceiptEditMode(e, aiData);
+        return; // 🌟 100% 停留在 AI 拆單編輯看板，絕不跳轉到一般支出分頁！
+      }
     }
 
+    // 🌟 以下為「一般手動支出」的編輯邏輯
     clearTempEditOptions();
     editingExpenseId = e.id;
     editingExpenseOriginal = e;
@@ -1625,6 +1767,8 @@
     document.getElementById("expDesc").value = title;
     if(document.getElementById("expNote")) document.getElementById("expNote").value = note;
     document.getElementById("expDate").value = e.expense_date;
+    manualTaxType = "inclusive";
+    updateManualTaxTypeUI();
 
     const payers = e.payers || [];
     const payerModeBtn = document.querySelector(payers.length <= 1 ? '.split-mode-btn[data-payer-mode="single"]' : '.split-mode-btn[data-payer-mode="multi"]');
@@ -1682,10 +1826,8 @@
     const expTaxInp = document.getElementById("expTaxAmount");
     if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
     manualTaxSplitMode = "ratio";
-    if(expManualTaxRatioBtn) expManualTaxRatioBtn.classList.add("active");
-    if(expManualTaxEqualBtn) expManualTaxEqualBtn.classList.remove("active");
-    const expTaxPreview = document.getElementById("expTaxPreview");
-    if(expTaxPreview) expTaxPreview.classList.add("hidden");
+    manualTaxType = "inclusive";
+    updateManualTaxTypeUI();
     document.getElementById("expDesc").value = "";
     if(document.getElementById("expNote")) document.getElementById("expNote").value = "";
     clearTempEditOptions();
@@ -3078,30 +3220,19 @@ function renderDebtMatrix(
 
   let thead =
     "<thead>" +
-
       "<tr>" +
-
         '<th class="matrix-corner" colspan="2" rowspan="2"></th>' +
-
         '<th class="matrix-side-label matrix-top-label" colspan="' +
           ids.length +
         '">' +
-
           "債務人" +
-
         "</th>" +
-
         '<th rowspan="2">應收款</th>' +
-
       "</tr>" +
-
       "<tr>";
 
-
   ids.forEach(id=>{
-
     const fullName = memberById[id] || "?";
-
     thead +=
       '<th class="matrix-col-name" title="' +
       escapeHtml(fullName) +
@@ -3110,14 +3241,11 @@ function renderDebtMatrix(
         truncateNameChars(fullName, 5)
       ) +
       "</th>";
-
   });
-
 
   thead +=
     "</tr>" +
     "</thead>";
-
 
   // ----------------------------------------------------------
   // 表身
@@ -3126,25 +3254,19 @@ function renderDebtMatrix(
   let tbody =
     "<tbody>";
 
-
   ids.forEach(
     (creditorId, rowIndex)=>{
-
       tbody += "<tr>";
-
 
       // 左側「債權人」
       if(rowIndex === 0){
-
         tbody +=
           '<th class="matrix-side-label matrix-left-label" rowspan="' +
           ids.length +
           '">' +
           "債權人" +
           "</th>";
-
       }
-
 
       // 債權人姓名
       const creditorFullName = memberById[creditorId] || "?";
@@ -3504,32 +3626,49 @@ function showExpenseDebtDetail(e){
     paidMap[p.member_id] = (paidMap[p.member_id] || 0) + (Number(p.amount) || 0);
   });
 
-  // 付款人列表（若有計算機算式則呈現於金額左側）
+  // 付款人列表（若有計算機算式則預設收合，金額左側提供 ▾ 展開按鈕，展開後於下一行靠右完整呈現）
   const payerDetails = (e.payers || []).map(p => {
     const name = escapeHtml(memberById[p.member_id] || "?");
     const amt = `${SYM}${formatAmt(p.amount)}`;
-    const calcHtml = p.calc ? `<span class="exp-debt-calc-badge" title="計算機算式：${escapeHtml(p.calc)}">${escapeHtml(p.calc)}</span>` : "";
-    return `<div class="exp-debt-row-item">
-      <span class="exp-debt-row-name">${renderAvatarHTML({ id: p.member_id, name: memberById[p.member_id] }, "avatar-xs")} ${name}</span>
-      <div class="exp-debt-row-right">
-        ${calcHtml}
-        <b>${amt}</b>
+    const toggleBtn = p.calc
+      ? `<button type="button" class="exp-debt-calc-toggle" onclick="this.closest('.exp-debt-row-item-wrap').classList.toggle('is-expanded')" title="展開/收合計算機算式"><span class="exp-calc-toggle-icon">▾</span></button>`
+      : "";
+    const expandRow = p.calc
+      ? `<div class="exp-debt-calc-expand-row"><div class="exp-debt-calc-badge-expanded" title="計算機算式：${escapeHtml(p.calc)}">${escapeHtml(p.calc)}</div></div>`
+      : "";
+
+    return `<div class="exp-debt-row-item-wrap">
+      <div class="exp-debt-row-item">
+        <span class="exp-debt-row-name">${renderAvatarHTML({ id: p.member_id, name: memberById[p.member_id] }, "avatar-xs")} ${name}</span>
+        <div class="exp-debt-row-right">
+          ${toggleBtn}
+          <b>${amt}</b>
+        </div>
       </div>
+      ${expandRow}
     </div>`;
   }).join("");
 
-  // 個人分攤額列表（忠實呈現每個人該筆項目的原始分攤金額，若有算式則置於金額左側）
+  // 個人分攤額列表（忠實呈現每個人該筆項目的原始分攤金額，若有算式則預設收合，金額左側提供 ▾ 展開按鈕，展開後於下一行靠右完整呈現）
   const shareDetails = (e.shares || []).map(s => {
     const name = escapeHtml(memberById[s.member_id] || "?");
     const amt = `${SYM}${formatAmt(s.amount)}`;
-    const calcHtml = s.calc ? `<span class="exp-debt-calc-badge" title="計算機算式：${escapeHtml(s.calc)}">${escapeHtml(s.calc)}</span>` : "";
+    const toggleBtn = s.calc
+      ? `<button type="button" class="exp-debt-calc-toggle" onclick="this.closest('.exp-debt-row-item-wrap').classList.toggle('is-expanded')" title="展開/收合計算機算式"><span class="exp-calc-toggle-icon">▾</span></button>`
+      : "";
+    const expandRow = s.calc
+      ? `<div class="exp-debt-calc-expand-row"><div class="exp-debt-calc-badge-expanded" title="計算機算式：${escapeHtml(s.calc)}">${escapeHtml(s.calc)}</div></div>`
+      : "";
 
-    return `<div class="exp-debt-row-item">
-      <span class="exp-debt-row-name">${renderAvatarHTML({ id: s.member_id, name: memberById[s.member_id] }, "avatar-xs")} ${name}</span>
-      <div class="exp-debt-row-right">
-        ${calcHtml}
-        <b>${amt}</b>
+    return `<div class="exp-debt-row-item-wrap">
+      <div class="exp-debt-row-item">
+        <span class="exp-debt-row-name">${renderAvatarHTML({ id: s.member_id, name: memberById[s.member_id] }, "avatar-xs")} ${name}</span>
+        <div class="exp-debt-row-right">
+          ${toggleBtn}
+          <b>${amt}</b>
+        </div>
       </div>
+      ${expandRow}
     </div>`;
   }).join("");
 
@@ -3676,15 +3815,18 @@ function showExpenseDebtDetail(e){
     `;
   }
 
-  let breakdownCardHtml = "";
-  if(cleanBodyText){
-    breakdownCardHtml = `
-      <div class="exp-debt-breakdown-card">
-        <div class="exp-debt-breakdown-title">📝 備註與金額組成明細</div>
-        <div class="exp-debt-breakdown-content">${escapeHtml(cleanBodyText)}</div>
+  let breakdownCardHtml = `
+    <div class="exp-debt-breakdown-card">
+      <div class="exp-debt-breakdown-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <span>📝 備註與分攤明細</span>
+        <div class="ai-copy-btn-group">
+          <button type="button" class="ai-btn-copy-compact" id="expDebtCopyCompactBtn" title="複製精簡版總額與每人應付金額">⚡ 複製精簡版</button>
+          <button type="button" class="ai-btn-copy-full" id="expDebtCopyFullBtn" title="複製完整品項明細與算式">📋 複製完整版</button>
+        </div>
       </div>
-    `;
-  }
+      ${cleanBodyText ? `<div class="exp-debt-breakdown-content">${escapeHtml(cleanBodyText)}</div>` : ''}
+    </div>
+  `;
 
   body.innerHTML = `
     <div class="exp-debt-info-card">
@@ -3704,6 +3846,81 @@ function showExpenseDebtDetail(e){
 
     ${dynamicDebtSection}
   `;
+
+  // 綁定明細複製按鈕事件
+  const expDebtCopyCompactBtn = body.querySelector("#expDebtCopyCompactBtn");
+  const expDebtCopyFullBtn = body.querySelector("#expDebtCopyFullBtn");
+
+  if(expDebtCopyCompactBtn){
+    expDebtCopyCompactBtn.addEventListener("click", async (ev)=>{
+      ev.stopPropagation();
+      const aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
+      const store = (aiData && aiData.storeName) || cleanTitle || "支出項目";
+      const curCode = e.currency || (aiData && aiData.currencyCode) || CURRENCY;
+      const curObj = (CURRENCIES || []).find(c => c.code === curCode);
+      const curSym = (curObj && curObj.symbol) || CURRENCY_SYMBOL || "$";
+      const totalAmt = Number(e.amount) || 0;
+
+      const lines = [];
+      lines.push(`🏪 店家/項目：${store}`);
+      if(aiData && aiData.taxType === "inclusive"){
+        lines.push(`💰 總額：${curSym}${formatAmt(totalAmt)} (已內含稅)`);
+      } else if(aiData && (aiData.serviceCharge || aiData.tax)){
+        lines.push(`💰 總額：${curSym}${formatAmt(totalAmt)} (含服務費/稅 ${curSym}${formatAmt((aiData.serviceCharge || 0) + (aiData.tax || 0))})`);
+      } else {
+        lines.push(`💰 總額：${curSym}${formatAmt(totalAmt)}`);
+      }
+      lines.push(`\n👥 各成員應付金額：`);
+      if(e.shares && e.shares.length > 0){
+        e.shares.forEach(s => {
+          const name = memberById[s.member_id] || "?";
+          lines.push(`  ・${name}：${curSym}${formatAmt(s.amount)}`);
+        });
+      } else {
+        lines.push(`  (全員平分)`);
+      }
+
+      await copyToClipboard(lines.join("\n"));
+      expDebtCopyCompactBtn.textContent = "✓ 已複製精簡版";
+      setTimeout(()=>{ expDebtCopyCompactBtn.textContent = "⚡ 複製精簡版"; }, 1500);
+    });
+  }
+
+  if(expDebtCopyFullBtn){
+    expDebtCopyFullBtn.addEventListener("click", async (ev)=>{
+      ev.stopPropagation();
+      const aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
+      const store = (aiData && aiData.storeName) || cleanTitle || "支出項目";
+      const curCode = e.currency || (aiData && aiData.currencyCode) || CURRENCY;
+      const curObj = (CURRENCIES || []).find(c => c.code === curCode);
+      const curSym = (curObj && curObj.symbol) || CURRENCY_SYMBOL || "$";
+      const totalAmt = Number(e.amount) || 0;
+
+      let fullText = "";
+      if(cleanNote && (cleanNote.includes("📋 品項明細") || cleanNote.includes("🏪 店家："))){
+        fullText = cleanNote;
+      } else {
+        const fullLines = [];
+        fullLines.push(`🏪 店家/項目：${store}`);
+        fullLines.push(`💰 總額：${curSym}${formatAmt(totalAmt)}`);
+        fullLines.push(`📅 日期：${e.expense_date || ""}`);
+        const payerNames = (e.payers || []).map(p => `${memberById[p.member_id] || "?"} (${curSym}${formatAmt(p.amount)})`).join("、");
+        if(payerNames) fullLines.push(`💰 付款人：${payerNames}`);
+        fullLines.push(`\n👥 分攤明細：`);
+        (e.shares || []).forEach(s => {
+          const name = memberById[s.member_id] || "?";
+          const calc = s.calc ? ` (${s.calc})` : "";
+          fullLines.push(`  ・${name}：${curSym}${formatAmt(s.amount)}${calc}`);
+        });
+        if(cleanNote) fullLines.push(`\n📝 備註：\n${cleanNote}`);
+        fullText = fullLines.join("\n");
+      }
+
+      await copyToClipboard(fullText);
+      expDebtCopyFullBtn.textContent = "✓ 已複製完整版";
+      setTimeout(()=>{ expDebtCopyFullBtn.textContent = "📋 複製完整版"; }, 1500);
+    });
+  }
 
   const expDebtModalEditBtn = document.getElementById("expDebtModalEditBtn");
   if(expDebtModalEditBtn){
@@ -4992,6 +5209,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     const addItemBtn = document.getElementById("aiReceiptAddItemBtn");
     const ratioBtn = document.getElementById("aiTaxRatioBtn");
     const equalBtn = document.getElementById("aiTaxEqualBtn");
+    const taxTypeExclusiveBtn = document.getElementById("aiTaxTypeExclusive");
+    const taxTypeInclusiveBtn = document.getElementById("aiTaxTypeInclusive");
+    const aiTaxSplitToggle = document.getElementById("aiTaxSplitToggle");
     const retakeBtn = document.getElementById("aiReceiptRetakeBtn");
 
     // 直接記帳與幣別相關元素
@@ -5009,6 +5229,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     const aiDirectSaveBtn = document.getElementById("aiReceiptDirectSaveBtn");
 
     let aiPayerMode = "single";
+    let taxType = "exclusive"; // "exclusive" (外加) | "inclusive" (內含)
     let selectedReceiptCurrency = CURRENCY;
     let editingAiExpenseId = null;
     let editingAiExpenseOriginal = null;
@@ -5023,74 +5244,132 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       return (c && c.label) || selectedReceiptCurrency;
     }
 
+    function getActiveMembers(){
+      let list = [];
+      if(Array.isArray(memberRows) && memberRows.length > 0){
+        list = showLeftMembers ? [...memberRows] : memberRows.filter(m => !m.left_at);
+      } else if(Array.isArray(MEMBERS) && MEMBERS.length > 0){
+        list = showLeftMembers ? [...MEMBERS] : MEMBERS.filter(m => !m.left_at);
+      } else if(typeof memberById === "object" && memberById && Object.keys(memberById).length > 0){
+        list = Object.keys(memberById).map(id => ({ id, name: memberById[id] }));
+      }
+      const existingIdSet = new Set(list.map(m => String(m.id)));
+      if(Array.isArray(receiptClaimItems)){
+        receiptClaimItems.forEach(it => {
+          (it.claimedMemberIds || []).forEach(mId => {
+            const strId = String(mId);
+            if(!existingIdSet.has(strId)){
+              existingIdSet.add(strId);
+              list.push({
+                id: mId,
+                name: (typeof memberById === "object" && memberById && memberById[mId]) || "成員"
+              });
+            }
+          });
+        });
+      }
+      return list;
+    }
+
     // 🌟 供外部編輯呼叫：開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
     window.openAiReceiptEditMode = function(expense, aiData){
-      editingAiExpenseId = expense.id;
-      editingAiExpenseOriginal = expense;
-
-      currentReceiptData = {
-        storeName: aiData.storeName || "",
-        currencyCode: expense.currency || aiData.currencyCode || CURRENCY,
-        subtotal: Number(aiData.subtotal) || 0,
-        serviceCharge: Number(aiData.serviceCharge) || 0,
-        tax: Number(aiData.tax) || 0,
-        discount: Number(aiData.discount) || 0,
-        totalAmount: Number(expense.amount) || 0
-      };
-
-      taxSplitMode = aiData.taxSplitMode || "ratio";
-      selectedReceiptCurrency = expense.currency || aiData.currencyCode || CURRENCY;
-      if(aiReceiptCurrencySelect) aiReceiptCurrencySelect.value = selectedReceiptCurrency;
-
-      receiptClaimItems = (aiData.items || []).map((it, idx) => ({
-        id: it.id || ("item_" + idx + "_" + Date.now()),
-        name: it.name || `品項 ${idx + 1}`,
-        price: Number(it.price) || 0,
-        qty: Number(it.qty) || 1,
-        claimedMemberIds: Array.isArray(it.claimedMemberIds) ? [...it.claimedMemberIds] : []
-      }));
-
-      if(!receiptClaimItems.length){
-        receiptClaimItems.push({
-          id: "item_0_" + Date.now(),
-          name: aiData.storeName || "消費總額",
-          price: Number(expense.amount) || 0,
-          qty: 1,
-          claimedMemberIds: []
+      const modalEl = document.getElementById("aiReceiptModal");
+      if(!modalEl){
+        console.error("aiReceiptModal not found in DOM");
+        return false;
+      }
+      try {
+        // 🔍 診斷用：顯示成員載入狀況
+        const diagMembers = getActiveMembers();
+        const diagGrid = document.getElementById("aiReceiptMembersGrid");
+        console.log("[AI-DIAG] memberRows:", JSON.stringify((memberRows||[]).map(m=>({id:m.id,name:m.name}))));
+        console.log("[AI-DIAG] MEMBERS:", JSON.stringify((MEMBERS||[]).map(m=>({id:m.id,name:m.name}))));
+        console.log("[AI-DIAG] getActiveMembers():", JSON.stringify(diagMembers.map(m=>({id:m.id,name:m.name}))));
+        console.log("[AI-DIAG] aiData.items:", JSON.stringify((aiData&&aiData.items)||[]));
+        console.log("[AI-DIAG] membersGrid el:", diagGrid ? "FOUND" : "NULL");
+        if(diagMembers.length === 0){
+          alert("⚠️ 診斷：成員列表是空的！\nmemberRows=" + (memberRows||[]).length + "\nMEMBERS=" + (MEMBERS||[]).length + "\nmemberById keys=" + Object.keys(memberById||{}).length);
+        }
+        // 關閉其他可能開啟中的明細或計算彈窗
+        document.querySelectorAll(".calc-modal.show, .modal.show").forEach(m => {
+          if(m !== modalEl) m.classList.remove("show");
         });
-      }
 
-      if(aiExpenseDate){
-        aiExpenseDate.value = expense.expense_date || aiData.date || "";
-      }
-      if(aiExpenseTime){
-        aiExpenseTime.value = aiData.time || formatTime(expense.created_at, expense.expense_date) || "";
-      }
+        editingAiExpenseId = expense ? expense.id : null;
+        editingAiExpenseOriginal = expense || null;
 
-      const payers = expense.payers || aiData.payers || [];
-      if(payers.length > 1){
-        aiPayerMode = "multi";
-      } else {
-        aiPayerMode = "single";
+        currentReceiptData = {
+          storeName: (aiData && aiData.storeName) || (expense && expense.description) || "聚餐收據",
+          currencyCode: (expense && expense.currency) || (aiData && aiData.currencyCode) || CURRENCY,
+          subtotal: Number(aiData && aiData.subtotal) || Number(expense && expense.amount) || 0,
+          serviceCharge: Number(aiData && aiData.serviceCharge) || 0,
+          tax: Number(aiData && aiData.tax) || 0,
+          discount: Number(aiData && aiData.discount) || 0,
+          totalAmount: Number(expense && expense.amount) || 0
+        };
+
+        taxSplitMode = (aiData && aiData.taxSplitMode) || "ratio";
+        taxType = (aiData && aiData.taxType) || ((aiData && (aiData.serviceCharge || aiData.tax)) ? "exclusive" : "inclusive");
+        selectedReceiptCurrency = (expense && expense.currency) || (aiData && aiData.currencyCode) || CURRENCY;
+        if(aiReceiptCurrencySelect) aiReceiptCurrencySelect.value = selectedReceiptCurrency;
+
+        receiptClaimItems = ((aiData && aiData.items) || []).map((it, idx) => ({
+          id: it.id || ("item_" + idx + "_" + Date.now()),
+          name: it.name || `品項 ${idx + 1}`,
+          price: Number(it.price) || 0,
+          qty: Number(it.qty) || 1,
+          claimedMemberIds: Array.isArray(it.claimedMemberIds) ? [...it.claimedMemberIds] : []
+        }));
+
+        if(!receiptClaimItems.length){
+          receiptClaimItems.push({
+            id: "item_0_" + Date.now(),
+            name: currentReceiptData.storeName || "消費總額",
+            price: Number(expense && expense.amount) || 0,
+            qty: 1,
+            claimedMemberIds: (expense && expense.shares) ? expense.shares.map(s => s.member_id) : []
+          });
+        }
+
+        if(aiExpenseDate){
+          aiExpenseDate.value = (expense && expense.expense_date) || (aiData && aiData.date) || "";
+        }
+        if(aiExpenseTime){
+          aiExpenseTime.value = (aiData && aiData.time) || (expense && formatTime(expense.created_at, expense.expense_date)) || "";
+        }
+
+        const payers = (expense && expense.payers) || (aiData && aiData.payers) || [];
+        if(payers.length > 1){
+          aiPayerMode = "multi";
+        } else {
+          aiPayerMode = "single";
+        }
+
+        if(aiDirectSaveBtn){
+          aiDirectSaveBtn.textContent = "💾 確認修改並更新支出";
+        }
+
+        renderClaimBoard();
+
+        if(aiPayerMode === "single" && payers[0] && aiPaidBySingle){
+          aiPaidBySingle.value = payers[0].member_id;
+        } else if(aiPayerMode === "multi" && aiPayerMultiList){
+          payers.forEach(p => {
+            const inp = aiPayerMultiList.querySelector(`.ai-multi-payer-input[data-id="${p.member_id}"]`);
+            if(inp) inp.value = p.amount;
+          });
+          updateMultiPayerSumCheck();
+        }
+
+        showScreen("claim");
+        modalEl.classList.add("show");
+        return true;
+      } catch(err){
+        console.error("openAiReceiptEditMode error:", err);
+        showScreen("claim");
+        modalEl.classList.add("show");
+        return true;
       }
-
-      if(aiDirectSaveBtn){
-        aiDirectSaveBtn.textContent = "💾 確認修改並更新支出";
-      }
-
-      renderClaimBoard();
-
-      if(aiPayerMode === "single" && payers[0] && aiPaidBySingle){
-        aiPaidBySingle.value = payers[0].member_id;
-      } else if(aiPayerMode === "multi" && aiPayerMultiList){
-        payers.forEach(p => {
-          const inp = aiPayerMultiList.querySelector(`.ai-multi-payer-input[data-id="${p.member_id}"]`);
-          if(inp) inp.value = p.amount;
-        });
-        updateMultiPayerSumCheck();
-      }
-
-      openModal("claim");
     };
 
     if(!modal || !openBtn) return;
@@ -5152,10 +5431,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     let dragStartRect = null;
 
     function showScreen(screen){
-      if(uploadScreen) uploadScreen.classList.toggle("hidden", screen !== "upload");
-      if(cropScreen) cropScreen.classList.toggle("hidden", screen !== "crop");
-      if(loadingScreen) loadingScreen.classList.toggle("hidden", screen !== "loading");
-      if(claimScreen) claimScreen.classList.toggle("hidden", screen !== "claim");
+      const up = document.getElementById("aiReceiptUploadScreen");
+      const cr = document.getElementById("aiReceiptCropScreen");
+      const ld = document.getElementById("aiReceiptLoadingScreen");
+      const cl = document.getElementById("aiReceiptClaimScreen");
+      if(up) up.classList.toggle("hidden", screen !== "upload");
+      if(cr) cr.classList.toggle("hidden", screen !== "crop");
+      if(ld) ld.classList.toggle("hidden", screen !== "loading");
+      if(cl) cl.classList.toggle("hidden", screen !== "claim");
     }
 
     async function openModal(initialScreen = "upload"){
@@ -5645,6 +5928,15 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           }
           if(aiReceiptCurrencySelect) aiReceiptCurrencySelect.value = selectedReceiptCurrency;
 
+          // 智慧偵測內含稅 vs 外加稅費：若品項加總已等於總金額，預設切換為內含稅
+          const itemsSum = (parsed.items || []).reduce((acc, it) => acc + (Number(it.price || it.amount || it.total || 0)), 0);
+          const parsedTotal = Number(parsed.totalAmount) || 0;
+          if(parsedTotal > 0 && Math.abs(itemsSum - parsedTotal) <= 1){
+            taxType = "inclusive";
+          } else {
+            taxType = (parsed.serviceCharge || parsed.tax) ? "exclusive" : "inclusive";
+          }
+
           // 自動讀取發票明細上的日期與時間
           if(aiExpenseDate){
             if(parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date)){
@@ -5745,7 +6037,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function renderClaimBoard(){
       if(!currentReceiptData) return;
 
-      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+      const activeMembers = getActiveMembers();
       const curSym = getReceiptSymbol();
 
       // 1. 可編輯店家名稱
@@ -5808,6 +6100,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       if(ratioBtn) ratioBtn.classList.toggle("active", taxSplitMode === "ratio");
       if(equalBtn) equalBtn.classList.toggle("active", taxSplitMode === "equal");
+      if(taxTypeExclusiveBtn) taxTypeExclusiveBtn.classList.toggle("active", taxType === "exclusive");
+      if(taxTypeInclusiveBtn) taxTypeInclusiveBtn.classList.toggle("active", taxType === "inclusive");
+      if(aiTaxSplitToggle){
+        aiTaxSplitToggle.classList.toggle("hidden", taxType === "inclusive");
+        aiTaxSplitToggle.style.display = (taxType === "inclusive") ? "none" : "flex";
+      }
+      const serviceCol = document.getElementById("aiReceiptServiceCol");
+      if(serviceCol) serviceCol.style.opacity = (taxType === "inclusive") ? "0.45" : "1";
 
       // 6. 渲染品項清單（高度一致、平分按鈕置於金額下方、大頭貼不顯示幾分之幾）
       if(itemsListEl){
@@ -5829,9 +6129,19 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             `;
           }).join("");
 
+          const count = item.claimedMemberIds.length;
+          const perPersonPrice = count > 1 ? Math.round(item.price / count) : 0;
+          let floatBadgeHTML = "";
+          if(count === 0){
+            floatBadgeHTML = `<span class="ai-card-float-badge unclaimed">⚠️ 待認領</span>`;
+          } else if(count > 1){
+            floatBadgeHTML = `<span class="ai-card-float-badge per-person" title="${count} 人分攤，每人約 ${curSym}${formatAmt(perPersonPrice)}">每人 ${curSym}${formatAmt(perPersonPrice)}</span>`;
+          }
+
           return `
             <div class="ai-receipt-item-card ${isClaimed ? 'is-claimed' : 'is-unclaimed'}" data-id="${item.id}">
-              <!-- 頂部列：序號 + 品名 (flex-1 撐滿) + [金額 + 刪除] -->
+              ${floatBadgeHTML}
+              <!-- 頂部列：序號 + 品名 (flex-1 撐滿) + [金額 + 刪除] (標準單行排版不推擠) -->
               <div class="ai-item-main-row">
                 <span class="ai-item-tag-num">${idx + 1}</span>
                 <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品名 中文翻譯(原文)" data-id="${item.id}">
@@ -5924,15 +6234,15 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       const service = Number(currentReceiptData && currentReceiptData.serviceCharge) || 0;
       const tax = Number(currentReceiptData && currentReceiptData.tax) || 0;
       const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-      const netExtraFees = (service + tax) - discount;
+      const netExtraFees = taxType === "inclusive" ? 0 : ((service + tax) - discount);
 
-      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+      const activeMembers = getActiveMembers();
       const claimedMemberIdSet = new Set();
-      receiptClaimItems.forEach(it => it.claimedMemberIds.forEach(id => claimedMemberIdSet.add(id)));
+      receiptClaimItems.forEach(it => (it.claimedMemberIds || []).forEach(id => claimedMemberIdSet.add(String(id))));
 
       const memberCalcMap = {};
       activeMembers.forEach(m => {
-        memberCalcMap[m.id] = {
+        memberCalcMap[String(m.id)] = {
           member: m,
           itemSum: 0,
           formulas: [],
@@ -5942,28 +6252,43 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       });
 
       receiptClaimItems.forEach(it => {
-        const count = it.claimedMemberIds.length;
+        const ids = Array.isArray(it.claimedMemberIds) ? it.claimedMemberIds : [];
+        const count = ids.length;
         if(count > 0){
           const sharePrice = (Number(it.price) || 0) / count;
-          it.claimedMemberIds.forEach(mId => {
-            if(memberCalcMap[mId]){
-              memberCalcMap[mId].itemSum += sharePrice;
-              memberCalcMap[mId].formulas.push(count > 1 ? `${Math.round(it.price)}/${count}` : `${Math.round(it.price)}`);
+          ids.forEach(mId => {
+            const strId = String(mId);
+            if(!memberCalcMap[strId]){
+              const foundMember = (memberRows && memberRows.find(x => String(x.id) === strId)) || (MEMBERS && MEMBERS.find(x => String(x.id) === strId)) || { id: mId, name: memberById[mId] || "成員" };
+              memberCalcMap[strId] = {
+                member: foundMember,
+                itemSum: 0,
+                formulas: [],
+                taxShare: 0,
+                total: 0
+              };
             }
+            memberCalcMap[strId].itemSum += sharePrice;
+            memberCalcMap[strId].formulas.push(count > 1 ? `${Math.round(it.price)}/${count}` : `${Math.round(it.price)}`);
           });
         }
       });
 
       const claimingCount = claimedMemberIdSet.size || activeMembers.length;
-      activeMembers.forEach(m => {
-        const data = memberCalcMap[m.id];
-        if(data.itemSum > 0 || claimedMemberIdSet.has(m.id)){
-          if(taxSplitMode === "ratio"){
-            data.taxShare = subtotal > 0 ? (data.itemSum / subtotal) * netExtraFees : 0;
+      Object.keys(memberCalcMap).forEach(mId => {
+        const data = memberCalcMap[mId];
+        if(data && (data.itemSum > 0 || claimedMemberIdSet.has(String(mId)))){
+          if(taxType === "inclusive"){
+            data.taxShare = 0;
+            data.total = Math.round(data.itemSum);
           } else {
-            data.taxShare = claimingCount > 0 ? netExtraFees / claimingCount : 0;
+            if(taxSplitMode === "ratio"){
+              data.taxShare = subtotal > 0 ? (data.itemSum / subtotal) * netExtraFees : 0;
+            } else {
+              data.taxShare = claimingCount > 0 ? netExtraFees / claimingCount : 0;
+            }
+            data.total = Math.round(data.itemSum + data.taxShare);
           }
-          data.total = Math.round(data.itemSum + data.taxShare);
         }
       });
 
@@ -5975,7 +6300,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       const curSym = getReceiptSymbol();
       const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
       lines.push(`🏪 店家：${store}`);
-      lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (小計 ${curSym}${formatAmt(subtotal)} + 服務費/稅 ${curSym}${formatAmt(netExtraFees)})`);
+      if(taxType === "inclusive"){
+        lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (已內含稅，品項小計 ${curSym}${formatAmt(subtotal)})`);
+      } else {
+        lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (小計 ${curSym}${formatAmt(subtotal)} + 服務費/稅 ${curSym}${formatAmt(netExtraFees)})`);
+      }
       lines.push(`\n📋 品項明細：`);
       receiptClaimItems.forEach((it, idx) => {
         const claimNames = it.claimedMemberIds.map(id => memberById[id] || id).join("、");
@@ -5994,21 +6323,88 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
       });
       lines.push(`\n👥 各成員應付金額：`);
-      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+      const activeMembers = getActiveMembers();
       activeMembers.forEach(m => {
-        const d = memberCalcMap[m.id];
+        const d = memberCalcMap[String(m.id)] || memberCalcMap[m.id];
         if(d && d.total > 0){
-          const taxPart = d.taxShare ? ` (含服務費 ${curSym}${formatAmt(Math.round(d.taxShare))})` : "";
+          const taxPart = (taxType !== "inclusive" && d.taxShare) ? ` (含服務費 ${curSym}${formatAmt(Math.round(d.taxShare))})` : "";
           lines.push(`  ・${m.name}：${curSym}${formatAmt(d.total)}${taxPart}`);
         }
       });
       return lines.join("\n");
     }
 
+    function generateCompactBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal){
+      const lines = [];
+      const curSym = getReceiptSymbol();
+      const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
+      lines.push(`🏪 店家：${store}`);
+      if(taxType === "inclusive"){
+        lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (已內含稅)`);
+      } else {
+        lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (小計 ${curSym}${formatAmt(subtotal)} + 服務費/稅 ${curSym}${formatAmt(netExtraFees)})`);
+      }
+      lines.push(`\n👥 各成員應付金額：`);
+      const activeMembers = getActiveMembers();
+      let count = 0;
+      activeMembers.forEach(m => {
+        const d = memberCalcMap[String(m.id)] || memberCalcMap[m.id];
+        if(d && d.total > 0){
+          lines.push(`  ・${m.name}：${curSym}${formatAmt(d.total)}`);
+          count++;
+        }
+      });
+      if(count === 0){
+        lines.push(`  (尚未認領品項)`);
+      }
+      return lines.join("\n");
+    }
+
+    async function copyToClipboard(text){
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch(e){}
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        ta.remove();
+        return true;
+      } catch(e){
+        ta.remove();
+        return false;
+      }
+    }
+
+    let selectedHighlightMemberId = null;
+
+    function updateMemberHighlightInItems(){
+      if(!itemsListEl) return;
+      itemsListEl.querySelectorAll(".ai-receipt-item-card").forEach(card => {
+        const itemId = card.dataset.id;
+        const it = receiptClaimItems.find(x => x.id === itemId);
+        if(!selectedHighlightMemberId){
+          card.classList.remove("is-highlighted-by-member", "is-dimmed-by-filter");
+        } else {
+          const hasMember = it && it.claimedMemberIds.includes(selectedHighlightMemberId);
+          card.classList.toggle("is-highlighted-by-member", hasMember);
+          card.classList.toggle("is-dimmed-by-filter", !hasMember);
+        }
+      });
+    }
+
     function updateCalculationsAndBadges(){
       const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
-      const calculatedTotal = Math.round(subtotal + netExtraFees);
-      const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+      const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
+      const calculatedTotal = taxType === "inclusive" ? Math.round(subtotal - discount) : Math.round(subtotal + netExtraFees);
+      const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
       const curSym = getReceiptSymbol();
 
       // 更新可編輯的小計、服務費、折扣與總計輸入框
@@ -6019,14 +6415,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         serviceInputEl.value = service + tax;
       }
       if(discountInputEl && document.activeElement !== discountInputEl) {
-        const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-        discountInputEl.value = discount;
+        const discountVal = Number(currentReceiptData && currentReceiptData.discount) || 0;
+        discountInputEl.value = discountVal;
       }
       if(totalInputEl && document.activeElement !== totalInputEl) totalInputEl.value = finalTotal;
 
       if(discountRowEl){
-        const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-        discountRowEl.classList.toggle("hidden", discount <= 0);
+        const discountVal = Number(currentReceiptData && currentReceiptData.discount) || 0;
+        discountRowEl.classList.toggle("hidden", discountVal <= 0);
       }
 
       // 更新頂部防漏單進度條
@@ -6054,12 +6450,44 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
       }
 
-      // 控制儲存按鈕狀態 (未認領完成不能儲存)
+      // 模式切換按鈕高亮與分攤選單顯示/隱藏
+      if(taxTypeExclusiveBtn) taxTypeExclusiveBtn.classList.toggle("active", taxType === "exclusive");
+      if(taxTypeInclusiveBtn) taxTypeInclusiveBtn.classList.toggle("active", taxType === "inclusive");
+      if(aiTaxSplitToggle){
+        aiTaxSplitToggle.classList.toggle("hidden", taxType === "inclusive");
+        aiTaxSplitToggle.style.display = (taxType === "inclusive") ? "none" : "flex";
+      }
+      const serviceCol = document.getElementById("aiReceiptServiceCol");
+      if(serviceCol) serviceCol.style.opacity = (taxType === "inclusive") ? "0.45" : "1";
+
+      // 檢查 小計 (+ 服務費/稅) 是否等於 總計
+      const isTotalMatching = Math.abs(calculatedTotal - finalTotal) < 0.5;
+      const mismatchWarningEl = document.getElementById("aiTotalMismatchWarning");
+      if(mismatchWarningEl){
+        if(!isTotalMatching){
+          if(taxType === "inclusive"){
+            mismatchWarningEl.innerHTML = `⚠️ 目前為「內含稅」模式：小計 (<b>${curSym}${formatAmt(subtotal)}</b>) 與總計 (<b>${curSym}${formatAmt(finalTotal)}</b>) 不相符。若此發票有額外服務費/稅，請切換為「外加稅費」模式。`;
+          } else {
+            const diff = Math.round((finalTotal - calculatedTotal) * 100) / 100;
+            mismatchWarningEl.innerHTML = `⚠️ 目前為「外加稅費」模式：小計 (${curSym}${formatAmt(subtotal)}) ＋ 服務費/稅 (${curSym}${formatAmt(netExtraFees)}) ＝ <b>${curSym}${formatAmt(calculatedTotal)}</b>，與總計 (<b>${curSym}${formatAmt(finalTotal)}</b>) 不相符${diff > 0 ? `（少 ${curSym}${formatAmt(diff)}）` : `（多 ${curSym}${formatAmt(Math.abs(diff))}）`}。若發票已內含稅，可切換為「內含稅」模式。`;
+          }
+          mismatchWarningEl.classList.remove("hidden");
+        } else {
+          mismatchWarningEl.textContent = "";
+          mismatchWarningEl.classList.add("hidden");
+        }
+      }
+
+      // 控制儲存按鈕狀態 (未認領完成不能儲存、金額不相符不能儲存)
       if(aiDirectSaveBtn){
         if(unclaimedCount > 0){
           aiDirectSaveBtn.disabled = true;
           aiDirectSaveBtn.classList.add("btn-disabled");
           aiDirectSaveBtn.textContent = `⚠️ 尚有 ${unclaimedCount} 個品項未認領 (請先完成認領)`;
+        } else if(!isTotalMatching){
+          aiDirectSaveBtn.disabled = true;
+          aiDirectSaveBtn.classList.add("btn-disabled");
+          aiDirectSaveBtn.textContent = taxType === "inclusive" ? "⚠️ 金額不相符 (品項小計 ≠ 總計)" : "⚠️ 金額不相符 (小計 + 服務費/稅 ≠ 總計)";
         } else {
           aiDirectSaveBtn.disabled = false;
           aiDirectSaveBtn.classList.remove("btn-disabled");
@@ -6067,12 +6495,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
       }
 
-      if(membersGridEl){
-        const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
-        membersGridEl.innerHTML = activeMembers.map(m => {
-          const data = memberCalcMap[m.id] || { total: 0 };
+      const targetMembersGrid = document.getElementById("aiReceiptMembersGrid") || membersGridEl;
+      if(targetMembersGrid){
+        const activeMembers = getActiveMembers();
+        targetMembersGrid.innerHTML = activeMembers.map(m => {
+          const data = memberCalcMap[String(m.id)] || memberCalcMap[m.id] || { total: 0 };
+          const isSelected = (selectedHighlightMemberId === String(m.id) || selectedHighlightMemberId === m.id);
           return `
-            <div class="ai-receipt-member-badge">
+            <div class="ai-receipt-member-badge clickable ${isSelected ? 'active' : ''}" data-member-id="${m.id}" title="點擊${isSelected ? '取消高亮' : '高亮'}此成員認領的品項">
               <span style="display:flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 ${renderAvatarHTML(m, "avatar-xs")}
                 ${escapeHtml(m.name || emailToName(m.email))}
@@ -6081,13 +6511,59 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             </div>
           `;
         }).join("");
+
+        targetMembersGrid.querySelectorAll(".ai-receipt-member-badge").forEach(badge => {
+          badge.addEventListener("click", ()=>{
+            const mId = badge.dataset.memberId;
+            if(selectedHighlightMemberId === mId){
+              selectedHighlightMemberId = null;
+            } else {
+              selectedHighlightMemberId = mId;
+            }
+            updateMemberHighlightInItems();
+            updateCalculationsAndBadges();
+          });
+        });
       }
 
-      if(aiBreakdownContent){
-        aiBreakdownContent.textContent = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+      updateMemberHighlightInItems();
+
+      const targetBreakdown = document.getElementById("aiBreakdownContent") || aiBreakdownContent;
+      if(targetBreakdown){
+        targetBreakdown.textContent = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
       }
 
       updateMultiPayerSumCheck();
+    }
+
+    // 複製明細按鈕事件綁定
+    const copyCompactBtn = document.getElementById("aiCopyCompactBtn");
+    const copyFullBtn = document.getElementById("aiCopyFullBtn");
+
+    if(copyCompactBtn){
+      copyCompactBtn.addEventListener("click", async ()=>{
+        const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
+        const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
+        const calculatedTotal = taxType === "inclusive" ? Math.round(subtotal - discount) : Math.round(subtotal + netExtraFees);
+        const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
+        const summary = generateCompactBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+        await copyToClipboard(summary);
+        copyCompactBtn.textContent = "✓ 已複製精簡版";
+        setTimeout(()=>{ copyCompactBtn.textContent = "⚡ 複製精簡版"; }, 1500);
+      });
+    }
+
+    if(copyFullBtn){
+      copyFullBtn.addEventListener("click", async ()=>{
+        const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
+        const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
+        const calculatedTotal = taxType === "inclusive" ? Math.round(subtotal - discount) : Math.round(subtotal + netExtraFees);
+        const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
+        const summary = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+        await copyToClipboard(summary);
+        copyFullBtn.textContent = "✓ 已複製完整版";
+        setTimeout(()=>{ copyFullBtn.textContent = "📋 複製完整版"; }, 1500);
+      });
     }
 
     if(addItemBtn){
@@ -6100,6 +6576,36 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           claimedMemberIds: []
         });
         renderClaimBoard();
+      });
+    }
+
+    if(taxTypeExclusiveBtn){
+      taxTypeExclusiveBtn.addEventListener("click", (e)=>{
+        e.preventDefault();
+        taxType = "exclusive";
+        if(currentReceiptData) currentReceiptData._customTotal = false;
+        renderClaimBoard();
+        updateCalculationsAndBadges();
+      });
+    }
+
+    if(taxTypeInclusiveBtn){
+      taxTypeInclusiveBtn.addEventListener("click", (e)=>{
+        e.preventDefault();
+        taxType = "inclusive";
+        if(currentReceiptData){
+          currentReceiptData._customTotal = false;
+          currentReceiptData.serviceCharge = 0;
+          currentReceiptData.tax = 0;
+        }
+        if(serviceInputEl) serviceInputEl.value = 0;
+        const { subtotal } = calculateMemberTotals();
+        const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
+        const newTotal = Math.round(subtotal - discount);
+        if(currentReceiptData) currentReceiptData.totalAmount = newTotal;
+        if(totalInputEl) totalInputEl.value = newTotal;
+        renderClaimBoard();
+        updateCalculationsAndBadges();
       });
     }
 
@@ -6145,6 +6651,15 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           return;
         }
 
+        if(Math.abs(calculatedTotal - finalTotal) >= 0.5){
+          if(taxType === "inclusive"){
+            await sbAlert(`目前為「內含稅」模式，品項小計 (${curSym}${formatAmt(subtotal)}) 與總計 (${curSym}${formatAmt(finalTotal)}) 不符！\n\n若此發票有額外服務費或稅額需疊加，請切換至「外加稅費」模式。`, "⚠️ 金額不相符");
+          } else {
+            await sbAlert(`小計 (${curSym}${formatAmt(subtotal)}) ＋ 服務費/稅 (${curSym}${formatAmt(netExtraFees)}) ＝ ${curSym}${formatAmt(calculatedTotal)}，與總計 (${curSym}${formatAmt(finalTotal)}) 不符！\n\n若此發票已內含稅，請切換至「內含稅」模式。`, "⚠️ 金額不相符");
+          }
+          return;
+        }
+
         // 1. 付款人校驗
         let payers = [];
         if(aiPayerMode === "single"){
@@ -6173,7 +6688,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
 
         // 2. 分攤人與份額校驗
-        const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+        const activeMembers = getActiveMembers();
         let shares = activeMembers.filter(m => (memberCalcMap[m.id]?.total || 0) > 0).map(m => {
           const d = memberCalcMap[m.id];
           return {
@@ -6212,6 +6727,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           tax: Number(currentReceiptData && currentReceiptData.tax) || 0,
           discount: Number(currentReceiptData && currentReceiptData.discount) || 0,
           taxSplitMode,
+          taxType,
           date: expenseDate,
           time: (aiExpenseTime && aiExpenseTime.value) || "",
           payerMode: aiPayerMode,
