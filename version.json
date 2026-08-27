@@ -1,7 +1,7 @@
 {
-  "version": "448",
+  "version": "450",
   "updatedAt": "2026-08-28",
   "changelog": [
-    "v447: 修正 renderClaimBoard 仍使??MEMBERS ?��? getActiveMembers() 導致?�員?��??��??�空白?�根??bug；修�?generateBreakdownSummary ??generateCompactBreakdownSummary ??memberCalcMap ?�詢??String ??m.id 導致?��?顯示?�零?��?�?
+    "修復債務明細卡片中標籤文字折行問題，設定 white-space: nowrap 與彈性寬度，保持單行整齊對齊"
   ]
 }

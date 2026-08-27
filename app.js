@@ -3981,25 +3981,38 @@ function showPairDetail(
 
   // ==========================================================
   // ==========================================================
-  // 計算「debtorId 欠 creditorId」的組成支出與還款紀錄（依時間軸，排除上次結清前的舊明細）
+  // ==========================================================
+  // 計算「debtorId 欠 creditorId」的組成支出與還款紀錄（雙向時間軸追蹤）
   // 規則：
-  // 1. 欠款部分：僅收集 debtorId 欠 creditorId 的支出分攤
-  // 2. 還款部分：僅收集 debtorId 還給 creditorId 的還款紀錄
-  // 3. 時間切點：沿時間軸追蹤「debtorId 欠 creditorId」的累積欠款，只要被還款沖銷至 0（結清），切點自動往後移
+  // 1. 欠款部分：收集 debtorId 欠 creditorId 的支出分攤
+  // 2. 還款部分：收集 debtorId 還給 creditorId 的還款紀錄
+  // 3. 找零溢付：收集 creditorId 償還 debtorId 時超出先前欠款之溢付部分
+  // 4. 時間切點：沿時間軸追蹤累積欠款，只要被還款沖銷至 0（結清），切點自動往後移
   // ==========================================================
 
-  // 1. 收集所有由 creditorId 付款、debtorId 應分攤的支出，以及 debtorId 還給 creditorId 的還款
-  const pairEvents = [];
+  // 1. 收集雙方之間所有可能影響欠款關係的支出與還款事件
+  const allPairEvents = [];
 
   expenses.forEach(e => {
-    const d1 = expensePairDebt(e, debtorId, creditorId);
+    const d1 = expensePairDebt(e, debtorId, creditorId); // debtorId 欠 creditorId
+    const d2 = expensePairDebt(e, creditorId, debtorId); // creditorId 欠 debtorId
     if(d1 > 0.005){
-      pairEvents.push({
-        type: "expense",
+      allPairEvents.push({
+        type: "expense_debt",
         date: e.expense_date || "",
         createdAt: e.created_at || "",
         expense: e,
-        d1, // debtorId 欠 creditorId 的金額
+        d1,
+        id: e.id
+      });
+    }
+    if(d2 > 0.005){
+      allPairEvents.push({
+        type: "expense_credit",
+        date: e.expense_date || "",
+        createdAt: e.created_at || "",
+        expense: e,
+        d2,
         id: e.id
       });
     }
@@ -4009,53 +4022,112 @@ function showPairDetail(
     const from = r.from_member;
     const to = r.to_member;
     const amount = Number(r.amount) || 0;
-    if(amount > 0.005 && from === debtorId && to === creditorId){
-      pairEvents.push({
-        type: "repayment",
-        date: r.payment_date || "",
-        createdAt: r.created_at || "",
-        repayment: r,
-        amount,
-        id: r.id
-      });
+    if(amount > 0.005){
+      if(from === debtorId && to === creditorId){
+        allPairEvents.push({
+          type: "repayment_debt",
+          date: r.payment_date || "",
+          createdAt: r.created_at || "",
+          repayment: r,
+          amount,
+          id: r.id
+        });
+      } else if(from === creditorId && to === debtorId){
+        allPairEvents.push({
+          type: "repayment_credit",
+          date: r.payment_date || "",
+          createdAt: r.created_at || "",
+          repayment: r,
+          amount,
+          id: r.id
+        });
+      }
     }
   });
 
   // 2. 按時間正序排列（舊到新；同一天同時刻時，支出先於還款發生）
-  pairEvents.sort((a, b) => {
+  allPairEvents.sort((a, b) => {
     if(a.date !== b.date) return a.date.localeCompare(b.date);
     if(a.createdAt && b.createdAt && a.createdAt !== b.createdAt) return a.createdAt.localeCompare(b.createdAt);
-    const aIsExp = a.type === "expense" ? 0 : 1;
-    const bIsExp = b.type === "expense" ? 0 : 1;
+    const aIsExp = a.type.startsWith("expense") ? 0 : 1;
+    const bIsExp = b.type.startsWith("expense") ? 0 : 1;
     return aIsExp - bIsExp;
   });
 
-  // 3. 沿時間軸追蹤「debtorId 欠 creditorId」的未還清金額，找出最近一次結清（欠款歸 0）的時間切點
-  let runningDebt = 0;
-  let lastZeroIndex = 0;
+  // 3. 雙向追蹤時間軸，精確捕獲直接支出、還款、與還款溢付找零
+  let debtorOwesCreditor = 0;
+  let creditorOwesDebtor = 0;
+  const pairEventsForDebtor = [];
 
-  for(let i = 0; i < pairEvents.length; i++){
-    const ev = pairEvents[i];
-    if(ev.type === "expense"){
-      runningDebt += ev.d1;
-    } else if(ev.type === "repayment"){
-      runningDebt -= ev.amount;
-    }
-
-    // 若 debtorId 欠 creditorId 的款項已被全數清償（降至 0 或以下）
-    if(runningDebt <= 0.005){
-      runningDebt = 0;
-      lastZeroIndex = i + 1; // 結清切點之前的紀錄已全數結清，切點往後移
+  for(let i = 0; i < allPairEvents.length; i++){
+    const ev = allPairEvents[i];
+    if(ev.type === "expense_debt"){
+      debtorOwesCreditor += ev.d1;
+      pairEventsForDebtor.push({
+        type: "expense",
+        date: ev.date,
+        createdAt: ev.createdAt,
+        expense: ev.expense,
+        d1: ev.d1,
+        id: ev.id
+      });
+    } else if(ev.type === "repayment_debt"){
+      const paid = Math.min(debtorOwesCreditor, ev.amount);
+      debtorOwesCreditor -= paid;
+      pairEventsForDebtor.push({
+        type: "repayment",
+        date: ev.date,
+        createdAt: ev.createdAt,
+        repayment: ev.repayment,
+        amount: ev.amount,
+        id: ev.id
+      });
+      if(ev.amount > paid){
+        creditorOwesDebtor += (ev.amount - paid);
+      }
+    } else if(ev.type === "expense_credit"){
+      creditorOwesDebtor += ev.d2;
+    } else if(ev.type === "repayment_credit"){
+      const paid = Math.min(creditorOwesDebtor, ev.amount);
+      creditorOwesDebtor -= paid;
+      const overpaid = ev.amount - paid;
+      if(overpaid > 0.005){
+        debtorOwesCreditor += overpaid;
+        pairEventsForDebtor.push({
+          type: "overpayment",
+          date: ev.date,
+          createdAt: ev.createdAt,
+          repayment: ev.repayment,
+          d1: overpaid,
+          amount: overpaid,
+          id: ev.id
+        });
+      }
     }
   }
 
-  // 4. 活躍事件：取自最近一次結清點之後的所有未結清紀錄
-  const activeEvents = (lastZeroIndex < pairEvents.length)
-    ? pairEvents.slice(lastZeroIndex)
-    : [];
+  // 4. 找出 debtorId 欠 creditorId 的最近一次結清點
+  let runDebt = 0;
+  let lastZeroIndex = 0;
+
+  for(let i = 0; i < pairEventsForDebtor.length; i++){
+    const ev = pairEventsForDebtor[i];
+    if(ev.type === "expense" || ev.type === "overpayment"){
+      runDebt += ev.d1;
+    } else if(ev.type === "repayment"){
+      runDebt -= ev.amount;
+    }
+    if(runDebt <= 0.005){
+      runDebt = 0;
+      lastZeroIndex = i + 1;
+    }
+  }
+
+  const activeEvents = pairEventsForDebtor.slice(lastZeroIndex);
+  const settledHistory = pairEventsForDebtor.slice(0, lastZeroIndex);
 
   const detailExpenses = activeEvents
-    .filter(ev => ev.type === "expense")
+    .filter(ev => ev.type === "expense" || ev.type === "overpayment")
     .sort((a, b) => {
       if(b.date !== a.date) return b.date.localeCompare(a.date);
       return (b.createdAt || "").localeCompare(a.createdAt || "");
@@ -4069,140 +4141,136 @@ function showPairDetail(
       return (b.created_at || "").localeCompare(a.created_at || "");
     });
 
+  const settledExpenses = settledHistory
+    .filter(ev => ev.type === "expense" || ev.type === "overpayment")
+    .sort((a, b) => {
+      if(b.date !== a.date) return b.date.localeCompare(a.date);
+      return (b.createdAt || "").localeCompare(a.createdAt || "");
+    });
+
+  const settledRepayments = settledHistory
+    .filter(ev => ev.type === "repayment")
+    .map(ev => ev.repayment)
+    .sort((a, b) => {
+      if(b.payment_date !== a.payment_date) return b.payment_date.localeCompare(a.payment_date);
+      return (b.created_at || "").localeCompare(a.created_at || "");
+    });
+
+  const totalSettledCount = settledExpenses.length + settledRepayments.length;
 
   // ==========================================================
   // 金額統計
   // ==========================================================
-  //
-  // 尚欠金額直接讀 buildDebtMatrix() 算出來的結果，
-  // 這樣才會跟債務關係表格子上的數字、以及「還款多找零」
-  // 產生的反向欠款，永遠保持一致。
-  // ==========================================================
-
   const owed = buildDebtMatrix(expenses, repayments);
-
-  const remainingDebt =
-    (owed[creditorId] && owed[creditorId][debtorId]) || 0;
-
-  // 反方向的欠款：creditorId 這邊如果也欠 debtorId 錢，代表兩人互相欠款，
-  // 可以讓使用者一鍵抵銷，不用各自記一筆現金支付。
-  const reverseDebt =
-    (owed[debtorId] && owed[debtorId][creditorId]) || 0;
+  const remainingDebt = (owed[creditorId] && owed[creditorId][debtorId]) || 0;
+  const reverseDebt = (owed[debtorId] && owed[debtorId][creditorId]) || 0;
   const offsetAmt = Math.min(remainingDebt, reverseDebt);
-
 
   // ==========================================================
   // 建立詳細紀錄
   // ==========================================================
-
   let html = `
-
     <div class="debt-detail-panel">
 
       <!-- 頂部標題 -->
       <div class="debt-detail-header">
-
         <div class="debt-detail-title-wrap">
-
           <div class="debt-detail-eyebrow">
             債務明細
           </div>
-
           <div class="debt-detail-title">
-
             <span class="debt-person debtor" style="display:inline-flex;align-items:center;gap:6px;">
               ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-sm")}
-              ${escapeHtml(
-                memberById[debtorId] || "?"
-              )}
+              ${escapeHtml(memberById[debtorId] || "?")}
             </span>
-
             <span class="debt-arrow">
               欠
             </span>
-
             <span class="debt-person creditor" style="display:inline-flex;align-items:center;gap:6px;">
               ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-sm")}
-              ${escapeHtml(
-                memberById[creditorId] || "?"
-              )}
+              ${escapeHtml(memberById[creditorId] || "?")}
             </span>
-
           </div>
-
         </div>
-
-
-        <button
-          type="button"
-          id="matrixDetailClose"
-          class="debt-detail-close"
-          aria-label="關閉"
-        >
-          ×
-        </button>
-
+        <button type="button" id="matrixDetailClose" class="debt-detail-close" aria-label="關閉">×</button>
       </div>
 
-
-      <!-- 債務組成（純支出欠款） -->
+      <!-- 債務組成 -->
       <div class="debt-detail-section">
-
         <div class="debt-section-title">
-
-          <span class="debt-section-icon">
-            📋
-          </span>
-
-          <span>
-            債務組成
-          </span>
-
-          <span class="debt-section-count">
-            ${detailExpenses.length} 筆
-          </span>
-
+          <span class="debt-section-icon">📋</span>
+          <span>債務組成</span>
+          <span class="debt-section-count">${detailExpenses.length} 筆</span>
         </div>
-
-
         <div class="debt-expense-list">
   `;
 
-
   // ==========================================================
-  // 支出紀錄（欠款歸欠款）
+  // 支出紀錄與溢付找零
   // ==========================================================
-
   if(detailExpenses.length){
-
     detailExpenses.forEach(item => {
+      if(item.type === "overpayment"){
+        const r = item.repayment;
+        const canEditRepay = r.offset_group
+          ? isRepaymentParty(r, myMember.id)
+          : (isRepaymentParty(r, myMember.id) || r.created_by === myMember.id);
+        html += `
+          <div class="debt-expense-card overpayment-card">
+            <div class="debt-expense-top">
+              <div class="debt-expense-info">
+                <div class="debt-expense-name">
+                  💸 還款溢付找零 <span class="badge-overpay">找零款</span>
+                </div>
+                <div class="debt-expense-date">
+                  ${escapeHtml(item.date || "")}${formatTime(item.createdAt, item.date) ? " " + formatTime(item.createdAt, item.date) : ""}（來自 ${escapeHtml(memberById[creditorId] || "?")} 轉帳 ${SYM}${formatAmt(r.amount)} 之溢付款項）
+                </div>
+              </div>
+              ${canEditRepay ? `
+                <div class="debt-expense-actions">
+                  ${!r.offset_group ? `<button type="button" class="exp-edit debt-repay-edit" data-id="${r.id}" title="編輯" aria-label="編輯">✎</button>` : ""}
+                  <button type="button" class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="刪除" aria-label="刪除">✕</button>
+                </div>
+              ` : ""}
+            </div>
+            <div class="debt-expense-divider"></div>
+            <div class="debt-expense-detail">
+              <div class="debt-info-row">
+                <span class="debt-info-label">來源</span>
+                <span class="debt-info-value">${escapeHtml(memberById[creditorId] || "?")} 先前償還欠款時多付之溢收款</span>
+              </div>
+              <div class="debt-formed-row">
+                <div class="debt-formed-route">
+                  <b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>
+                </div>
+                <div class="debt-formed-amount">
+                  ${SYM}${formatAmt(item.amount)}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
 
       const e = item.expense;
       const canEditExpense = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
       const isD1 = item.d1 > 0.005;
       const formedAmount = isD1 ? item.d1 : item.d2;
 
-      const payerText =
-        (e.payers || [])
-          .map(p =>
-            `${escapeHtml(
-              memberById[p.member_id] || "?"
-            )} ${SYM}${formatAmt(p.amount)}${p.calc ? ` <span class="debt-calc-note">(${escapeHtml(p.calc)})</span>` : ""}`
-          )
-          .join("、");
+      const payerText = (e.payers || []).map(p =>
+        `${escapeHtml(memberById[p.member_id] || "?")} ${SYM}${formatAmt(p.amount)}${p.calc ? ` <span class="debt-calc-note">(${escapeHtml(p.calc)})</span>` : ""}`
+      ).join("、");
 
-      const shareText =
-        (e.shares || [])
-          .map(s => {
-            const isTargetDebtor = s.member_id === debtorId;
-            const name = escapeHtml(memberById[s.member_id] || "?");
-            const calc = s.calc ? ` <span class="debt-calc-note">(${escapeHtml(s.calc)})</span>` : "";
-            if(isTargetDebtor){
-              return `<b class="debt-highlight-debtor">${name} ${SYM}${formatAmt(s.amount)}</b>${calc}`;
-            }
-            return `${name} ${SYM}${formatAmt(s.amount)}${calc}`;
-          })
-          .join("、");
+      const shareText = (e.shares || []).map(s => {
+        const isTargetDebtor = s.member_id === debtorId;
+        const name = escapeHtml(memberById[s.member_id] || "?");
+        const calc = s.calc ? ` <span class="debt-calc-note">(${escapeHtml(s.calc)})</span>` : "";
+        if(isTargetDebtor){
+          return `<b class="debt-highlight-debtor">${name} ${SYM}${formatAmt(s.amount)}</b>${calc}`;
+        }
+        return `${name} ${SYM}${formatAmt(s.amount)}${calc}`;
+      }).join("、");
 
       const firstLine = getFirstLineDesc(e.description || "未命名支出");
       const isAiSplit = Boolean(e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細")));
@@ -4250,98 +4318,60 @@ function showPairDetail(
           </div>
         </div>
       `;
-
     });
-
   }else{
-
     html += `
-
       <div class="debt-empty-state">
-
         <div class="debt-empty-icon icon-positive">
           ✓
         </div>
-
         <div class="debt-empty-title">
-          找不到相關支出
+          找不到未結清支出
         </div>
-
         <div class="debt-empty-text">
           ${
             detailRepayments.length
               ? "這兩人之間沒有共同的支出欠款紀錄，相關還款請見下方「已還款紀錄」。"
+              : totalSettledCount > 0
+              ? "先前的債務已全數結清，可點擊下方「查看更早的已結清歷史」查看紀錄。"
               : "目前沒有找到形成這筆債務的支出紀錄。"
           }
         </div>
-
       </div>
-
     `;
-
   }
 
-
   html += `
-
         </div>
-
       </div>
-
-
-      <!-- 還款紀錄（還款紀錄歸還款紀錄） -->
-
   `;
 
-
+  // ==========================================================
+  // 還款紀錄
+  // ==========================================================
   if(detailRepayments.length){
-
     html += `
-
       <div class="debt-detail-section repayment-section">
-
         <div class="debt-section-title">
-
-          <span class="debt-section-icon">
-            💸
-          </span>
-
-          <span>
-            已還款紀錄
-          </span>
-
-          <span class="debt-section-count">
-            ${detailRepayments.length} 筆
-          </span>
-
+          <span class="debt-section-icon">💸</span>
+          <span>已還款紀錄</span>
+          <span class="debt-section-count">${detailRepayments.length} 筆</span>
         </div>
-
-
         <div class="debt-repayment-list">
-
     `;
 
-
     detailRepayments.forEach(r => {
-
       const amount = Number(r.amount) || 0;
-      const isDebtorPaying = r.from_member === debtorId;
       const canEditRepay = r.offset_group
         ? isRepaymentParty(r, myMember.id)
         : (isRepaymentParty(r, myMember.id) || r.created_by === myMember.id);
 
-
       html += `
-
         <div class="debt-repayment-card">
-
           <div class="debt-repayment-icon">
             ${r.offset_group ? "🔄" : "✓"}
           </div>
-
-
           <div class="debt-repayment-main">
-
             <div class="debt-repayment-route">
               ${(r.offset_group && !isXcurStr(r.offset_group)) ? `<span class="champion-tag">抵銷</span>` : ""}
               ${escapeHtml(memberById[r.from_member] || "?")}
@@ -4349,21 +4379,15 @@ function showPairDetail(
               ${escapeHtml(memberById[r.to_member] || "?")}
               ${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}
             </div>
-
             <div class="debt-repayment-meta">
               ${escapeHtml(r.payment_date || "")}${formatTime(r.created_at, r.payment_date) ? " " + formatTime(r.created_at, r.payment_date) : ""}（${escapeHtml(memberById[r.created_by] || "?")}）
               ${(r.note && !r.offset_group) ? ` ・ ${escapeHtml(cleanXcurText(r.note))}` : (r.note && isXcurStr(r.offset_group)) ? ` ・ ${escapeHtml(cleanXcurText(r.note))}` : ""}
             </div>
-
           </div>
-
-
           <div class="debt-repayment-right">
-
             <div class="debt-repayment-amount">
               - ${SYM}${formatAmt(amount)}
             </div>
-
             ${canEditRepay ? `<div class="exp-actions">
               ${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? `
                 <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"} exp-xcur-restore" data-id="${r.id}" data-group="${r.offset_group || ""}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
@@ -4372,74 +4396,117 @@ function showPairDetail(
                 <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="刪除">✕</button>
               `}
             </div>` : ""}
-
           </div>
-
         </div>
-
       `;
-
     });
 
-
     html += `
-
         </div>
-
       </div>
-
     `;
-
   }
 
+  // ==========================================================
+  // 查看更早的已結清歷史（折疊）
+  // ==========================================================
+  if(totalSettledCount > 0){
+    html += `
+      <div class="debt-settled-history-section">
+        <button type="button" class="btn-toggle-settled-history" id="matrixToggleSettledBtn">
+          <span>📜 查看更早的已結清歷史 (${totalSettledCount} 筆)</span>
+          <span class="settled-toggle-arrow">▼</span>
+        </button>
+        <div class="debt-settled-history-list hidden" id="matrixSettledHistoryList">
+          ${settledExpenses.map(item => {
+            if(item.type === "overpayment"){
+              return `
+                <div class="debt-expense-card is-settled-card">
+                  <div class="debt-expense-top">
+                    <div class="debt-expense-info">
+                      <div class="debt-expense-name">
+                        💸 還款溢付找零 <span class="settled-tag">已結清</span>
+                      </div>
+                      <div class="debt-expense-date">${escapeHtml(item.date || "")}（來自 ${escapeHtml(memberById[creditorId] || "?")} 溢付）</div>
+                    </div>
+                  </div>
+                  <div class="debt-formed-row">
+                    <div class="debt-formed-route"><b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b></div>
+                    <div class="debt-formed-amount">${SYM}${formatAmt(item.amount)}</div>
+                  </div>
+                </div>
+              `;
+            }
+            const e = item.expense;
+            const isD1 = item.d1 > 0.005;
+            const formedAmount = isD1 ? item.d1 : (item.d2 || item.amount);
+            const firstLine = getFirstLineDesc(e.description || "未命名支出");
+            return `
+              <div class="debt-expense-card is-settled-card">
+                <div class="debt-expense-top">
+                  <div class="debt-expense-info">
+                    <div class="debt-expense-name">
+                      ${escapeHtml(firstLine)} <span class="settled-tag">已結清</span>
+                    </div>
+                    <div class="debt-expense-date">${escapeHtml(e.expense_date || "")}（${escapeHtml(memberById[e.created_by] || "?")}）</div>
+                  </div>
+                </div>
+                <div class="debt-formed-row">
+                  <div class="debt-formed-route"><b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b></div>
+                  <div class="debt-formed-amount">${SYM}${formatAmt(formedAmount)}</div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+          ${settledRepayments.map(r => {
+            const amount = Number(r.amount) || 0;
+            return `
+              <div class="debt-repayment-card is-settled-card">
+                <div class="debt-repayment-icon">✓</div>
+                <div class="debt-repayment-main">
+                  <div class="debt-repayment-route">
+                    ${escapeHtml(memberById[r.from_member] || "?")} <span>還</span> ${escapeHtml(memberById[r.to_member] || "?")}
+                    <span class="settled-tag">已結清</span>
+                  </div>
+                  <div class="debt-repayment-meta">${escapeHtml(r.payment_date || "")}${r.note ? ` ・ ${escapeHtml(cleanXcurText(r.note))}` : ""}</div>
+                </div>
+                <div class="debt-repayment-right">
+                  <div class="debt-repayment-amount">- ${SYM}${formatAmt(amount)}</div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
 
   // ==========================================================
   // 底部狀態
   // ==========================================================
-
   if(offsetAmt > 0.01){
-
-    // 抵銷只開放給這筆債務的關係人（債權人或債務人本人），其他人只看得到說明文字。
     const canOffset = myMember && (debtorId === myMember.id || creditorId === myMember.id);
-
     html += `
-
       <div class="debt-offset-card">
-
         <div class="debt-offset-text">
           ${escapeHtml(memberById[creditorId] || "?")} 同時也欠 ${escapeHtml(memberById[debtorId] || "?")}
           ${SYM}${formatAmt(reverseDebt)}，可以互相抵銷 ${SYM}${formatAmt(offsetAmt)}，
           不用實際付現金。
         </div>
-
         ${canOffset ? `<button type="button" id="matrixDetailOffsetBtn" class="btn secondary small">
           一鍵抵銷 ${SYM}${formatAmt(offsetAmt)}
         </button>` : ""}
-
       </div>
-
     `;
-
   }
 
   if(remainingDebt <= 0.01){
-
     html += `
-
       <div class="debt-cleared">
-
-        <span class="debt-cleared-icon">
-          ✓
-        </span>
-
-        <span>
-          這筆債務已全部結清
-        </span>
-
+        <span class="debt-cleared-icon">✓</span>
+        <span>這筆債務已全部結清</span>
       </div>
-
     `;
-
   }
 
   if(remainingDebt > 0.01){
@@ -4483,13 +4550,22 @@ function showPairDetail(
 
 
   if(closeBtn){
-
     closeBtn.onclick = ()=>{
-
       el.style.display = "none";
-
     };
+  }
 
+  // ==========================================================
+  // 查看更早的已結清歷史展開/折疊
+  // ==========================================================
+  const toggleSettledBtn = document.getElementById("matrixToggleSettledBtn");
+  const settledListEl = document.getElementById("matrixSettledHistoryList");
+  if(toggleSettledBtn && settledListEl){
+    toggleSettledBtn.addEventListener("click", ()=>{
+      const isHidden = settledListEl.classList.toggle("hidden");
+      const arrow = toggleSettledBtn.querySelector(".settled-toggle-arrow");
+      if(arrow) arrow.textContent = isHidden ? "▼" : "▲";
+    });
   }
 
   // ==========================================================
@@ -5233,6 +5309,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     let selectedReceiptCurrency = CURRENCY;
     let editingAiExpenseId = null;
     let editingAiExpenseOriginal = null;
+    let selectedHighlightMemberId = null;
 
     function getReceiptSymbol(){
       const c = (CURRENCIES || []).find(item => item.code === selectedReceiptCurrency);
@@ -5244,33 +5321,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       return (c && c.label) || selectedReceiptCurrency;
     }
 
-    function getActiveMembers(){
-      let list = [];
-      if(Array.isArray(memberRows) && memberRows.length > 0){
-        list = showLeftMembers ? [...memberRows] : memberRows.filter(m => !m.left_at);
-      } else if(Array.isArray(MEMBERS) && MEMBERS.length > 0){
-        list = showLeftMembers ? [...MEMBERS] : MEMBERS.filter(m => !m.left_at);
-      } else if(typeof memberById === "object" && memberById && Object.keys(memberById).length > 0){
-        list = Object.keys(memberById).map(id => ({ id, name: memberById[id] }));
-      }
-      const existingIdSet = new Set(list.map(m => String(m.id)));
-      if(Array.isArray(receiptClaimItems)){
-        receiptClaimItems.forEach(it => {
-          (it.claimedMemberIds || []).forEach(mId => {
-            const strId = String(mId);
-            if(!existingIdSet.has(strId)){
-              existingIdSet.add(strId);
-              list.push({
-                id: mId,
-                name: (typeof memberById === "object" && memberById && memberById[mId]) || "成員"
-              });
-            }
-          });
-        });
-      }
-      return list;
-    }
-
     // 🌟 供外部編輯呼叫：開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
     window.openAiReceiptEditMode = function(expense, aiData){
       const modalEl = document.getElementById("aiReceiptModal");
@@ -5279,17 +5329,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         return false;
       }
       try {
-        // 🔍 診斷用：顯示成員載入狀況
-        const diagMembers = getActiveMembers();
-        const diagGrid = document.getElementById("aiReceiptMembersGrid");
-        console.log("[AI-DIAG] memberRows:", JSON.stringify((memberRows||[]).map(m=>({id:m.id,name:m.name}))));
-        console.log("[AI-DIAG] MEMBERS:", JSON.stringify((MEMBERS||[]).map(m=>({id:m.id,name:m.name}))));
-        console.log("[AI-DIAG] getActiveMembers():", JSON.stringify(diagMembers.map(m=>({id:m.id,name:m.name}))));
-        console.log("[AI-DIAG] aiData.items:", JSON.stringify((aiData&&aiData.items)||[]));
-        console.log("[AI-DIAG] membersGrid el:", diagGrid ? "FOUND" : "NULL");
-        if(diagMembers.length === 0){
-          alert("⚠️ 診斷：成員列表是空的！\nmemberRows=" + (memberRows||[]).length + "\nMEMBERS=" + (MEMBERS||[]).length + "\nmemberById keys=" + Object.keys(memberById||{}).length);
-        }
         // 關閉其他可能開啟中的明細或計算彈窗
         document.querySelectorAll(".calc-modal.show, .modal.show").forEach(m => {
           if(m !== modalEl) m.classList.remove("show");
@@ -5346,7 +5385,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
 
         if(aiDirectSaveBtn){
-          aiDirectSaveBtn.textContent = "💾 確認修改並更新支出";
+          aiDirectSaveBtn.textContent = "💾 確認更新";
         }
 
         renderClaimBoard();
@@ -6037,7 +6076,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function renderClaimBoard(){
       if(!currentReceiptData) return;
 
-      const activeMembers = getActiveMembers();
+      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
       const curSym = getReceiptSymbol();
 
       // 1. 可編輯店家名稱
@@ -6236,13 +6275,13 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
       const netExtraFees = taxType === "inclusive" ? 0 : ((service + tax) - discount);
 
-      const activeMembers = getActiveMembers();
+      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
       const claimedMemberIdSet = new Set();
-      receiptClaimItems.forEach(it => (it.claimedMemberIds || []).forEach(id => claimedMemberIdSet.add(String(id))));
+      receiptClaimItems.forEach(it => it.claimedMemberIds.forEach(id => claimedMemberIdSet.add(id)));
 
       const memberCalcMap = {};
       activeMembers.forEach(m => {
-        memberCalcMap[String(m.id)] = {
+        memberCalcMap[m.id] = {
           member: m,
           itemSum: 0,
           formulas: [],
@@ -6252,32 +6291,22 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       });
 
       receiptClaimItems.forEach(it => {
-        const ids = Array.isArray(it.claimedMemberIds) ? it.claimedMemberIds : [];
-        const count = ids.length;
+        const count = it.claimedMemberIds.length;
         if(count > 0){
           const sharePrice = (Number(it.price) || 0) / count;
-          ids.forEach(mId => {
-            const strId = String(mId);
-            if(!memberCalcMap[strId]){
-              const foundMember = (memberRows && memberRows.find(x => String(x.id) === strId)) || (MEMBERS && MEMBERS.find(x => String(x.id) === strId)) || { id: mId, name: memberById[mId] || "成員" };
-              memberCalcMap[strId] = {
-                member: foundMember,
-                itemSum: 0,
-                formulas: [],
-                taxShare: 0,
-                total: 0
-              };
+          it.claimedMemberIds.forEach(mId => {
+            if(memberCalcMap[mId]){
+              memberCalcMap[mId].itemSum += sharePrice;
+              memberCalcMap[mId].formulas.push(count > 1 ? `${Math.round(it.price)}/${count}` : `${Math.round(it.price)}`);
             }
-            memberCalcMap[strId].itemSum += sharePrice;
-            memberCalcMap[strId].formulas.push(count > 1 ? `${Math.round(it.price)}/${count}` : `${Math.round(it.price)}`);
           });
         }
       });
 
       const claimingCount = claimedMemberIdSet.size || activeMembers.length;
-      Object.keys(memberCalcMap).forEach(mId => {
-        const data = memberCalcMap[mId];
-        if(data && (data.itemSum > 0 || claimedMemberIdSet.has(String(mId)))){
+      activeMembers.forEach(m => {
+        const data = memberCalcMap[m.id];
+        if(data.itemSum > 0 || claimedMemberIdSet.has(m.id)){
           if(taxType === "inclusive"){
             data.taxShare = 0;
             data.total = Math.round(data.itemSum);
@@ -6323,9 +6352,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
       });
       lines.push(`\n👥 各成員應付金額：`);
-      const activeMembers = getActiveMembers();
+      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
       activeMembers.forEach(m => {
-        const d = memberCalcMap[String(m.id)] || memberCalcMap[m.id];
+        const d = memberCalcMap[m.id];
         if(d && d.total > 0){
           const taxPart = (taxType !== "inclusive" && d.taxShare) ? ` (含服務費 ${curSym}${formatAmt(Math.round(d.taxShare))})` : "";
           lines.push(`  ・${m.name}：${curSym}${formatAmt(d.total)}${taxPart}`);
@@ -6345,10 +6374,10 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         lines.push(`💰 總額：${curSym}${formatAmt(finalTotal)} (小計 ${curSym}${formatAmt(subtotal)} + 服務費/稅 ${curSym}${formatAmt(netExtraFees)})`);
       }
       lines.push(`\n👥 各成員應付金額：`);
-      const activeMembers = getActiveMembers();
+      const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
       let count = 0;
       activeMembers.forEach(m => {
-        const d = memberCalcMap[String(m.id)] || memberCalcMap[m.id];
+        const d = memberCalcMap[m.id];
         if(d && d.total > 0){
           lines.push(`  ・${m.name}：${curSym}${formatAmt(d.total)}`);
           count++;
@@ -6382,8 +6411,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         return false;
       }
     }
-
-    let selectedHighlightMemberId = null;
 
     function updateMemberHighlightInItems(){
       if(!itemsListEl) return;
@@ -6483,7 +6510,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(unclaimedCount > 0){
           aiDirectSaveBtn.disabled = true;
           aiDirectSaveBtn.classList.add("btn-disabled");
-          aiDirectSaveBtn.textContent = `⚠️ 尚有 ${unclaimedCount} 個品項未認領 (請先完成認領)`;
+          aiDirectSaveBtn.textContent = `⚠️ 尚有 ${unclaimedCount} 個品項未認領`;
         } else if(!isTotalMatching){
           aiDirectSaveBtn.disabled = true;
           aiDirectSaveBtn.classList.add("btn-disabled");
@@ -6491,28 +6518,27 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         } else {
           aiDirectSaveBtn.disabled = false;
           aiDirectSaveBtn.classList.remove("btn-disabled");
-          aiDirectSaveBtn.textContent = editingAiExpenseId ? "💾 確認修改並更新支出" : "💾 確認無誤，立即記帳";
+          aiDirectSaveBtn.textContent = editingAiExpenseId ? "💾 確認更新" : "💾 確認無誤，立即記帳";
         }
       }
 
-      const targetMembersGrid = document.getElementById("aiReceiptMembersGrid") || membersGridEl;
-      if(targetMembersGrid){
-        const activeMembers = getActiveMembers();
-        targetMembersGrid.innerHTML = activeMembers.map(m => {
-          const data = memberCalcMap[String(m.id)] || memberCalcMap[m.id] || { total: 0 };
-          const isSelected = (selectedHighlightMemberId === String(m.id) || selectedHighlightMemberId === m.id);
+      if(membersGridEl){
+        const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
+        membersGridEl.innerHTML = activeMembers.map(m => {
+          const data = memberCalcMap[m.id] || { total: 0 };
+          const isSelected = (selectedHighlightMemberId === m.id);
           return `
             <div class="ai-receipt-member-badge clickable ${isSelected ? 'active' : ''}" data-member-id="${m.id}" title="點擊${isSelected ? '取消高亮' : '高亮'}此成員認領的品項">
-              <span style="display:flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              <div class="ai-receipt-member-left">
                 ${renderAvatarHTML(m, "avatar-xs")}
-                ${escapeHtml(m.name || emailToName(m.email))}
-              </span>
-              <b>${curSym}${formatAmt(data.total)}</b>
+                <span class="ai-receipt-member-name">${escapeHtml(m.name || emailToName(m.email))}</span>
+              </div>
+              <b class="ai-receipt-member-amt">${curSym}${formatAmt(data.total)}</b>
             </div>
           `;
         }).join("");
 
-        targetMembersGrid.querySelectorAll(".ai-receipt-member-badge").forEach(badge => {
+        membersGridEl.querySelectorAll(".ai-receipt-member-badge").forEach(badge => {
           badge.addEventListener("click", ()=>{
             const mId = badge.dataset.memberId;
             if(selectedHighlightMemberId === mId){
@@ -6528,9 +6554,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       updateMemberHighlightInItems();
 
-      const targetBreakdown = document.getElementById("aiBreakdownContent") || aiBreakdownContent;
-      if(targetBreakdown){
-        targetBreakdown.textContent = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
+      if(aiBreakdownContent){
+        aiBreakdownContent.textContent = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
       }
 
       updateMultiPayerSumCheck();
@@ -6688,7 +6713,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
 
         // 2. 分攤人與份額校驗
-        const activeMembers = getActiveMembers();
+        const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
         let shares = activeMembers.filter(m => (memberCalcMap[m.id]?.total || 0) > 0).map(m => {
           const d = memberCalcMap[m.id];
           return {

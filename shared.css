@@ -2727,7 +2727,9 @@ button.dd-btn {
   line-height:1.65;
 }
 .debt-info-label{
-  flex:0 0 46px;
+  flex:0 0 auto;
+  min-width:44px;
+  white-space:nowrap;
   color:var(--ink-soft);
   font-weight:600;
 }
@@ -2841,6 +2843,76 @@ button.dd-btn {
 }
 .debt-empty-title{ font-size:14px; font-weight:700; color:var(--ink); }
 .debt-empty-text{ margin-top:3px; font-size:12px; color:var(--ink-soft); }
+
+/* 債務明細：折疊展開歷史已結清紀錄與溢付找零 */
+.debt-settled-history-section {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+.btn-toggle-settled-history {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-toggle-settled-history:hover {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--btn-primary);
+}
+.settled-toggle-arrow {
+  font-size: 11px;
+  color: var(--ink-soft);
+  transition: transform 0.2s ease;
+}
+.debt-settled-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.debt-expense-card.is-settled-card,
+.debt-repayment-card.is-settled-card {
+  opacity: 0.72;
+  background: color-mix(in srgb, var(--input-bg) 60%, var(--paper));
+  border: 1px dashed var(--line);
+}
+.debt-expense-card.is-settled-card:hover,
+.debt-repayment-card.is-settled-card:hover {
+  opacity: 1;
+}
+.settled-tag {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(46, 213, 115, 0.15);
+  color: #2ed573;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.badge-overpay {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 165, 2, 0.15);
+  color: #ffa502;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.debt-expense-card.overpayment-card {
+  border-left: 4px solid #ffa502;
+  background: color-mix(in srgb, #ffa502 4%, var(--paper));
+}
 
 .debt-cleared{
   display:flex;
@@ -4801,33 +4873,42 @@ button.dd-btn {
   flex: 1 1 0 !important;
   min-width: 0 !important;
   width: 100% !important;
-  height: 36px;
-  padding: 0 6px !important;
-  border-radius: 8px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  background: var(--input-bg);
-  border: 1px solid var(--line);
-  transition: all .15s ease;
+  height: 38px !important;
+  padding: 0 8px !important;
+  border-radius: 10px !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--line) !important;
+  overflow: hidden !important;
+  transition: all .15s ease !important;
 }
 .ai-tax-price-wrap:focus-within{
-  background: var(--paper);
-  border-color: var(--btn-primary);
-  box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.15);
+  background: var(--paper) !important;
+  border-color: var(--btn-primary) !important;
+  box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.18) !important;
 }
 .ai-tax-price-wrap .ai-receipt-cur-prefix{
-  font-size: 11.5px;
-  flex-shrink: 0;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: var(--btn-primary) !important;
+  flex-shrink: 0 !important;
 }
 .ai-tax-price-wrap .ai-receipt-item-price{
   width: 100% !important;
   min-width: 0 !important;
-  font-size: 13.5px;
-  font-weight: 700;
-  padding: 0;
-  text-align: right;
+  height: 100% !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: right !important;
 }
 .ai-tax-type-toggle{
   display: flex;
@@ -4960,13 +5041,14 @@ button.dd-btn {
 .ai-receipt-items-list{
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
+  margin-top: 6px;
 }
 .ai-receipt-item-card{
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 10px 12px;
+  padding: 13px 12px 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -5064,21 +5146,39 @@ button.dd-btn {
   user-select: none;
   flex-shrink: 0;
 }
-.ai-receipt-item-price{
-  flex: 1 1 0;
-  width: 100%;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  text-align: right;
-  font-size: 14.5px;
-  font-weight: 800;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--ink);
-  outline: none;
-  height: 32px;
-  padding: 0;
-  -moz-appearance: textfield;
+.ai-receipt-item-price,
+:root[data-theme="dark"] .ai-receipt-item-price,
+.ai-receipt-price-wrap input.ai-receipt-item-price,
+:root[data-theme="dark"] .ai-receipt-price-wrap input.ai-receipt-item-price,
+.ai-tax-price-wrap input.ai-receipt-item-price,
+:root[data-theme="dark"] .ai-tax-price-wrap input.ai-receipt-item-price,
+.ai-total-price-wrap input.ai-receipt-item-price,
+:root[data-theme="dark"] .ai-total-price-wrap input.ai-receipt-item-price{
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  text-align: right !important;
+  font-size: 14.5px !important;
+  font-weight: 800 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  color: var(--ink) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  -moz-appearance: textfield !important;
+}
+:root[data-theme="dark"] .ai-receipt-item-price{
+  color: #FFFFFF !important;
+}
+.ai-receipt-item-price:focus,
+:root[data-theme="dark"] .ai-receipt-item-price:focus{
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 .ai-receipt-item-price::-webkit-inner-spin-button,
 .ai-receipt-item-price::-webkit-outer-spin-button{
@@ -5242,7 +5342,7 @@ button.dd-btn {
 /* 手機版適配 (< 480px) */
 @media (max-width: 480px) {
   .ai-receipt-item-card {
-    padding: 8px 10px;
+    padding: 13px 10px 8px 10px !important;
     gap: 6px;
   }
   .ai-item-main-row {
@@ -5273,8 +5373,13 @@ button.dd-btn {
     width: 20px;
   }
   .ai-receipt-item-price {
-    font-size: 13.5px;
-    height: 30px;
+    font-size: 13.5px !important;
+    height: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
   }
   .ai-receipt-claims-row-wrap {
     padding-left: 0;
@@ -5302,7 +5407,7 @@ button.dd-btn {
 }
 .ai-receipt-members-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(115px, 1fr));
+  grid-template-columns:repeat(auto-fit, minmax(138px, 1fr));
   gap:8px;
 }
 .ai-receipt-member-badge{
@@ -5310,16 +5415,58 @@ button.dd-btn {
   align-items:center;
   justify-content:space-between;
   gap:6px;
-  padding:7px 10px;
+  padding:8px 10px;
   background:var(--input-bg);
   border:1px solid var(--line);
   border-radius:10px;
-  font-size:12px;
+  font-size:12.5px;
+  min-width: 0;
+  box-sizing: border-box;
 }
-.ai-receipt-member-badge b{
+.ai-receipt-member-left{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+  flex:1 1 auto;
+}
+.ai-receipt-member-left .sb-avatar,
+.ai-receipt-member-badge .sb-avatar{
+  flex-shrink:0 !important;
+  width:20px !important;
+  height:20px !important;
+  min-width:20px !important;
+  min-height:20px !important;
+  max-width:20px !important;
+  max-height:20px !important;
+  border-radius:50% !important;
+  aspect-ratio:1 / 1 !important;
+  overflow:hidden !important;
+}
+.ai-receipt-member-left .sb-avatar img,
+.ai-receipt-member-badge .sb-avatar img{
+  width:100% !important;
+  height:100% !important;
+  border-radius:50% !important;
+  object-fit:cover !important;
+  display:block !important;
+}
+.ai-receipt-member-name{
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  min-width:0 !important;
+  flex:1 1 auto !important;
+  font-size:12.5px !important;
+}
+.ai-receipt-member-badge b,
+.ai-receipt-member-amt{
   font-family:'JetBrains Mono',monospace;
   color:var(--btn-primary);
   font-weight:700;
+  white-space:nowrap;
+  flex-shrink:0;
+  margin-left:4px;
 }
 
 /* 成員徽章點擊與反向高亮 */
@@ -5369,18 +5516,20 @@ button.dd-btn {
 /* 卡片頂部浮動標籤 (不推擠輸入框與按鈕排版) */
 .ai-card-float-badge {
   position: absolute;
-  top: -8px;
+  top: -9px;
   right: 14px;
   font-size: 10px;
   font-weight: 700;
-  padding: 1px 7px;
+  padding: 0 7px;
+  height: 16px;
+  line-height: 16px;
   border-radius: 999px;
-  line-height: 1.35;
   white-space: nowrap;
   pointer-events: none;
   z-index: 2;
-  box-shadow: 0 1.5px 5px rgba(0,0,0,0.12);
+  box-shadow: 0 1.5px 4px rgba(0,0,0,0.15);
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 .ai-card-float-badge.unclaimed {
   background: #ff7675;
@@ -5635,7 +5784,22 @@ input:focus, select:focus, textarea:focus {
 .ai-record-meta-row { display: flex; gap: 10px; margin-top: 10px; }
 .ai-meta-col { flex: 1; min-width: 0; }
 .ai-meta-label { font-size: 12px; color: var(--ink-soft); font-weight: 600; display: block; margin-bottom: 4px; }
-.ai-meta-input { width: 100%; box-sizing: border-box; }
+.ai-meta-input,
+input#aiExpenseDate,
+input#aiExpenseTime {
+  width: 100% !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  box-sizing: border-box !important;
+  padding: 0 12px !important;
+  font-size: 14px !important;
+  line-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  border-radius: 12px !important;
+  margin: 0 !important;
+}
 .ai-receipt-actions { display: flex; gap: 10px; margin-top: 16px; }
 .ai-receipt-retake-btn { padding: 11px 14px; font-size: 13.5px; width: auto; }
 .ai-receipt-save-btn { flex: 1; padding: 11px 16px; font-size: 14.5px; font-weight: 700; }
