@@ -3580,6 +3580,31 @@ if(copySettlementBtn){
 // - 多個付款人 + 多個應付人：使用「債務關係表」（不用債務清單）
 // - 計算機算式記錄在最上面的「應付人」（不用「應付分攤人」）
 // ============================================================
+// AI 收據拆單那邊有一份一模一樣的 copyToClipboard()，但那份是定義在
+// 另一個函式裡面、只有那個閉包看得到，這裡（showExpenseDebtDetail 是
+// 頂層函式）呼叫不到，所以另外放一份在頂層讓這裡也能用。
+async function copyToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch(e){}
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    ta.remove();
+    return true;
+  } catch(e){
+    ta.remove();
+    return false;
+  }
+}
 function showExpenseDebtDetail(e){
   const modal = document.getElementById("expenseDebtModal");
   const titleName = document.getElementById("expDebtModalName");
@@ -3815,7 +3840,9 @@ function showExpenseDebtDetail(e){
     `;
   }
 
-  let breakdownCardHtml = `
+  // 備註沒有內容的話，整張「備註與分攤明細」卡片（含複製精簡版/完整版按鈕）
+  // 就不出現——沒有備註可看時，只留一個空標題反而顯得突兀。
+  let breakdownCardHtml = cleanBodyText ? `
     <div class="exp-debt-breakdown-card">
       <div class="exp-debt-breakdown-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <span>📝 備註與分攤明細</span>
@@ -3824,9 +3851,9 @@ function showExpenseDebtDetail(e){
           <button type="button" class="ai-btn-copy-full" id="expDebtCopyFullBtn" title="複製完整品項明細與算式">📋 複製完整版</button>
         </div>
       </div>
-      ${cleanBodyText ? `<div class="exp-debt-breakdown-content">${escapeHtml(cleanBodyText)}</div>` : ''}
+      <div class="exp-debt-breakdown-content">${escapeHtml(cleanBodyText)}</div>
     </div>
-  `;
+  ` : '';
 
   body.innerHTML = `
     <div class="exp-debt-info-card">
@@ -3897,8 +3924,8 @@ function showExpenseDebtDetail(e){
       const totalAmt = Number(e.amount) || 0;
 
       let fullText = "";
-      if(cleanNote && (cleanNote.includes("📋 品項明細") || cleanNote.includes("🏪 店家："))){
-        fullText = cleanNote;
+      if(cleanBodyText && (cleanBodyText.includes("📋 品項明細") || cleanBodyText.includes("🏪 店家："))){
+        fullText = cleanBodyText;
       } else {
         const fullLines = [];
         fullLines.push(`🏪 店家/項目：${store}`);
@@ -3912,7 +3939,7 @@ function showExpenseDebtDetail(e){
           const calc = s.calc ? ` (${s.calc})` : "";
           fullLines.push(`  ・${name}：${curSym}${formatAmt(s.amount)}${calc}`);
         });
-        if(cleanNote) fullLines.push(`\n📝 備註：\n${cleanNote}`);
+        if(cleanBodyText) fullLines.push(`\n📝 備註：\n${cleanBodyText}`);
         fullText = fullLines.join("\n");
       }
 
@@ -4258,25 +4285,27 @@ function showPairDetail(
       const isD1 = item.d1 > 0.005;
       const formedAmount = isD1 ? item.d1 : item.d2;
 
+      // 計算機算式故意不塞進這張卡片——算式字串常常很長（例如多筆金額相加除份數），
+      // 這裡空間窄，硬塞只會把卡片撐破。完整算式改成點卡片彈出「跟紀錄分頁一模一樣」
+      // 的 showExpenseDebtDetail() 彈出視窗看，那邊本來就有摺疊/展開算式的機制。
       const payerText = (e.payers || []).map(p =>
-        `${escapeHtml(memberById[p.member_id] || "?")} ${SYM}${formatAmt(p.amount)}${p.calc ? ` <span class="debt-calc-note">(${escapeHtml(p.calc)})</span>` : ""}`
+        `<span class="debt-payer-item">${escapeHtml(memberById[p.member_id] || "?")} ${SYM}${formatAmt(p.amount)}</span>`
       ).join("、");
 
-      const shareText = (e.shares || []).map(s => {
+      const shareItems = (e.shares || []).map(s => {
         const isTargetDebtor = s.member_id === debtorId;
         const name = escapeHtml(memberById[s.member_id] || "?");
-        const calc = s.calc ? ` <span class="debt-calc-note">(${escapeHtml(s.calc)})</span>` : "";
         if(isTargetDebtor){
-          return `<b class="debt-highlight-debtor">${name} ${SYM}${formatAmt(s.amount)}</b>${calc}`;
+          return `<div class="debt-share-item"><b class="debt-highlight-debtor">${name} ${SYM}${formatAmt(s.amount)}</b></div>`;
         }
-        return `${name} ${SYM}${formatAmt(s.amount)}${calc}`;
-      }).join("、");
+        return `<div class="debt-share-item"><span>${name} ${SYM}${formatAmt(s.amount)}</span></div>`;
+      }).join("");
 
       const firstLine = getFirstLineDesc(e.description || "未命名支出");
       const isAiSplit = Boolean(e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細")));
 
       html += `
-        <div class="debt-expense-card">
+        <div class="debt-expense-card" data-id="${e.id}">
           <div class="debt-expense-top">
             <div class="debt-expense-info">
               <div class="debt-expense-name">
@@ -4301,11 +4330,11 @@ function showPairDetail(
           <div class="debt-expense-detail">
             <div class="debt-info-row">
               <span class="debt-info-label">付款人</span>
-              <span class="debt-info-value">${payerText || "—"}</span>
+              <div class="debt-info-value">${payerText || "—"}</div>
             </div>
             <div class="debt-info-row">
               <span class="debt-info-label">分攤</span>
-              <span class="debt-info-value">${shareText || "—"}</span>
+              <div class="debt-info-value debt-share-list">${shareItems || "—"}</div>
             </div>
             <div class="debt-formed-row">
               <div class="debt-formed-route">
@@ -4784,6 +4813,18 @@ function showPairDetail(
       twdSettleModal.classList.add("show");
     };
   }
+
+  // ==========================================================
+  // 點卡片本身（不含編輯/刪除按鈕）彈出跟「記錄」分頁完全一樣的
+  // showExpenseDebtDetail() 詳細視窗，裡面才看得到完整計算機算式。
+  // ==========================================================
+  el.querySelectorAll(".debt-expense-card[data-id]").forEach(cardEl=>{
+    cardEl.addEventListener("click", (evt)=>{
+      if(evt.target.closest(".debt-expense-actions") || evt.target.closest("button")) return;
+      const e = expenses.find(x => x.id === cardEl.dataset.id);
+      if(e) showExpenseDebtDetail(e);
+    });
+  });
 
   // ==========================================================
   // 支出／還款的編輯、刪除（權限跟「記錄」分頁一致，只有本人能動）

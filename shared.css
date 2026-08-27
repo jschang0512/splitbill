@@ -2659,6 +2659,7 @@ button.dd-btn {
   border-left:4px solid var(--btn-primary);
 }
 .debt-expense-card:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.06); }
+.debt-expense-card:not(.overpayment-card){ cursor:pointer; }
 .debt-expense-top{
   display:flex;
   justify-content:space-between;
@@ -2720,11 +2721,12 @@ button.dd-btn {
 
 .debt-info-row{
   display:flex;
-  align-items:baseline;
+  align-items:flex-start;
   gap:10px;
-  padding:2.5px 0;
+  padding:3px 0;
   font-size:12.5px;
   line-height:1.65;
+  min-width:0;
 }
 .debt-info-label{
   flex:0 0 auto;
@@ -2732,15 +2734,38 @@ button.dd-btn {
   white-space:nowrap;
   color:var(--ink-soft);
   font-weight:600;
+  padding-top:1px;
 }
 .debt-info-value{
   flex:1;
+  min-width:0;
   color:var(--ink);
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+.debt-share-list{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  width:100%;
+  min-width:0;
+}
+.debt-share-item{
+  display:block;
+  min-width:0;
+  word-break:break-word;
+  overflow-wrap:anywhere;
 }
 .debt-calc-note{
   color:var(--ink-soft);
   font-family:"JetBrains Mono",monospace;
-  font-size:11px;
+  font-size:10.5px;
+  word-break:break-all;
+  overflow-wrap:anywhere;
+  display:block;
+  line-height:1.35;
+  margin-top:1px;
+  opacity:0.85;
 }
 .debt-highlight-debtor{
   color:var(--accent-text);
