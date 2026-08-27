@@ -24,12 +24,8 @@
 <meta name="apple-mobile-web-app-title" content="帳務系統">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css">
-<link rel="stylesheet" href="shared.css">
-<style>
-.hidden{display:none !important;}
-.app-logo{width:38px;height:38px;}
-</style>
+<link rel="stylesheet" href="theme.css?v=420">
+<link rel="stylesheet" href="shared.css?v=420">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js"></script>
 <script src="version.js"></script>
@@ -102,7 +98,7 @@ if("serviceWorker" in navigator){
   setTimeout(window.hidePwaSplash, 2000);
 })();
 </script>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<svg class="svg-defs-hidden" aria-hidden="true">
   <defs>
     <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
       <stop class="logo-stop-a" offset="0%"/>
@@ -212,24 +208,28 @@ if("serviceWorker" in navigator){
     <div class="app-panel" id="panelExpense">
       <div class="card">
         <div class="exp-header-row">
-          <h2 id="expFormTitle" style="margin:0;">🧾 新增支出</h2>
+          <h2 id="expFormTitle" class="exp-form-title">🧾 新增支出</h2>
           <button type="button" class="btn-ai-receipt" id="aiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 照片自動拆單</button>
         </div>
         <div class="edit-banner hidden" id="editBanner">
           ✎ 編輯模式 <button type="button" class="link-btn" id="cancelEditBtn">取消編輯</button>
         </div>
+
+        <label>項目</label>
+        <input type="text" id="expDesc" placeholder="例如 晚餐、租車油錢">
+
         <label id="expAmountLabel">不含稅/免稅 總金額</label>
         <div class="input-calc-wrap">
           <input type="number" id="expAmount" placeholder="例如 850" min="0" step="1">
           <button type="button" class="amt-row-calc-btn input-calc-btn" id="expAmountCalcBtn" title="小計算機">🧮</button>
         </div>
 
-        <!-- 服務費 / 稅額（選填折疊卡片） -->
-        <div class="exp-addons-container" id="expTaxContainer" style="margin-top: 10px; margin-bottom: 12px;">
+        <!-- 服務費 / 稅（選填折疊卡片） -->
+        <div class="exp-addons-container exp-tax-container-spaced" id="expTaxContainer">
           <button type="button" class="exp-addons-toggle" id="expTaxToggle">
             <div class="exp-addons-toggle-left">
               <span class="exp-addons-icon">🏷️</span>
-              <span class="exp-addons-title">服務費 / 稅額</span>
+              <span class="exp-addons-title">服務費 / 稅</span>
               <span class="exp-addons-badge">選填</span>
             </div>
             <span class="exp-addons-caret" id="expTaxCaret">▾</span>
@@ -237,24 +237,21 @@ if("serviceWorker" in navigator){
           <div class="exp-addons-body hidden" id="expTaxBody">
             <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
             
-            <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;display:block;margin-top:6px;">服務費 / 稅額金額</label>
-            <div class="input-calc-wrap" style="margin-bottom:10px;">
+            <label class="exp-addon-label">服務費 / 稅額金額</label>
+            <div class="input-calc-wrap exp-addon-calc-wrap">
               <input type="number" id="expTaxAmount" placeholder="例如 85" min="0" step="1">
               <button type="button" class="amt-row-calc-btn input-calc-btn" id="expTaxCalcBtn" title="小計算機">🧮</button>
             </div>
 
-            <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:6px;">分配方式</label>
-            <div class="ai-tax-split-toggle" style="margin-bottom:8px;">
+            <label class="exp-tax-label">分配方式</label>
+            <div class="ai-tax-split-toggle exp-tax-split-wrap">
               <button type="button" class="ai-tax-btn active" data-manual-tax-mode="ratio" id="expManualTaxRatioBtn" title="依個人消費金額比例分攤服務費與稅額">依消費比例</button>
               <button type="button" class="ai-tax-btn" data-manual-tax-mode="equal" id="expManualTaxEqualBtn" title="所有參與者平均分攤服務費與稅額">全員平分</button>
             </div>
 
-            <div class="exp-tax-preview hidden" id="expTaxPreview" style="font-size:12px;padding:8px 12px;background:var(--card-subtle);border-radius:8px;color:var(--ink-soft);line-height:1.6;"></div>
+            <div class="exp-tax-preview hidden exp-tax-preview-box" id="expTaxPreview"></div>
           </div>
         </div>
-
-        <label>項目說明</label>
-        <input type="text" id="expDesc" placeholder="例如 晚餐、租車油錢">
 
         <label>
           誰付的錢
@@ -295,6 +292,9 @@ if("serviceWorker" in navigator){
 
         <div class="amt-grid hidden" id="expSharesCustom"></div>
         <div class="sum-check" id="shareSumCheck"></div>
+
+        <label>備註（選填）</label>
+        <textarea id="expNote" placeholder="例如 金額+匯率、備註說明" rows="2" style="resize:vertical;"></textarea>
 
         <label>日期</label>
         <input type="date" id="expDate" lang="en-CA">
@@ -443,11 +443,11 @@ if("serviceWorker" in navigator){
     </div>
 
     <div class="twd-settle-rate-box">
-      <label style="font-weight:600;font-size:13px;color:var(--ink);">設定換算匯率：</label>
-      <div style="display:flex;align-items:center;gap:8px;margin:8px 0 12px;">
-        <span style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;" id="twdSettleRatePrefix">1 單位 = NT$</span>
-        <input type="number" id="twdSettleRateInput" step="any" min="0" placeholder="例如 0.2145" style="flex:1;font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;padding:8px 12px;">
-        <button type="button" class="btn secondary small" id="twdSettleFetchRateBtn" style="white-space:nowrap;margin:0;padding:8px 12px;" title="帶入系統即時匯率">⚡ 即時匯率</button>
+      <label class="twd-settle-rate-label">設定換算匯率：</label>
+      <div class="twd-settle-rate-row">
+        <span class="twd-settle-rate-prefix" id="twdSettleRatePrefix">1 單位 = NT$</span>
+        <input type="number" id="twdSettleRateInput" step="any" min="0" placeholder="例如 0.2145" class="twd-settle-rate-input">
+        <button type="button" class="btn secondary small twd-settle-rate-fetch-btn" id="twdSettleFetchRateBtn" title="帶入系統即時匯率">⚡ 即時匯率</button>
       </div>
       
       <div class="twd-settle-result-card">
@@ -457,8 +457,8 @@ if("serviceWorker" in navigator){
       </div>
     </div>
 
-    <div class="twd-settle-actions" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
-      <button type="button" class="btn" id="twdSettleDirectClearBtn" style="background:linear-gradient(135deg, #7A6B9E, #513F7A);">
+    <div class="twd-settle-actions twd-settle-actions-wrap">
+      <button type="button" class="btn twd-settle-direct-clear-btn" id="twdSettleDirectClearBtn">
         在此一鍵結清 (欠款歸零)
       </button>
       <button type="button" class="btn secondary small" id="twdSettleGoTwdBtn">
@@ -483,7 +483,7 @@ if("serviceWorker" in navigator){
         <span class="exp-debt-modal-icon" id="expDebtModalIcon">📋</span>
         <span id="expDebtModalName">項目債務明細</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div class="settings-item-label-wrap">
         <button type="button" class="exp-debt-edit-btn" id="expDebtModalEditBtn" title="編輯此筆支出">✎ 編輯</button>
         <button type="button" class="calc-close" id="expDebtModalCloseBtn">✕</button>
       </div>
@@ -506,20 +506,20 @@ if("serviceWorker" in navigator){
     <div class="ai-receipt-screen" id="aiReceiptUploadScreen">
       <div class="ai-receipt-dropzone" id="aiReceiptDropzone">
         <div class="ai-receipt-drop-icon">🧾</div>
-        <div class="ai-receipt-drop-text" style="font-size:15px;font-weight:700;">選擇發票/收據照片來源</div>
+        <div class="ai-receipt-drop-text">選擇發票/收據照片來源</div>
         <div class="ai-receipt-drop-subtext">支援相機即時拍攝、手機相簿、或直接貼上截圖 (Ctrl+V)</div>
         
         <!-- 檔案選擇器（相機 vs 相簿） -->
-        <input type="file" id="aiReceiptCameraInput" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;top:0;left:0;">
-        <input type="file" id="aiReceiptGalleryInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;top:0;left:0;">
-        <input type="file" id="aiReceiptFileInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;top:0;left:0;">
+        <input type="file" id="aiReceiptCameraInput" accept="image/*" capture="environment" class="ai-file-input-hidden">
+        <input type="file" id="aiReceiptGalleryInput" accept="image/*" class="ai-file-input-hidden">
+        <input type="file" id="aiReceiptFileInput" accept="image/*" class="ai-file-input-hidden">
 
         <!-- 雙按鈕：拍照 vs 相簿（完美置中，採用原生 label 觸發 + JS 雙重保障） -->
         <div class="ai-source-buttons-row">
-          <label for="aiReceiptCameraInput" class="btn" id="aiReceiptCameraBtn" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin:0;">
+          <label for="aiReceiptCameraInput" class="btn ai-source-btn" id="aiReceiptCameraBtn">
             <span>📸</span> 開啟相機
           </label>
-          <label for="aiReceiptGalleryInput" class="btn secondary" id="aiReceiptGalleryBtn" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin:0;">
+          <label for="aiReceiptGalleryInput" class="btn secondary ai-source-btn" id="aiReceiptGalleryBtn">
             <span>🖼️</span> 選擇相簿
           </label>
         </div>
@@ -529,7 +529,7 @@ if("serviceWorker" in navigator){
     <!-- 步驟 1.5：手動旋轉與裁切發票 -->
     <div class="ai-receipt-screen hidden" id="aiReceiptCropScreen">
       <div class="ai-crop-instructions">
-        <span>✂️ 拖曳調整裁切框，框選發票明細（長條或寬版皆可）：</span>
+        <span>✂️ 拖曳調整裁切框，框選發票明細：</span>
       </div>
       <div class="ai-crop-viewport" id="aiCropViewport">
         <canvas id="aiCropCanvas"></canvas>
@@ -539,8 +539,8 @@ if("serviceWorker" in navigator){
         <button type="button" class="btn secondary small" id="aiCropResetBtn">📐 全圖選取</button>
         <button type="button" class="btn secondary small" id="aiCropRetakeBtn">📷 重新選圖</button>
       </div>
-      <div style="margin-top: 12px;">
-        <button type="button" class="btn" id="aiCropConfirmBtn" style="width: 100%;">✨ 裁切完成，開始 AI 辨識</button>
+      <div class="ai-crop-confirm-wrap">
+        <button type="button" class="btn ai-crop-confirm-btn" id="aiCropConfirmBtn">✨ 裁切完成，開始 AI 辨識</button>
       </div>
     </div>
 
@@ -561,23 +561,35 @@ if("serviceWorker" in navigator){
 
     <!-- 步驟 3：點菜認領與直接記帳看板 -->
     <div class="ai-receipt-screen hidden" id="aiReceiptClaimScreen">
-      <!-- 頂部：店家名稱、記帳幣別切換與總額 -->
+      <!-- 頂部：店家名稱、總計列 (總計 + 緊湊幣別選擇 + AI總金額可編輯) -->
       <div class="ai-receipt-store-bar">
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">🏪 店家與總額設定</span>
+        </div>
         <div class="ai-receipt-store-wrap">
-          <span class="ai-receipt-store-icon">🏪</span>
           <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或聚餐名稱 (可點擊修改)">
         </div>
-        <div class="ai-receipt-store-meta-wrap">
-          <div class="ai-receipt-cur-select-wrap">
-            <select id="aiReceiptCurrencySelect" class="ai-receipt-currency-select" title="記帳幣別"></select>
+        <div class="ai-receipt-header-total-row">
+          <div class="ai-header-total-left">
+            <span class="ai-header-total-label">總計</span>
+            <div class="ai-receipt-cur-select-wrap">
+              <select id="aiReceiptCurrencySelect" class="ai-receipt-currency-select-compact" title="記帳幣別"></select>
+            </div>
           </div>
-          <div class="ai-receipt-store-total" id="aiReceiptStoreTotal">總計 NT$ 0</div>
+          <div class="ai-header-total-right">
+            <div class="ai-receipt-price-wrap ai-total-price-wrap">
+              <span class="ai-receipt-cur-prefix" id="aiReceiptTotalCurSym">$</span>
+              <input type="number" class="ai-receipt-item-price ai-total-price-input" id="aiReceiptTotalInput" placeholder="0" min="0" step="any" title="可手動修改總金額">
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- 💳 付款人與時間設定（置於最上方，方便優先確認） -->
-      <div class="ai-receipt-record-panel" style="margin-top:10px;">
-        <div class="ai-record-panel-title">💳 付款人與消費時間設定</div>
+      <div class="ai-receipt-record-panel">
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">💳 付款人與消費時間</span>
+        </div>
         
         <!-- 付款模式切換 -->
         <div class="ai-payer-mode-toggle">
@@ -587,7 +599,7 @@ if("serviceWorker" in navigator){
 
         <!-- 單人付款選擇 -->
         <div class="ai-payer-single-row" id="aiPayerSingleRow">
-          <label style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">誰付的錢：</label>
+          <label class="ai-payer-label">誰付的錢：</label>
           <select id="aiPaidBySingle" class="ai-select-custom"></select>
         </div>
 
@@ -598,24 +610,45 @@ if("serviceWorker" in navigator){
         </div>
 
         <!-- 時間（自動解析收據明細上的日期時間，亦可手動調整） -->
-        <div class="ai-record-meta-row" style="display:flex;gap:10px;margin-top:10px;">
-          <div style="flex:1;">
-            <label style="font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:4px;">消費日期：</label>
-            <input type="date" id="aiExpenseDate" class="ai-input-custom" style="width:100%;">
+        <div class="ai-record-meta-row">
+          <div class="ai-meta-col">
+            <label class="ai-meta-label">消費日期：</label>
+            <input type="date" id="aiExpenseDate" class="ai-input-custom ai-meta-input">
           </div>
-          <div style="flex:1;">
-            <label style="font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:4px;">消費時間：</label>
-            <input type="time" id="aiExpenseTime" class="ai-input-custom" style="width:100%;">
+          <div class="ai-meta-col">
+            <label class="ai-meta-label">消費時間：</label>
+            <input type="time" id="aiExpenseTime" class="ai-input-custom ai-meta-input">
           </div>
         </div>
       </div>
 
-      <!-- 稅金與服務費面板 -->
+      <!-- 🧾 稅金與服務費面板 (可編輯小計與服務費) -->
       <div class="ai-receipt-tax-panel">
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">🧾 服務費與稅金分攤</span>
+        </div>
         <div class="ai-receipt-tax-summary" id="aiReceiptTaxSummary">
-          <span>小計: <b id="aiReceiptSubtotalText">$0</b></span>
-          <span>服務費/稅金: <b id="aiReceiptServiceText">$0</b></span>
-          <span id="aiReceiptDiscountRow" class="hidden">折扣: <b id="aiReceiptDiscountText">$0</b></span>
+          <div class="ai-tax-edit-item">
+            <label class="ai-tax-label">小計:</label>
+            <div class="ai-receipt-price-wrap ai-tax-price-wrap">
+              <span class="ai-receipt-cur-prefix" id="aiReceiptSubtotalCurSym">$</span>
+              <input type="number" id="aiReceiptSubtotalInput" class="ai-receipt-item-price" placeholder="0" min="0" step="any" title="小計金額 (自動累加或可手動微調)">
+            </div>
+          </div>
+          <div class="ai-tax-edit-item">
+            <label class="ai-tax-label">服務費/稅金:</label>
+            <div class="ai-receipt-price-wrap ai-tax-price-wrap">
+              <span class="ai-receipt-cur-prefix" id="aiReceiptServiceCurSym">$</span>
+              <input type="number" id="aiReceiptServiceInput" class="ai-receipt-item-price" placeholder="0" min="0" step="any" title="服務費與稅金 (可手動修改)">
+            </div>
+          </div>
+          <div class="ai-tax-edit-item hidden" id="aiReceiptDiscountRow">
+            <label class="ai-tax-label">折扣:</label>
+            <div class="ai-receipt-price-wrap ai-tax-price-wrap">
+              <span class="ai-receipt-cur-prefix" id="aiReceiptDiscountCurSym">-$</span>
+              <input type="number" id="aiReceiptDiscountInput" class="ai-receipt-item-price" placeholder="0" min="0" step="any" title="折扣金額">
+            </div>
+          </div>
         </div>
         <div class="ai-tax-split-toggle">
           <button type="button" class="ai-tax-btn active" data-tax-mode="ratio" id="aiTaxRatioBtn" title="依個人消費金額比例分攤服務費與稅額">依消費比例</button>
@@ -623,30 +656,47 @@ if("serviceWorker" in navigator){
         </div>
       </div>
 
-      <!-- 品項清單（品名 翻譯(原文)，金額寬度充足） -->
+      <!-- 📋 品項清單（收據清單 + 防漏單進度條 + 氣泡流認領） -->
       <div class="ai-receipt-items-container">
-        <div class="ai-receipt-items-header">
-          <span>品項清單（中文翻譯(原文)，點擊修改品名/金額）</span>
-          <button type="button" class="link-btn" id="aiReceiptAddItemBtn">+ 新增品項</button>
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">📋 品項明細與認領</span>
+          <button type="button" class="link-btn ai-section-action-btn" id="aiReceiptAddItemBtn">+ 新增品項</button>
         </div>
+
+        <!-- 防漏單即時進度儀表板 (方案 C) -->
+        <div class="ai-claim-progress-box" id="aiClaimProgressBox">
+          <div class="ai-claim-progress-info">
+            <span class="ai-claim-progress-title">⚡ 認領進度</span>
+            <span class="ai-claim-progress-stats" id="aiClaimProgressStats">0 / 0 品項已認領 (0%)</span>
+          </div>
+          <div class="ai-claim-progress-bar-bg">
+            <div class="ai-claim-progress-bar-fill" id="aiClaimProgressFill"></div>
+          </div>
+          <div class="ai-claim-progress-status" id="aiClaimProgressStatus">⚠️ 尚有品項尚未認領</div>
+        </div>
+
         <div class="ai-receipt-items-list" id="aiReceiptItemsList"></div>
       </div>
 
-      <!-- 每人應付試算預覽 -->
+      <!-- 👥 每人應付試算預覽 -->
       <div class="ai-receipt-claim-summary">
-        <div class="ai-receipt-summary-title">👥 每人應付試算預覽：</div>
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">👥 每人應付試算預覽</span>
+        </div>
         <div class="ai-receipt-members-grid" id="aiReceiptMembersGrid"></div>
       </div>
 
-      <!-- 金額組成明細預覽 -->
+      <!-- 📊 金額組成明細預覽 -->
       <div class="ai-breakdown-preview-card" id="aiBreakdownPreviewCard">
-        <div class="ai-breakdown-title">📊 金額組成明細（將自動記入備註）：</div>
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">📊 金額組成明細（記入備註）</span>
+        </div>
         <div class="ai-breakdown-content" id="aiBreakdownContent"></div>
       </div>
 
-      <div class="ai-receipt-actions" style="display:flex;gap:10px;margin-top:16px;">
-        <button type="button" class="btn secondary" id="aiReceiptRetakeBtn" style="padding:11px 14px;font-size:13.5px;width:auto;">📷 重選照片</button>
-        <button type="button" class="btn" id="aiReceiptDirectSaveBtn" style="flex:1;padding:11px 16px;font-size:14.5px;font-weight:700;">💾 確認無誤，立即記帳</button>
+      <div class="ai-receipt-actions">
+        <button type="button" class="btn secondary ai-receipt-retake-btn" id="aiReceiptRetakeBtn">📷 重選照片</button>
+        <button type="button" class="btn ai-receipt-save-btn" id="aiReceiptDirectSaveBtn">💾 確認無誤，立即記帳</button>
       </div>
     </div>
   </div>
@@ -670,7 +720,7 @@ document.title = CURRENCY_LABEL + "區";
 document.getElementById("pageEyebrow").textContent = CURRENCY;
 document.getElementById("pageH1").textContent = CURRENCY_LABEL + "區";
 document.getElementById("myBalanceLabel").textContent = "我的款項（" + CURRENCY_LABEL + "）";
-document.getElementById("expAmountLabel").textContent = "總金額（" + CURRENCY_LABEL + "）";
+document.getElementById("expAmountLabel").textContent = "無服務費/稅 金額（" + CURRENCY_LABEL + "）";
 document.getElementById("repayAmountLabel").textContent = "金額（" + CURRENCY_LABEL + "）";
 
 // shownCurrencies 由 app.js 在登入後從 members.shown_currencies 填入，
@@ -682,6 +732,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=416"></script>
+<script src="app.js?v=420"></script>
 </body>
 </html>

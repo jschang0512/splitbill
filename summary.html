@@ -26,10 +26,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="shared.css">
-<style>
-.hidden{display:none !important;}
-.app-logo{width:38px;height:38px;}
-</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js"></script>
 <script src="version.js"></script>
@@ -98,7 +94,7 @@ if("serviceWorker" in navigator){
   setTimeout(window.hidePwaSplash, 600);
 })();
 </script>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<svg class="svg-defs-hidden" aria-hidden="true">
   <defs>
     <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
       <stop class="logo-stop-a" offset="0%"/>
@@ -683,12 +679,24 @@ renderNavLinks();
     if(!isRelevantToMe(table, row)) return;
     if(payload.eventType === "DELETE") return; // 刪除先不通知，避免太吵
 
+    // 1. 如果是操作者本人自己的動作，不發送遠端即時廣播通知給自己（避免雙重通知）
+    if(myMember && (row.created_by === myMember.id || (table === "repayments" && row.from_member === myMember.id))){
+      return;
+    }
+
     const sym = currencyMeta(row.currency).symbol;
     const actor = memberById[row.created_by] || "有人";
     let title, body;
     if(table === "expenses"){
       title = payload.eventType === "INSERT" ? "📋 新增支出" : "📋 支出更新";
-      body = `${actor}：「${row.description}」${sym}${formatAmt(row.amount)}`;
+      let cleanDesc = (row.description || "")
+        .replace(/<!--[\s\S]*?-->/gi, "")
+        .replace(/<!--AI_RECEIPT_DATA:[\s\S]*?-->/gi, "")
+        .replace(/AI_RECEIPT_DATA:[\s\S]*/gi, "")
+        .replace(/\s*\[xcur[:_][^\]]+\]/gi, "")
+        .trim();
+      cleanDesc = cleanDesc.split("\n")[0].replace(/\(AI自動拆單\)/g, "").trim() || "支出項目";
+      body = `${actor}：「${cleanDesc}」${sym}${formatAmt(row.amount)}`;
     } else {
       title = payload.eventType === "INSERT" ? "💸 新增還款" : "💸 還款更新";
       body = `${memberById[row.from_member] || "?"} 還 ${memberById[row.to_member] || "?"}　${sym}${formatAmt(row.amount)}`;

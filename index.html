@@ -25,7 +25,7 @@
 
     // 防閃爍機制：如果看起來已經登入過，先把登入表單藏起來，
     // boot() 確認 session 真的有效後會直接跳轉，不會讓使用者看到登入表單閃一下。
-    // 如果 session 其實已經失效，boot() 會把這個 <style> 移除，登入表單正常顯示。
+    // 如果 session 其實已經失效，boot() 會把 flashGuard 樣式標籤移除，登入表單正常顯示。
     var loginTime = Number(localStorage.getItem("sb_login_time"));
     var isExpired = !loginTime || (Date.now() - loginTime > 12 * 60 * 60 * 1000);
     if (!isExpired) {
@@ -48,10 +48,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="shared.css">
-<style>
-.hidden{display:none !important;}
-.app-logo{width:38px;height:38px;}
-</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
 <script src="currencies.js"></script>
@@ -86,7 +82,7 @@ if("serviceWorker" in navigator){
 </script>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<svg class="svg-defs-hidden" aria-hidden="true">
   <defs>
     <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
       <stop class="logo-stop-a" offset="0%"/>
@@ -224,7 +220,7 @@ if("serviceWorker" in navigator){
       <div id="turnstileWidget" class="turnstile-wrap"></div>
     </div>
     <div class="login-page-footer">
-      <div style="margin-bottom:12px;">
+      <div class="login-apk-wrap">
         <a href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk" class="login-apk-download-link" id="loginApkDownloadLink">
           <span>🤖 下載 Android APP</span>
         </a>
