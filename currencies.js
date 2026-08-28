@@ -8,33 +8,47 @@
 // 照這裡的陣列順序排。
 // ============================================================
 const CURRENCIES = [
-  { code: "TWD", symbol: "NT$",  label: "臺幣",       flag: "🇹🇼", convert: false },
-  { code: "JPY", symbol: "¥",    label: "日幣",       flag: "🇯🇵", convert: true },
-  { code: "KRW", symbol: "₩",    label: "韓幣",       flag: "🇰🇷", convert: true },
-  { code: "CNY", symbol: "CN¥",  label: "人民幣",     flag: "🇨🇳", convert: true },
-  { code: "HKD", symbol: "HK$",  label: "港幣",       flag: "🇭🇰", convert: true },
-  { code: "MOP", symbol: "MOP$", label: "澳門幣",     flag: "🇲🇴", convert: true },
-  { code: "USD", symbol: "$",    label: "美金",       flag: "🇺🇸", convert: true },
-  { code: "VND", symbol: "₫",    label: "越南盾",     flag: "🇻🇳", convert: true },
-  { code: "THB", symbol: "฿",    label: "泰銖",       flag: "🇹🇭", convert: true },
-  { code: "PHP", symbol: "₱",    label: "菲律賓披索", flag: "🇵🇭", convert: true },
-  { code: "SGD", symbol: "S$",   label: "新加坡幣",   flag: "🇸🇬", convert: true },
-  { code: "MYR", symbol: "RM",   label: "馬來幣",     flag: "🇲🇾", convert: true },
-  { code: "IDR", symbol: "Rp",   label: "印尼盾",     flag: "🇮🇩", convert: true },
-  { code: "KHR", symbol: "៛",    label: "柬埔寨瑞爾", flag: "🇰🇭", convert: true },
-  { code: "EUR", symbol: "€",    label: "歐元",       flag: "🇪🇺", convert: true },
-  { code: "GBP", symbol: "£",    label: "英鎊",       flag: "🇬🇧", convert: true },
-  { code: "CHF", symbol: "Fr",   label: "瑞士法郎",   flag: "🇨🇭", convert: true },
-  { code: "AUD", symbol: "A$",   label: "澳幣",       flag: "🇦🇺", convert: true },
-  { code: "NZD", symbol: "NZ$",  label: "紐幣",       flag: "🇳🇿", convert: true },
-  { code: "TRY", symbol: "₺",    label: "土耳其里拉", flag: "🇹🇷", convert: true },
-  { code: "CZK", symbol: "Kč",   label: "捷克克朗",   flag: "🇨🇿", convert: true },
-  { code: "HUF", symbol: "Ft",   label: "匈牙利福林", flag: "🇭🇺", convert: true },
-  { code: "SEK", symbol: "kr",   label: "瑞典克朗",   flag: "🇸🇪", convert: true },
-  { code: "NOK", symbol: "kr",   label: "挪威克朗",   flag: "🇳🇴", convert: true },
-  { code: "DKK", symbol: "kr",   label: "丹麥克朗",   flag: "🇩🇰", convert: true },
-  { code: "ISK", symbol: "kr",   label: "冰島克朗",   flag: "🇮🇸", convert: true }
+  { code: "TWD", symbol: "NT$",  label: "臺幣",       flag: "🇹🇼", convert: false, decimals: 0 },
+  { code: "JPY", symbol: "¥",    label: "日幣",       flag: "🇯🇵", convert: true,  decimals: 0 },
+  { code: "KRW", symbol: "₩",    label: "韓幣",       flag: "🇰🇷", convert: true,  decimals: 0 },
+  { code: "CNY", symbol: "CN¥",  label: "人民幣",     flag: "🇨🇳", convert: true,  decimals: 2 },
+  { code: "HKD", symbol: "HK$",  label: "港幣",       flag: "🇭🇰", convert: true,  decimals: 2 },
+  { code: "MOP", symbol: "MOP$", label: "澳門幣",     flag: "🇲🇴", convert: true,  decimals: 2 },
+  { code: "USD", symbol: "$",    label: "美金",       flag: "🇺🇸", convert: true,  decimals: 2 },
+  { code: "VND", symbol: "₫",    label: "越南盾",     flag: "🇻🇳", convert: true,  decimals: 0 },
+  { code: "THB", symbol: "฿",    label: "泰銖",       flag: "🇹🇭", convert: true,  decimals: 2 },
+  { code: "PHP", symbol: "₱",    label: "菲律賓披索", flag: "🇵🇭", convert: true,  decimals: 2 },
+  { code: "SGD", symbol: "S$",   label: "新加坡幣",   flag: "🇸🇬", convert: true,  decimals: 2 },
+  { code: "MYR", symbol: "RM",   label: "馬來幣",     flag: "🇲🇾", convert: true,  decimals: 2 },
+  { code: "IDR", symbol: "Rp",   label: "印尼盾",     flag: "🇮🇩", convert: true,  decimals: 0 },
+  { code: "KHR", symbol: "៛",    label: "柬埔寨瑞爾", flag: "🇰🇭", convert: true,  decimals: 0 },
+  { code: "EUR", symbol: "€",    label: "歐元",       flag: "🇪🇺", convert: true,  decimals: 2 },
+  { code: "GBP", symbol: "£",    label: "英鎊",       flag: "🇬🇧", convert: true,  decimals: 2 },
+  { code: "CHF", symbol: "Fr",   label: "瑞士法郎",   flag: "🇨🇭", convert: true,  decimals: 2 },
+  { code: "AUD", symbol: "A$",   label: "澳幣",       flag: "🇦🇺", convert: true,  decimals: 2 },
+  { code: "NZD", symbol: "NZ$",  label: "紐幣",       flag: "🇳🇿", convert: true,  decimals: 2 },
+  { code: "TRY", symbol: "₺",    label: "土耳其里拉", flag: "🇹🇷", convert: true,  decimals: 2 },
+  { code: "CZK", symbol: "Kč",   label: "捷克克朗",   flag: "🇨🇿", convert: true,  decimals: 2 },
+  { code: "HUF", symbol: "Ft",   label: "匈牙利福林", flag: "🇭🇺", convert: true,  decimals: 0 },
+  { code: "SEK", symbol: "kr",   label: "瑞典克朗",   flag: "🇸🇪", convert: true,  decimals: 2 },
+  { code: "NOK", symbol: "kr",   label: "挪威克朗",   flag: "🇳🇴", convert: true,  decimals: 2 },
+  { code: "DKK", symbol: "kr",   label: "丹麥克朗",   flag: "🇩🇰", convert: true,  decimals: 2 },
+  { code: "ISK", symbol: "kr",   label: "冰島克朗",   flag: "🇮🇸", convert: true,  decimals: 0 }
 ];
+
+// 依照幣別的「最小法定面額」四捨五入（例如美金到分＝2位小數，臺幣/日幣沒有角分＝整數），
+// 不能一律無條件四捨五入到整數，否則像 1.99 美元這種金額拆分下去會失真。
+function getCurrencyDecimals(code){
+  const c = CURRENCIES.find(item => item.code === code);
+  return c ? c.decimals : 0;
+}
+function roundToCurrency(v, code){
+  const decimals = getCurrencyDecimals(code);
+  const factor = Math.pow(10, decimals);
+  return Math.round((Number(v) || 0) * factor) / factor;
+}
+window.getCurrencyDecimals = getCurrencyDecimals;
+window.roundToCurrency = roundToCurrency;
 
 /**
  * 產生全站統一的頂部導覽列（最多 4 顆，超過 4 顆時第 4 顆為「更多 ▾」下拉選單）

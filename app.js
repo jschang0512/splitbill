@@ -923,6 +923,11 @@
     });
   }
 
+  // 表單一開啟就同步一次：HTML 預設「內含稅」按鈕是 active，但 expTaxContainer
+  // 沒有預設加 hidden class，兩者會對不上——不特地呼叫一次的話，剛打開支出表單
+  // 就會看到「內含稅」已選取，但服務費/稅卡片還在畫面上。
+  updateManualTaxTypeUI();
+
   if(expTaxToggle && expTaxBody){
     expTaxToggle.addEventListener("click", ()=>{
       const isHidden = expTaxBody.classList.contains("hidden");
@@ -2260,6 +2265,25 @@
     await refreshExpenses();
   }
 
+  // ---------- 復原刪除：直接刪除（不是延遲後才真的執行），跳出可復原的
+  // toast；按「復原」才把暫存的完整資料重新寫回去。故意不用「倒數完才
+  // 真的刪除」的做法——如果使用者在倒數期間就切頁或關分頁，計時器會被
+  // 中斷、刪除永遠不會發生，資料庫反而卡在「應刪未刪」的曖昧狀態；先
+  // 刪除、復原時用暫存資料重新 insert 回去，不管使用者何時離開，資料庫
+  // 狀態永遠是確定、乾淨的——這也是為什麼倒數期間離開頁面等同放棄復原。
+  async function deleteRowsWithUndo(table, rows, refreshFn, label){
+    const list = Array.isArray(rows) ? rows : [rows];
+    const ids = list.map(r => r.id);
+    const { error } = await sb.from(table).delete().in("id", ids);
+    if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+    await refreshFn();
+    showToast("🗑️ 已刪除", label || "", "復原", async ()=>{
+      const { error: restoreErr } = await sb.from(table).insert(list);
+      if(restoreErr){ await sbAlert("復原失敗：" + restoreErr.message, "🔔 Splitbill 錯誤"); return; }
+      await refreshFn();
+    });
+  }
+
   function formatDateGroupTitle(dateStr){
     if(!dateStr) return "";
     try{
@@ -2367,11 +2391,8 @@
             await refreshExpenses();
           });
         }
-        const ok = await sbConfirm("確定要刪除這筆紀錄嗎？");
-        if(!ok) return;
-        const { error } = await sb.from("expenses").delete().eq("id", btn.dataset.id);
-        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
-        await refreshExpenses();
+        if(!exp) return;
+        await deleteRowsWithUndo("expenses", exp, refreshExpenses, getFirstLineDesc(exp.description, exp.note));
       });
     });
     el.querySelectorAll(".exp-edit").forEach(btn=>{
@@ -2507,11 +2528,9 @@
             await refreshExpenses();
           });
         }
-        const ok = await sbConfirm("確定要刪除這筆還款紀錄嗎？");
-        if(!ok) return;
-        const { error } = await sb.from("repayments").delete().eq("id", btn.dataset.id);
-        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
-        await refreshExpenses();
+        if(!r) return;
+        const label = `${memberById[r.from_member] || "?"} → ${memberById[r.to_member] || "?"}`;
+        await deleteRowsWithUndo("repayments", r, refreshExpenses, label);
       });
     });
     el.querySelectorAll(".exp-del-group").forEach(btn=>{
@@ -2524,11 +2543,9 @@
             await refreshExpenses();
           });
         }
-        const ok = await sbConfirm("確定要刪除這組抵銷紀錄嗎？");
-        if(!ok) return;
-        const { error } = await sb.from("repayments").delete().eq("offset_group", group);
-        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
-        await refreshExpenses();
+        const groupRows = cachedRepayments.filter(x => x.offset_group === group);
+        if(!groupRows.length) return;
+        await deleteRowsWithUndo("repayments", groupRows, refreshExpenses, "抵銷紀錄");
       });
     });
     const prevBtn = el.querySelector(".pagination-prev");
@@ -2636,10 +2653,7 @@
     });
   }
 
-  // 長條圖點一下（手機是 tap，桌機是 click）才顯示金額，不用滑鼠 hover——
-  // 原生 SVG <title> 在手機上點了沒反應，改成自己接 click 事件、
-  // 把金額寫到長條下面那行文字，時間/週期已經在長條下方的軸標籤看得到了，
-  // 這裡只需要顯示 +/- 金額本身。
+  // 金額直接印在長條正上方（欠款）或正下方（還款），不用再點一下才看得到。
   function renderFlowChart(data){
     const wrap = document.getElementById("spendChartWrap");
     if(!wrap) return;
@@ -2648,24 +2662,32 @@
       return;
     }
     const max = Math.max(1, ...data.map(d => Math.max(d.owe, d.received)));
-    const w = 320, h = 102, midY = 46, halfH = 38, gap = 14;
+    const w = 320, padTop = 14, halfH = 34, downLabelGap = 14, dateLabelGap = 22, gap = 14;
+    const midY = padTop + halfH;
+    const h = midY + halfH + downLabelGap + dateLabelGap;
     const barW = (w - gap * (data.length + 1)) / data.length;
     const bars = data.map((d, i)=>{
       const x = gap + i * (barW + gap);
+      const cx = x + barW / 2;
       const upH = d.owe > 0 ? Math.max(3, Math.round((d.owe / max) * halfH)) : 0;
       const downH = d.received > 0 ? Math.max(3, Math.round((d.received / max) * halfH)) : 0;
-      const upTap = d.owe > 0 ? `data-amt="- ${SYM}${formatAmt(d.owe)}"` : "";
-      const downTap = d.received > 0 ? `data-amt="+ ${SYM}${formatAmt(d.received)}"` : "";
-      return `<rect x="${x.toFixed(1)}" y="${(midY - upH).toFixed(1)}" width="${barW.toFixed(1)}" height="${upH}" rx="3" class="flow-bar-up" ${upTap}></rect>
-        <rect x="${x.toFixed(1)}" y="${midY}" width="${barW.toFixed(1)}" height="${downH}" rx="3" class="flow-bar-down" ${downTap}></rect>
-        <text x="${(x + barW / 2).toFixed(1)}" y="${h - 4}" text-anchor="middle" class="spend-bar-label">${d.label}</text>`;
+      const upLabel = d.owe > 0
+        ? `<text x="${cx.toFixed(1)}" y="${(midY - upH - 5).toFixed(1)}" text-anchor="middle" class="flow-amt-label up">-${formatAmt(d.owe)}</text>`
+        : "";
+      const downLabel = d.received > 0
+        ? `<text x="${cx.toFixed(1)}" y="${(midY + downH + downLabelGap).toFixed(1)}" text-anchor="middle" class="flow-amt-label down">+${formatAmt(d.received)}</text>`
+        : "";
+      return `<rect x="${x.toFixed(1)}" y="${(midY - upH).toFixed(1)}" width="${barW.toFixed(1)}" height="${upH}" rx="3" class="flow-bar-up"></rect>
+        <rect x="${x.toFixed(1)}" y="${midY}" width="${barW.toFixed(1)}" height="${downH}" rx="3" class="flow-bar-down"></rect>
+        ${upLabel}
+        ${downLabel}
+        <text x="${cx.toFixed(1)}" y="${h - 4}" text-anchor="middle" class="spend-bar-label">${d.label}</text>`;
     }).join("");
     wrap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" class="spend-chart" role="img" aria-label="跟我有關的欠款與還款趨勢">
       <line x1="0" y1="${midY}" x2="${w}" y2="${midY}" class="flow-zero-line"/>
       ${bars}
     </svg>
-    <div class="flow-chart-legend"><span class="legend-up">■ 我的欠款</span><span class="legend-down">■ 已收還款</span></div>
-    <p class="flow-chart-tap-hint" id="flowChartTapHint">點長條看金額</p>`;
+    <div class="flow-chart-legend"><span class="legend-up">■ 我的欠款</span><span class="legend-down">■ 已收還款</span></div>`;
   }
 
   function updateChartRangeLabel(bucketStarts){
@@ -2686,14 +2708,6 @@
     updateChartRangeLabel(bucketStarts);
     renderFlowChart(bucketedPersonalFlow(chartExpensesCache, chartRepaymentsCache, chartGranularity, bucketStarts));
   }
-
-  const spendChartWrap = document.getElementById("spendChartWrap");
-  if(spendChartWrap) spendChartWrap.addEventListener("click", (e)=>{
-    const bar = e.target.closest("[data-amt]");
-    if(!bar) return;
-    const hint = document.getElementById("flowChartTapHint");
-    if(hint) hint.textContent = bar.dataset.amt;
-  });
 
   const chartPrevBtn = document.getElementById("chartPrevBtn");
   const chartNextBtn = document.getElementById("chartNextBtn");
@@ -3385,8 +3399,17 @@ function renderDebtMatrix(
     };
     syncCol1Width();
     // 中文字型是非同步載入的，如果量測時字型還沒載完，寬度會跟字型換好之後的
-    // 實際寬度對不上，導致固定欄跟旁邊的欄位中間出現一道縫，字型載完後要重量一次。
-    if(document.fonts && document.fonts.ready){
+    // 實際寬度對不上，導致固定欄跟旁邊的欄位中間出現一道縫。單次補量（字型
+    // 載完後再量一次）遇到表格當下還隱藏在未顯示的分頁/區塊裡（量到 0 或
+    // 舊值）時還是會量不準，改用 ResizeObserver 持續監看這一格的實際寬度，
+    // 不管是字型換裝、分頁切換顯示、視窗縮放，寬度一變就重新同步，才不會
+    // 卡在錯的寬度上一直到下次重新渲染整張表。
+    if(window.ResizeObserver){
+      if(col1Cell._matrixCol1Observer) col1Cell._matrixCol1Observer.disconnect();
+      const ro = new ResizeObserver(syncCol1Width);
+      ro.observe(col1Cell);
+      col1Cell._matrixCol1Observer = ro;
+    } else if(document.fonts && document.fonts.ready){
       document.fonts.ready.then(syncCol1Width);
     }
   }
@@ -3495,6 +3518,410 @@ if(copySettlementBtn){
       await sbAlert(`已成功將結算清單複製到剪貼簿！\n\n可直接貼到 LINE 或 WhatsApp 群組與大家核對。`, "📋 結算清單複製成功");
     } catch(err){
       await sbAlert("複製失敗，請手動複製：" + err.message, "🔔 Splitbill 提醒");
+    }
+  });
+}
+
+// ==========================================================
+// 匯出結算清單圖片——用 Canvas 直接畫一張好看的卡片，不用截圖，
+// 方便直接分享到 LINE / 訊息軟體。固定用深紫色漸層（跟登入頁同一套
+// 視覺語言），不受檢視者當下淺色/深色模式影響，分享出去的圖永遠一致。
+// ==========================================================
+function settlementCanvasRoundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function settlementCanvasTruncate(ctx, text, maxWidth){
+  if(ctx.measureText(text).width <= maxWidth) return text;
+  for(let len = text.length - 1; len > 0; len--){
+    const candidate = text.slice(0, len) + "…";
+    if(ctx.measureText(candidate).width <= maxWidth) return candidate;
+  }
+  return "…";
+}
+
+// 「債權人」／「債務人」直排文字：每個字各自置中、由上往下疊，不是把整串字
+// 橫著轉 90 度（那樣字會變成橫躺、要側著頭看）。cx 是這一欄的水平中心，
+// zoneTop/zoneH 是這個字要置中擺放的那個區塊的上緣與高度。
+function drawSettlementVerticalLabel(ctx, text, cx, zoneTop, zoneH, font){
+  ctx.save();
+  ctx.font = font;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const chars = text.split("");
+  const lineH = 16;
+  const totalH = chars.length * lineH;
+  let y = zoneTop + zoneH / 2 - totalH / 2 + lineH / 2;
+  chars.forEach(ch => {
+    ctx.fillText(ch, cx, y);
+    y += lineH;
+  });
+  ctx.restore();
+}
+
+// 匯出圖片要不要用暗色卡片，跟著目前實際套用的深色/淺色模式走（theme.js
+// 設在 <html data-theme="dark|light">），不要固定死用某一種，不然淺色模式
+// 底下產生出來的圖片顏色會跟使用者當下看到的畫面不一致。
+function isSettlementDarkTheme(){
+  const attr = document.documentElement.getAttribute("data-theme");
+  if(attr === "dark") return true;
+  if(attr === "light") return false;
+  return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
+
+// 這裡的顏色是直接照抄 shared.css 裡 .debt-matrix 實際在用的色碼（包含
+// 深色模式的 :root[data-theme="dark"] 覆寫），不是另外設計一套配色——
+// 使用者明確要求圖片的表格要跟網頁上長得一模一樣，所以格線有沒有、
+// 哪些格子有底色、底色深淺，都要跟 shared.css 對得起來，不能自己加花樣
+// （例如原本畫的交錯列底色、強調分隔線、應收款欄特殊底色，網頁上其實
+// 都沒有，這裡拿掉了）。
+function getSettlementTheme(){
+  return isSettlementDarkTheme() ? {
+    // .debt-matrix { background }
+    tableBg: "rgba(34,34,38,0.92)",
+    // .debt-matrix th/td { border-color }
+    border: "rgba(255,255,255,0.14)",
+    // thead th / matrix-corner / matrix-side-label / matrix-row-name / matrix-total / tfoot th
+    headerBg: "rgba(48,48,54,0.9)",
+    headerText: "#F5F5F7",
+    // matrix-cell（沒有欠款的空格）
+    cellBg: "rgba(38,38,42,0.6)",
+    // matrix-self（自己欠自己那格）
+    selfBg: "rgba(26,26,28,0.7)",
+    selfText: "rgba(255,255,255,0.2)",
+    // matrix-cell.has-debt（有欠款金額的格子）
+    debtBg: "rgba(232,90,126,0.18)",
+    debtText: "#FF85A0",
+    accent: "#C6B7FE",
+    footerText: "#8873C2"
+  } : {
+    tableBg: "#FFFFFF",
+    border: "#E5E5EA",
+    headerBg: "#F4F4F6",
+    headerText: "#48484A",
+    cellBg: "#FFFFFF",
+    selfBg: "#FAF9FA",
+    selfText: "rgba(122,107,158,0.35)",
+    debtBg: "#FDF0F3",
+    debtText: "#C2445F",
+    accent: "#544388",
+    footerText: "#726196"
+  };
+}
+
+// 匯出「債務關係表」完整格子版——跟畫面上 #debtMatrix 同一份資料、同一套
+// 欄位（債權人／債務人交叉表 + 應收款/應付款），但畫面上人多的時候要橫向
+// 捲動才看得到全部欄位；圖片不用遷就螢幕寬度，直接把所有欄位一次畫出來，
+// 分享出去的人不用捲動就能看到完整內容。
+function renderSettlementImageCanvas(){
+  const owed = buildDebtMatrix(cachedExpenses, cachedRepayments);
+  const ids = memberRows.map(m => m.id);
+  const n = ids.length;
+  const T = getSettlementTheme();
+  const dark = isSettlementDarkTheme();
+
+  const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
+  const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
+
+  // 尺寸比照網頁 .debt-matrix 實際的緊湊程度（font-size:11.5px、
+  // padding:8px 4px、姓名欄 min/max-width 3.2em~5.2em），不要用畫布上
+  // 隨手看起來順眼的大小，不然整張表會比網頁鬆散、偏大。
+  const PAD = 24;
+  const labelColW = 22;
+  const nameColW = 64;
+  const cellColW = 58;
+  const totalColW = 70;
+  const headerRowH = 30;
+  const dataRowH = 34;
+  const footRowH = 32;
+  const cardHeaderH = 122;
+  const cardFooterH = 44;
+
+  const tableW = labelColW + nameColW + cellColW * n + totalColW;
+  const tableH = headerRowH * 2 + dataRowH * n + footRowH;
+  const W = tableW + PAD * 2;
+  const H = cardHeaderH + tableH + cardFooterH;
+
+  const dpr = Math.max(window.devicePixelRatio || 1, 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  // 外層卡片背景（標題／頁尾這些「圖片外框」維持自己設計的品牌風格，
+  // 使用者這次要求的是「表格本體」要跟網頁一致，不含外框）
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  if(dark){ bgGrad.addColorStop(0, "#232030"); bgGrad.addColorStop(1, "#17151E"); }
+  else { bgGrad.addColorStop(0, "#F9F7FB"); bgGrad.addColorStop(1, "#ECE6F2"); }
+  ctx.fillStyle = bgGrad;
+  settlementCanvasRoundRect(ctx, 0, 0, W, H, 24);
+  ctx.fill();
+
+  // 標題／副標置中
+  ctx.textAlign = "center";
+  ctx.fillStyle = T.accent;
+  ctx.font = "700 24px 'Noto Sans TC', sans-serif";
+  ctx.fillText("🧮 Splitbill 債務關係表", W / 2, 42);
+
+  ctx.fillStyle = dark ? "#A9A7B3" : "#686074";
+  ctx.font = "500 14px 'Noto Sans TC', sans-serif";
+  ctx.fillText(`👥 ${groupName}　💰 ${CURRENCY_LABEL} (${CURRENCY})　📅 ${nowStr}`, W / 2, 68);
+
+  // ---------- 表格本體（顏色跟格線都對照 shared.css 的 .debt-matrix） ----------
+  const tableX = PAD, tableY = cardHeaderH;
+  const colX = i => tableX + labelColW + nameColW + i * cellColW; // 第 i 個成員欄位的左邊界
+  const rowY = i => tableY + headerRowH * 2 + i * dataRowH; // 第 i 個成員列的上邊界
+  const totalColX = tableX + labelColW + nameColW + cellColW * n;
+  const footY = rowY(n);
+
+  ctx.textBaseline = "middle";
+
+  // 表格最外圈要有圓角（呼應網頁 .matrix-scroll{border-radius:12px}），
+  // 圖片沒有外層容器可以裁圓角，改用 clip 讓表格本體（底色、每格底色）
+  // 都被裁成圓角矩形，四個角落才不會露出方形的底色，外框線另外在最後
+  // 用同一個圓角矩形路徑描邊，跟裁切範圍完全對齊。
+  const tableRadius = 10;
+  ctx.save();
+  settlementCanvasRoundRect(ctx, tableX, tableY, tableW, tableH, tableRadius);
+  ctx.clip();
+
+  // 表格底色（鋪滿整個表格範圍，之後再疊上各格子自己的底色）
+  ctx.fillStyle = T.tableBg;
+  ctx.fillRect(tableX, tableY, tableW, tableH);
+
+  // 表頭兩列（債務人／成員名字）＋ 應收款表頭：跟網頁一樣統一用 headerBg，
+  // 左上角（債權人/債務人交會處）本身也是跟其他表頭一樣的 headerBg
+  // （對應 HTML 的 .matrix-corner{background:#F4F4F6}），只是沒有外框線
+  // （.matrix-corner{border:none}），框線的部分留給下面畫格線那段處理。
+  ctx.fillStyle = T.headerBg;
+  ctx.fillRect(tableX, tableY, tableW, headerRowH * 2);
+
+  ctx.fillStyle = T.headerText;
+  // 「債務人」跟網頁一樣是水平文字（.matrix-top-label 沒有 writing-mode，
+  // 只有「債權人」.matrix-left-label 才是直排），置中寫在成員欄位上方
+  ctx.textAlign = "center";
+  ctx.font = "700 11px 'Noto Sans TC', sans-serif";
+  ctx.fillText("債務人", tableX + labelColW + nameColW + cellColW * n / 2, tableY + headerRowH / 2 + 1);
+
+  ctx.font = "700 11.5px 'Noto Sans TC', sans-serif";
+  ids.forEach((id, i) => {
+    const name = truncateNameChars(memberById[id] || "?", 5);
+    ctx.fillText(name, colX(i) + cellColW / 2, tableY + headerRowH * 1.5 + 1);
+  });
+
+  ctx.font = "700 11px 'Noto Sans TC', sans-serif";
+  ctx.fillText("應收款", totalColX + totalColW / 2, tableY + headerRowH);
+
+  // 左側「債權人」欄跟每一列的姓名欄一樣是 headerBg（跟 .matrix-side-label /
+  // .matrix-row-name 對應），「債權人」文字直排（由上往下）
+  ctx.fillStyle = T.headerBg;
+  ctx.fillRect(tableX, tableY + headerRowH * 2, labelColW + nameColW, dataRowH * n);
+  ctx.fillStyle = T.headerText;
+  drawSettlementVerticalLabel(ctx, "債權人", tableX + labelColW / 2, tableY + headerRowH * 2, dataRowH * n, "700 11px 'Noto Sans TC', sans-serif");
+
+  // 資料列
+  ids.forEach((creditorId, r) => {
+    const y = rowY(r);
+    const cy = y + dataRowH / 2;
+
+    ctx.fillStyle = T.headerText;
+    ctx.font = "700 11.5px 'Noto Sans TC', sans-serif";
+    ctx.fillText(truncateNameChars(memberById[creditorId] || "?", 5), tableX + labelColW + nameColW / 2, cy + 1);
+
+    let rowTotal = 0;
+    ids.forEach((debtorId, c) => {
+      const cx = colX(c) + cellColW / 2;
+      if(debtorId === creditorId){
+        ctx.fillStyle = T.selfBg;
+        ctx.fillRect(colX(c), y, cellColW, dataRowH);
+        ctx.fillStyle = T.selfText;
+        ctx.font = "500 11.5px 'Noto Sans TC', sans-serif";
+        ctx.fillText("－", cx, cy + 1);
+        return;
+      }
+      const amt = (owed[creditorId] && owed[creditorId][debtorId]) || 0;
+      if(amt > 0.05){
+        rowTotal += amt;
+        ctx.fillStyle = T.debtBg;
+        ctx.fillRect(colX(c), y, cellColW, dataRowH);
+        ctx.fillStyle = T.debtText;
+        ctx.font = "700 11px 'JetBrains Mono', monospace";
+        ctx.fillText(settlementCanvasTruncate(ctx, formatAmt(amt), cellColW - 10), cx, cy + 1);
+      } else {
+        ctx.fillStyle = T.cellBg;
+        ctx.fillRect(colX(c), y, cellColW, dataRowH);
+      }
+    });
+
+    ctx.fillStyle = T.headerBg;
+    ctx.fillRect(totalColX, y, totalColW, dataRowH);
+    ctx.fillStyle = T.headerText;
+    ctx.font = "700 11.5px 'JetBrains Mono', monospace";
+    ctx.fillText(rowTotal > 0.05 ? formatAmt(rowTotal) : "0", totalColX + totalColW / 2, cy + 1);
+  });
+
+  // 底部「應付款」列
+  ctx.fillStyle = T.headerBg;
+  ctx.fillRect(tableX, footY, tableW, footRowH);
+  ctx.fillStyle = T.headerText;
+  ctx.font = "700 11px 'Noto Sans TC', sans-serif";
+  ctx.fillText("應付款", tableX + labelColW + nameColW / 2, footY + footRowH / 2 + 1);
+
+  ids.forEach((debtorId, c) => {
+    let colTotal = 0;
+    ids.forEach(creditorId => {
+      if(creditorId === debtorId) return;
+      colTotal += (owed[creditorId] && owed[creditorId][debtorId]) || 0;
+    });
+    ctx.font = "700 11px 'JetBrains Mono', monospace";
+    ctx.fillText(colTotal > 0.05 ? formatAmt(colTotal) : "0", colX(c) + cellColW / 2, footY + footRowH / 2 + 1);
+  });
+
+  // ---------- 格線：網頁上左上角本身（matrix-corner）雖然 border:none，
+  // 但外層還有 .matrix-scroll 包一層 border，所以最外圈（最上、最左）視覺上
+  // 還是有線；圖片沒有那層外框容器，所以最外圈的線一樣要畫出來，只有真正
+  // 「共用同一個儲存格」的內部才不畫線：
+  //   ・債務人（colspan=n）：內部（成員欄之間）不畫線，但左右兩側邊界要畫
+  //   ・債權人（rowspan=n）：內部（列與列之間）不畫線，但上下兩側邊界要畫
+  //   ・應付款（colspan=2，跟 label／name 欄合併）：內部（label／name 中間）不畫線
+  // ----------------------------------------------------------
+  ctx.strokeStyle = T.border;
+  ctx.lineWidth = 1;
+  // 直線：label／name／n 個成員欄／應收款，共 n+3 欄，中間需要 n+2 條分隔線
+  // （最左、最右兩條外圈線改由下面的圓角矩形描邊負責，這裡不重複畫）。
+  for(let c = 1; c <= n + 2; c++){
+    const x = c === 1 ? tableX + labelColW
+      : c <= n + 1 ? colX(c - 2)
+      : totalColX;
+    let yStart = tableY;
+    let yEnd = tableY + tableH;
+    if(c === 1){
+      // label／name 欄中間：表頭範圍（matrix-corner）跟表尾範圍（應付款
+      // colspan=2）都是合併儲存格，只有中間的資料列才有這條分隔線
+      yStart = tableY + headerRowH * 2;
+      yEnd = footY;
+    } else if(c >= 3 && c <= n + 1){
+      // 債務人（colspan=n）內部：成員欄跟成員欄中間，只跳過債務人那一列
+      yStart = tableY + headerRowH;
+    }
+    ctx.beginPath(); ctx.moveTo(x + 0.5, yStart); ctx.lineTo(x + 0.5, yEnd); ctx.stroke();
+  }
+  // 橫線：header×2／n 個資料列／應付款，共 n+3 列，中間需要 n+2 條分隔線
+  // （最上、最下兩條外圈線一樣改由圓角矩形描邊負責）。
+  for(let r = 1; r <= n + 2; r++){
+    const y = r === 1 ? tableY + headerRowH
+      : r <= n + 1 ? rowY(r - 2)
+      : footY;
+    let xStart = tableX;
+    let xEnd = tableX + tableW;
+    if(r === 1){
+      // 「債務人」「應收款」表頭都是 rowspan=2，這條內部分隔線只在成員
+      // 欄位之間畫，不能穿過應收款那一格
+      xStart = tableX + labelColW + nameColW;
+      xEnd = totalColX;
+    } else if(r >= 3 && r <= n + 1){
+      xStart = tableX + labelColW; // 「債權人」欄是 rowspan=成員數，內部不分線
+    }
+    ctx.beginPath(); ctx.moveTo(xStart, y + 0.5); ctx.lineTo(xEnd, y + 0.5); ctx.stroke();
+  }
+
+  ctx.restore(); // 解除圓角裁切，外圈線要畫在裁切範圍外緣，不能被裁掉半條線寬
+  ctx.save();
+  settlementCanvasRoundRect(ctx, tableX + 0.5, tableY + 0.5, tableW - 1, tableH - 1, tableRadius);
+  ctx.strokeStyle = T.border;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "center";
+  ctx.fillStyle = T.footerText;
+  ctx.font = "600 12px 'Noto Sans TC', sans-serif";
+  ctx.fillText("由 Splitbill 產生", W / 2, H - cardFooterH / 2 + 4);
+  ctx.textAlign = "left";
+
+  return canvas;
+}
+
+let currentSettlementImgUrl = null;
+
+const settlementImgModal = document.getElementById("settlementImgModal");
+const settlementImgCloseBtn = document.getElementById("settlementImgCloseBtn");
+
+function closeSettlementImgModal(){
+  if(settlementImgModal) settlementImgModal.classList.remove("show");
+  if(currentSettlementImgUrl){
+    URL.revokeObjectURL(currentSettlementImgUrl);
+    currentSettlementImgUrl = null;
+  }
+}
+if(settlementImgCloseBtn) settlementImgCloseBtn.addEventListener("click", closeSettlementImgModal);
+if(settlementImgModal){
+  settlementImgModal.addEventListener("click", (e)=>{
+    if(e.target === settlementImgModal) closeSettlementImgModal();
+  });
+}
+
+const exportSettlementImgBtn = document.getElementById("exportSettlementImgBtn");
+if(exportSettlementImgBtn){
+  exportSettlementImgBtn.addEventListener("click", async ()=>{
+    const originalHtml = exportSettlementImgBtn.innerHTML;
+    exportSettlementImgBtn.disabled = true;
+    exportSettlementImgBtn.innerHTML = "<span>⏳ 產生中…</span>";
+    try {
+      const canvas = renderSettlementImageCanvas();
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      if(!blob){
+        await sbAlert("圖片產生失敗，請再試一次。", "🔔 Splitbill 錯誤");
+        return;
+      }
+
+      if(currentSettlementImgUrl) URL.revokeObjectURL(currentSettlementImgUrl);
+      currentSettlementImgUrl = URL.createObjectURL(blob);
+
+      const img = document.getElementById("settlementImgPreview");
+      if(img) img.src = currentSettlementImgUrl;
+      if(settlementImgModal) settlementImgModal.classList.add("show");
+
+      const dlBtn = document.getElementById("settlementImgDownloadBtn");
+      if(dlBtn){
+        dlBtn.onclick = () => {
+          const a = document.createElement("a");
+          a.href = currentSettlementImgUrl;
+          const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
+          a.download = `Splitbill結算_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        };
+      }
+
+      const shareBtn = document.getElementById("settlementImgShareBtn");
+      if(shareBtn){
+        const file = new File([blob], "splitbill-settlement.png", { type: "image/png" });
+        const canShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+        shareBtn.classList.toggle("hidden", !canShare);
+        if(canShare){
+          shareBtn.onclick = async () => {
+            try {
+              await navigator.share({ files: [file], title: "Splitbill 帳務結算" });
+            } catch(e){ /* 使用者取消分享，不用特別處理 */ }
+          };
+        }
+      }
+    } catch(err){
+      console.error("匯出結算圖片失敗：", err);
+      await sbAlert("匯出圖片失敗：" + (err.message || "未知錯誤"), "🔔 Splitbill 錯誤");
+    } finally {
+      exportSettlementImgBtn.disabled = false;
+      exportSettlementImgBtn.innerHTML = originalHtml;
     }
   });
 }
@@ -4016,6 +4443,34 @@ function showPairDetail(
   let creditorOwesDebtor = 0;
   const pairEventsForDebtor = [];
 
+  // 兩個方向的餘額要持續互相抵銷，不能只在「還款」發生的那一刻才抵銷。
+  // 例如：B 多還 A 一筆錢（當下 B 還沒欠 A 任何錢，全部變成「A 欠 B」的
+  // 找零），後來才發生新支出讓 B 欠 A 一筆——這兩筆金額如果沒有互相抵銷，
+  // 這裡顯示的「A 欠 B」金額會跟債務關係表（buildDebtMatrix）算出來的
+  // 實際總額對不起來，變成「明細加起來的錢」比「真正結欠的錢」還多。
+  // 抵銷時要從最新（最後）那幾筆還沒抵銷完的「A 欠 B」項目開始扣，不能從
+  // 最舊的開始扣——因為比較舊的項目如果已經被同方向的還款直接付清過，
+  // 「還了多少」只會反映在 debtorOwesCreditor 這個總額變數上，不會回頭
+  // 改到當時已經記錄下來的那筆金額；這裡如果從最舊的開始扣，會誤扣到
+  // 早就付清、其實跟這次抵銷無關的舊帳，讓歷史紀錄的金額變得不精確。
+  // 從最新的開始扣，才會扣到真正造成「目前還沒抵銷完」這個餘額的那幾筆。
+  function reconcileBalances(){
+    if(debtorOwesCreditor <= 0.005 || creditorOwesDebtor <= 0.005) return;
+    const net = Math.min(debtorOwesCreditor, creditorOwesDebtor);
+    debtorOwesCreditor -= net;
+    creditorOwesDebtor -= net;
+    let toDeduct = net;
+    for(let k = pairEventsForDebtor.length - 1; k >= 0 && toDeduct > 0.005; k--){
+      const item = pairEventsForDebtor[k];
+      if((item.type === "expense" || item.type === "overpayment") && item.d1 > 0.005){
+        const cut = Math.min(item.d1, toDeduct);
+        item.d1 -= cut;
+        if(item.amount !== undefined) item.amount -= cut;
+        toDeduct -= cut;
+      }
+    }
+  }
+
   for(let i = 0; i < allPairEvents.length; i++){
     const ev = allPairEvents[i];
     if(ev.type === "expense_debt"){
@@ -4028,6 +4483,7 @@ function showPairDetail(
         d1: ev.d1,
         id: ev.id
       });
+      reconcileBalances();
     } else if(ev.type === "repayment_debt"){
       const paid = Math.min(debtorOwesCreditor, ev.amount);
       debtorOwesCreditor -= paid;
@@ -4042,8 +4498,10 @@ function showPairDetail(
       if(ev.amount > paid){
         creditorOwesDebtor += (ev.amount - paid);
       }
+      reconcileBalances();
     } else if(ev.type === "expense_credit"){
       creditorOwesDebtor += ev.d2;
+      reconcileBalances();
     } else if(ev.type === "repayment_credit"){
       const paid = Math.min(creditorOwesDebtor, ev.amount);
       creditorOwesDebtor -= paid;
@@ -4060,6 +4518,7 @@ function showPairDetail(
           id: ev.id
         });
       }
+      reconcileBalances();
     }
   }
 
@@ -4782,12 +5241,9 @@ function showPairDetail(
           await refreshExpenses();
         });
       }
-      const ok = await sbConfirm("確定要刪除這筆支出紀錄嗎？");
-      if(!ok) return;
-      const { error } = await sb.from("expenses").delete().eq("id", btn.dataset.id);
-      if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+      if(!e) return;
       el.style.display = "none";
-      await refreshExpenses();
+      await deleteRowsWithUndo("expenses", e, refreshExpenses, getFirstLineDesc(e.description, e.note));
     });
   });
 
@@ -4814,19 +5270,15 @@ function showPairDetail(
         });
       }
       if(btn.classList.contains("debt-repay-del-group")){
-        const ok = await sbConfirm("確定要刪除這組抵銷紀錄嗎？");
-        if(!ok) return;
-        const { error } = await sb.from("repayments").delete().eq("offset_group", btn.dataset.group);
-        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+        const groupRows = cachedRepayments.filter(x => x.offset_group === btn.dataset.group);
+        if(!groupRows.length) return;
         el.style.display = "none";
-        await refreshExpenses();
+        await deleteRowsWithUndo("repayments", groupRows, refreshExpenses, "抵銷紀錄");
       } else {
-        const ok = await sbConfirm("確定要刪除這筆還款紀錄嗎？");
-        if(!ok) return;
-        const { error } = await sb.from("repayments").delete().eq("id", btn.dataset.id);
-        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+        if(!r) return;
+        const label = `${memberById[r.from_member] || "?"} → ${memberById[r.to_member] || "?"}`;
         el.style.display = "none";
-        await refreshExpenses();
+        await deleteRowsWithUndo("repayments", r, refreshExpenses, label);
       }
     });
   });
@@ -5284,6 +5736,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function getReceiptSymbol(){
       const c = (CURRENCIES || []).find(item => item.code === selectedReceiptCurrency);
       return (c && c.symbol) || CURRENCY_SYMBOL || "$";
+    }
+
+    // 四捨五入到目前選擇幣別的最小法定面額（例如美金到分，臺幣/日幣沒有角分則到整數）
+    function roundAmt(v){
+      return roundToCurrency(v, selectedReceiptCurrency);
     }
 
     function getReceiptCurrencyLabel(){
@@ -5917,6 +6374,19 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const pureBase64 = base64Data.split(",")[1];
 
           const parsed = await parseReceiptWithGemini(pureBase64, "image/jpeg", key);
+
+          // 品質檢查：AI 沒有丟出例外不代表真的辨識到東西——照片太模糊、
+          // 拍到跟收據無關的畫面時，常常會回傳「有結構但是空的」JSON
+          // （items 是空陣列、totalAmount 是 0），過去這種情況會被當成
+          // 辨識成功、直接把使用者帶進一個空空如也的拆單畫面。這裡明確
+          // 判定「完全沒有任何可用的品項或金額」為辨識失敗，回到拍照畫面
+          // 讓使用者重拍或改用手動記帳，不要讓他們走進死胡同才發現。
+          const hasUsableItems = Array.isArray(parsed.items) && parsed.items.some(it => Number(it.price || it.amount || it.total || 0) > 0);
+          const hasUsableTotal = Number(parsed.totalAmount) > 0;
+          if(!hasUsableItems && !hasUsableTotal){
+            throw new Error("辨識結果是空的，沒有讀到任何品項或金額");
+          }
+
           currentReceiptData = parsed;
 
           // 自動偵測幣別並切換下拉選單
@@ -6015,7 +6485,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function updateMultiPayerSumCheck(){
       if(aiPayerMode !== "multi" || !aiPayerSumCheck) return;
       const { subtotal, netExtraFees } = calculateMemberTotals();
-      const calculatedTotal = Math.round(subtotal + netExtraFees);
+      const calculatedTotal = roundAmt(subtotal + netExtraFees);
       const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
       const curSym = getReceiptSymbol();
 
@@ -6025,7 +6495,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           sum += Number(inp.value) || 0;
         });
       }
-      const diff = Math.round((finalTotal - sum) * 100) / 100;
+      const diff = roundAmt(finalTotal - sum);
       if(Math.abs(diff) < 0.5){
         aiPayerSumCheck.innerHTML = `<span style="color:var(--positive-text);font-weight:700;">✓ 付款金額完全相符 (${curSym}${formatAmt(sum)})</span>`;
       } else if(diff > 0){
@@ -6070,17 +6540,24 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         aiExpenseTime.value = `${hh}:${min}`;
       }
 
-      // 4. 單人付款下拉選單
+      // 4. 單人付款下拉選單（保留使用者已選的付款人，只有從未選過時才預設為自己——
+      //    這個下拉選單每次認領頁重繪都會整個重建 <option>，如果不記住上次選的值，
+      //    使用者選好付款人後只要再動其他設定（勾認領、切稅別…）就會被重繪打回預設值）
       if(aiPaidBySingle){
+        const prevPayerId = aiPaidBySingle.value || (myMember && myMember.id) || "";
         aiPaidBySingle.innerHTML = activeMembers.map(m => `
-          <option value="${m.id}" ${myMember && myMember.id === m.id ? 'selected' : ''}>
+          <option value="${m.id}" ${m.id === prevPayerId ? 'selected' : ''}>
             ${escapeHtml(m.name || emailToName(m.email))}
           </option>
         `).join("");
       }
 
-      // 5. 多人付款清單
+      // 5. 多人付款清單（同理：保留使用者已輸入的付款金額，不因重繪而被清空）
       if(aiPayerMultiList){
+        const prevAmounts = {};
+        aiPayerMultiList.querySelectorAll(".ai-multi-payer-input").forEach(inp => {
+          prevAmounts[inp.dataset.id] = inp.value;
+        });
         aiPayerMultiList.innerHTML = activeMembers.map(m => `
           <div class="ai-payer-multi-row">
             <span style="display:flex;align-items:center;gap:5px;font-size:12.5px;">
@@ -6089,7 +6566,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             </span>
             <div class="ai-receipt-price-wrap" style="width:125px;">
               <span class="ai-receipt-cur-prefix">${curSym}</span>
-              <input type="number" class="ai-receipt-item-price ai-multi-payer-input" data-id="${m.id}" placeholder="0" min="0" step="any">
+              <input type="number" class="ai-receipt-item-price ai-multi-payer-input" data-id="${m.id}" placeholder="0" min="0" step="any" value="${prevAmounts[m.id] || ''}">
             </div>
           </div>
         `).join("");
@@ -6108,7 +6585,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         aiTaxSplitToggle.style.display = (taxType === "inclusive") ? "none" : "flex";
       }
       const serviceCol = document.getElementById("aiReceiptServiceCol");
-      if(serviceCol) serviceCol.style.opacity = (taxType === "inclusive") ? "0.45" : "1";
+      if(serviceCol) serviceCol.classList.toggle("hidden", taxType === "inclusive");
 
       // 6. 渲染品項清單（高度一致、平分按鈕置於金額下方、大頭貼不顯示幾分之幾）
       if(itemsListEl){
@@ -6131,7 +6608,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           }).join("");
 
           const count = item.claimedMemberIds.length;
-          const perPersonPrice = count > 1 ? Math.round(item.price / count) : 0;
+          const perPersonPrice = count > 1 ? roundAmt(item.price / count) : 0;
           let floatBadgeHTML = "";
           if(count === 0){
             floatBadgeHTML = `<span class="ai-card-float-badge unclaimed">⚠️ 待認領</span>`;
@@ -6259,7 +6736,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           it.claimedMemberIds.forEach(mId => {
             if(memberCalcMap[mId]){
               memberCalcMap[mId].itemSum += sharePrice;
-              memberCalcMap[mId].formulas.push(count > 1 ? `${Math.round(it.price)}/${count}` : `${Math.round(it.price)}`);
+              memberCalcMap[mId].formulas.push(count > 1 ? `${roundAmt(it.price)}/${count}` : `${roundAmt(it.price)}`);
             }
           });
         }
@@ -6271,14 +6748,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(data.itemSum > 0 || claimedMemberIdSet.has(m.id)){
           if(taxType === "inclusive"){
             data.taxShare = 0;
-            data.total = Math.round(data.itemSum);
+            data.total = roundAmt(data.itemSum);
           } else {
             if(taxSplitMode === "ratio"){
               data.taxShare = subtotal > 0 ? (data.itemSum / subtotal) * netExtraFees : 0;
             } else {
               data.taxShare = claimingCount > 0 ? netExtraFees / claimingCount : 0;
             }
-            data.total = Math.round(data.itemSum + data.taxShare);
+            data.total = roundAmt(data.itemSum + data.taxShare);
           }
         }
       });
@@ -6300,7 +6777,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       receiptClaimItems.forEach((it, idx) => {
         const claimNames = it.claimedMemberIds.map(id => memberById[id] || id).join("、");
         const count = it.claimedMemberIds.length;
-        const perPerson = count > 1 ? ` (每人 ${curSym}${formatAmt(Math.round(it.price / count))})` : "";
+        const perPerson = count > 1 ? ` (每人 ${curSym}${formatAmt(roundAmt(it.price / count))})` : "";
         const claimText = claimNames ? `➔ ${claimNames}${perPerson}` : `➔ 無人認領`;
 
         const rawName = (it.name || "品項").trim();
@@ -6318,7 +6795,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       activeMembers.forEach(m => {
         const d = memberCalcMap[m.id];
         if(d && d.total > 0){
-          const taxPart = (taxType !== "inclusive" && d.taxShare) ? ` (含服務費 ${curSym}${formatAmt(Math.round(d.taxShare))})` : "";
+          const taxPart = (taxType !== "inclusive" && d.taxShare) ? ` (含服務費 ${curSym}${formatAmt(roundAmt(d.taxShare))})` : "";
           lines.push(`  ・${m.name}：${curSym}${formatAmt(d.total)}${taxPart}`);
         }
       });
@@ -6392,7 +6869,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function updateCalculationsAndBadges(){
       const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
       const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-      const calculatedTotal = taxType === "inclusive" ? Math.round(subtotal - discount) : Math.round(subtotal + netExtraFees);
+      const calculatedTotal = taxType === "inclusive" ? roundAmt(subtotal - discount) : roundAmt(subtotal + netExtraFees);
       const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
       const curSym = getReceiptSymbol();
 
@@ -6447,7 +6924,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         aiTaxSplitToggle.style.display = (taxType === "inclusive") ? "none" : "flex";
       }
       const serviceCol = document.getElementById("aiReceiptServiceCol");
-      if(serviceCol) serviceCol.style.opacity = (taxType === "inclusive") ? "0.45" : "1";
+      if(serviceCol) serviceCol.classList.toggle("hidden", taxType === "inclusive");
 
       // 檢查 小計 (+ 服務費/稅) 是否等於 總計
       const isTotalMatching = Math.abs(calculatedTotal - finalTotal) < 0.5;
@@ -6457,7 +6934,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           if(taxType === "inclusive"){
             mismatchWarningEl.innerHTML = `⚠️ 目前為「內含稅」模式：小計 (<b>${curSym}${formatAmt(subtotal)}</b>) 與總計 (<b>${curSym}${formatAmt(finalTotal)}</b>) 不相符。若此發票有額外服務費/稅，請切換為「外加稅費」模式。`;
           } else {
-            const diff = Math.round((finalTotal - calculatedTotal) * 100) / 100;
+            const diff = roundAmt(finalTotal - calculatedTotal);
             mismatchWarningEl.innerHTML = `⚠️ 目前為「外加稅費」模式：小計 (${curSym}${formatAmt(subtotal)}) ＋ 服務費/稅 (${curSym}${formatAmt(netExtraFees)}) ＝ <b>${curSym}${formatAmt(calculatedTotal)}</b>，與總計 (<b>${curSym}${formatAmt(finalTotal)}</b>) 不相符${diff > 0 ? `（少 ${curSym}${formatAmt(diff)}）` : `（多 ${curSym}${formatAmt(Math.abs(diff))}）`}。若發票已內含稅，可切換為「內含稅」模式。`;
           }
           mismatchWarningEl.classList.remove("hidden");
@@ -6531,7 +7008,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       copyCompactBtn.addEventListener("click", async ()=>{
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
         const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-        const calculatedTotal = taxType === "inclusive" ? Math.round(subtotal - discount) : Math.round(subtotal + netExtraFees);
+        const calculatedTotal = taxType === "inclusive" ? roundAmt(subtotal - discount) : roundAmt(subtotal + netExtraFees);
         const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
         const summary = generateCompactBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
         await copyToClipboard(summary);
@@ -6544,7 +7021,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       copyFullBtn.addEventListener("click", async ()=>{
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
         const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-        const calculatedTotal = taxType === "inclusive" ? Math.round(subtotal - discount) : Math.round(subtotal + netExtraFees);
+        const calculatedTotal = taxType === "inclusive" ? roundAmt(subtotal - discount) : roundAmt(subtotal + netExtraFees);
         const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
         const summary = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
         await copyToClipboard(summary);
@@ -6588,7 +7065,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(serviceInputEl) serviceInputEl.value = 0;
         const { subtotal } = calculateMemberTotals();
         const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
-        const newTotal = Math.round(subtotal - discount);
+        const newTotal = roundAmt(subtotal - discount);
         if(currentReceiptData) currentReceiptData.totalAmount = newTotal;
         if(totalInputEl) totalInputEl.value = newTotal;
         renderClaimBoard();
@@ -6622,7 +7099,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const rawStore = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
         const storeName = getFirstLineDesc(rawStore).replace(/\(AI自動拆單\)/g, "").trim() || "聚餐收據";
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
-        const calculatedTotal = Math.round(subtotal + netExtraFees);
+        const calculatedTotal = roundAmt(subtotal + netExtraFees);
         const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
         const curSym = getReceiptSymbol();
         const curLabel = getReceiptCurrencyLabel();
@@ -6681,26 +7158,30 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           return {
             member_id: m.id,
             amount: d.total,
-            calc: d.formulas.join("+") + (d.taxShare ? `+服務費${Math.round(d.taxShare)}` : "")
+            calc: d.formulas.join("+") + (d.taxShare ? `+服務費${roundAmt(d.taxShare)}` : "")
           };
         });
 
-        // 若無人點選認領，則全員平分
+        // 若無人點選認領，則全員平分——依幣別最小法定面額（例如美金以「分」為單位）分配餘數，
+        // 不能一律當作整數幣別直接 +1（那樣美金會整組落到整數，1.99 這種尾數會消失）
         if(!shares.length){
-          const base = Math.floor(finalTotal / activeMembers.length);
-          const rem = finalTotal - (base * activeMembers.length);
+          const minUnit = Math.pow(10, -getCurrencyDecimals(selectedReceiptCurrency));
+          const totalUnits = Math.round(finalTotal / minUnit);
+          const n = activeMembers.length;
+          const baseUnits = Math.floor(totalUnits / n);
+          const remUnits = totalUnits - baseUnits * n;
           shares = activeMembers.map((m, idx) => ({
             member_id: m.id,
-            amount: base + (idx < rem ? 1 : 0),
+            amount: roundAmt((baseUnits + (idx < remUnits ? 1 : 0)) * minUnit),
             calc: "全員平分"
           }));
         }
 
         // 微調分攤加總確保與 finalTotal 100% 吻合
         const shareSum = shares.reduce((acc, s) => acc + s.amount, 0);
-        const diff = finalTotal - shareSum;
+        const diff = roundAmt(finalTotal - shareSum);
         if(diff !== 0 && shares.length > 0){
-          shares[0].amount += diff;
+          shares[0].amount = roundAmt(shares[0].amount + diff);
         }
 
         // 3. 組合金額組成明細文字與完整狀態結構

@@ -89,8 +89,10 @@ function enhanceSelect(selectEl){
 }
 
 // ---------- 帳務更動的即時通知小提示卡，跟 app.js 的即時同步共用同一套
-// 元件；settings.html 也拿來當切換/建立/加入群組成功的明顯回饋。----------
-function showToast(title, body){
+// 元件；settings.html 也拿來當切換/建立/加入群組成功的明顯回饋。
+// actionLabel/actionFn 是選填的操作按鈕（例如刪除紀錄後的「復原」），
+// 按下去會取消自動消失的倒數、立刻關掉 toast 並執行 actionFn。----------
+function showToast(title, body, actionLabel, actionFn){
   let container = document.getElementById("sbToastContainer");
   if(!container){
     container = document.createElement("div");
@@ -100,10 +102,29 @@ function showToast(title, body){
   }
   const toast = document.createElement("div");
   toast.className = "sb-toast";
-  toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body)}`;
-  container.appendChild(toast);
-  setTimeout(()=>{
+  const textEl = document.createElement("div");
+  textEl.className = "sb-toast-text";
+  textEl.innerHTML = body ? `<b>${escapeHtml(title)}</b><span>${escapeHtml(body)}</span>` : `<b>${escapeHtml(title)}</b>`;
+  toast.appendChild(textEl);
+
+  const dismiss = () => {
+    clearTimeout(autoDismissTimer);
     toast.classList.add("sb-toast-out");
     setTimeout(()=> toast.remove(), 250);
-  }, 4000);
+  };
+
+  if(actionLabel && actionFn){
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "sb-toast-action";
+    btn.textContent = actionLabel;
+    btn.addEventListener("click", ()=>{
+      dismiss();
+      actionFn();
+    });
+    toast.appendChild(btn);
+  }
+
+  container.appendChild(toast);
+  const autoDismissTimer = setTimeout(dismiss, actionLabel ? 5000 : 4000);
 }

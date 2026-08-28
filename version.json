@@ -1,7 +1,7 @@
 {
-  "version": "450",
-  "updatedAt": "2026-08-28",
+  "version": "453",
+  "updatedAt": "2026-08-29",
   "changelog": [
-    "修復債務明細卡片中標籤文字折行問題，設定 white-space: nowrap 與彈性寬度，保持單行整齊對齊"
+    "更新官方指定 SEO 標題與網站描述：Splitbill 分帳系統｜智慧多人分帳與 AI 收據拆單"
   ]
 }

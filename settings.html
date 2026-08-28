@@ -14,14 +14,16 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>設定 - Splitbill</title>
+<title>Splitbill｜設定</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#7A6B9E">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="帳務系統">
+<meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
@@ -458,6 +460,25 @@ if("serviceWorker" in navigator){
     </div>
     <div class="avatar-modal-body">
       <img id="avatarModalImg" src="" alt="大頭貼相片" class="avatar-modal-img">
+    </div>
+  </div>
+</div>
+
+<div class="calc-modal" id="avatarCropModal">
+  <div class="calc-card card avatar-crop-modal-card">
+    <div class="avatar-modal-header">
+      <div class="avatar-modal-title">✂️ 裁切大頭貼</div>
+      <button type="button" class="calc-close" id="avatarCropCloseBtn">✕</button>
+    </div>
+    <div class="avatar-crop-stage" id="avatarCropStage">
+      <img id="avatarCropImg" class="avatar-crop-img" draggable="false" alt="">
+      <div class="avatar-crop-frame"></div>
+    </div>
+    <p class="avatar-crop-hint">拖曳移動位置，滑動下方調整縮放</p>
+    <input type="range" id="avatarCropZoom" min="100" max="300" value="100" class="avatar-crop-zoom-slider">
+    <div class="avatar-crop-actions">
+      <button type="button" class="btn secondary small" id="avatarCropRetakeBtn">重新選擇</button>
+      <button type="button" class="btn small" id="avatarCropConfirmBtn">✓ 確認裁切</button>
     </div>
   </div>
 </div>
@@ -1101,9 +1122,194 @@ if(backBtn){
     });
   }
 
+  // 把裁切完的正方形 base64 圖片實際上傳、同步到雲端與本地快取（不管是從
+  // 裁切彈窗確認的，還是之後有其他來源，都共用這一份邏輯）。
+  async function uploadAvatarBase64(base64, msg){
+    const { data: updateRes, error: updateErr } = await sb.auth.updateUser({ data: { avatar_url: base64 } });
+    if(updateErr){
+      console.error("auth updateUser error:", updateErr);
+      if(msg){ msg.textContent = "雲端同步失敗：" + updateErr.message; msg.className = "msg error"; }
+      return false;
+    }
+    if(updateRes && updateRes.user){
+      currentUser = updateRes.user;
+      window.currentUser = updateRes.user;
+    }
+
+    // 同步寫入 members 資料庫表（跨群組觸發器會自動同步所有群組）。
+    // Supabase 查詢失敗是回傳 {error}、不是丟例外，只包 try/catch
+    // 接不到，要自己檢查 error 才會發現這裡其實沒寫進去。
+    try {
+      if(currentUser && currentUser.id){
+        const { error: memberAvatarErr } = await sb.from("members").update({ avatar_url: base64 }).eq("user_id", currentUser.id);
+        if(memberAvatarErr) console.warn("members avatar_url database update error:", memberAvatarErr);
+      }
+    } catch(dbErr){
+      console.warn("members avatar_url database update error:", dbErr);
+    }
+
+    if(myMember){
+      myMember.avatar_url = base64;
+      localStorage.setItem("sb_avatar_" + myMember.id, base64);
+      if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, base64);
+    }
+    if(currentUser){
+      localStorage.setItem("sb_avatar_" + currentUser.id, base64);
+      if(currentUser.user_metadata) currentUser.user_metadata.avatar_url = base64;
+    }
+    localStorage.setItem("sb_my_avatar", base64);
+    if(window.myMember) window.myMember.avatar_url = base64;
+    if(window.currentUser && window.currentUser.user_metadata) window.currentUser.user_metadata.avatar_url = base64;
+
+    renderSettingsAvatarPreview();
+    const whoamiAvatarEl = document.getElementById("whoamiAvatar");
+    if(whoamiAvatarEl && myMember) whoamiAvatarEl.innerHTML = renderAvatarHTML(myMember, "avatar-md whoami-avatar");
+
+    if(msg){ msg.textContent = "大頭貼已成功更新並同步至雲端！"; msg.className = "msg ok"; }
+    return true;
+  }
+
+  // ---------- 大頭貼裁切彈窗：選好照片後先讓使用者拖曳、縮放挑選要保留的
+  // 範圍，確認後才裁成正方形上傳——不再是選到照片就直接用置中裁切。----------
+  const avatarCropModal = document.getElementById("avatarCropModal");
+  const avatarCropStage = document.getElementById("avatarCropStage");
+  const avatarCropImg = document.getElementById("avatarCropImg");
+  const avatarCropZoom = document.getElementById("avatarCropZoom");
+  const avatarCropCloseBtn = document.getElementById("avatarCropCloseBtn");
+  const avatarCropRetakeBtn = document.getElementById("avatarCropRetakeBtn");
+  const avatarCropConfirmBtn = document.getElementById("avatarCropConfirmBtn");
+
+  let cropImgEl = null; // 目前載入、待裁切的原始圖片 Image 物件
+  let cropBaseScale = 1; // 讓圖片短邊剛好等於裁切框邊長的基礎縮放
+  let cropZoom = 1; // 使用者額外調整的縮放倍率（1 ~ 3）
+  let cropOffsetX = 0, cropOffsetY = 0; // 額外的拖曳位移（裁切框像素）
+  let cropDragging = false, cropDragStartX = 0, cropDragStartY = 0, cropDragStartOffX = 0, cropDragStartOffY = 0;
+  const CROP_STAGE_SIZE = 240;
+  const CROP_OUTPUT_SIZE = 320;
+
+  function clampCropOffset(){
+    const dispW = cropImgEl.naturalWidth * cropBaseScale * cropZoom;
+    const dispH = cropImgEl.naturalHeight * cropBaseScale * cropZoom;
+    const maxX = Math.max(0, (dispW - CROP_STAGE_SIZE) / 2);
+    const maxY = Math.max(0, (dispH - CROP_STAGE_SIZE) / 2);
+    cropOffsetX = Math.min(maxX, Math.max(-maxX, cropOffsetX));
+    cropOffsetY = Math.min(maxY, Math.max(-maxY, cropOffsetY));
+  }
+
+  function applyCropTransform(){
+    if(!cropImgEl) return;
+    clampCropOffset();
+    const totalScale = cropBaseScale * cropZoom;
+    avatarCropImg.style.width = (cropImgEl.naturalWidth * totalScale) + "px";
+    avatarCropImg.style.height = (cropImgEl.naturalHeight * totalScale) + "px";
+    avatarCropImg.style.transform = `translate(-50%, -50%) translate(${cropOffsetX}px, ${cropOffsetY}px)`;
+  }
+
+  function openAvatarCropModal(img){
+    cropImgEl = img;
+    cropBaseScale = CROP_STAGE_SIZE / Math.min(img.naturalWidth, img.naturalHeight);
+    cropZoom = 1;
+    cropOffsetX = 0;
+    cropOffsetY = 0;
+    if(avatarCropZoom) avatarCropZoom.value = 100;
+    avatarCropImg.src = img.src;
+    applyCropTransform();
+    if(avatarCropModal) avatarCropModal.classList.add("show");
+  }
+
+  function closeAvatarCropModal(){
+    if(avatarCropModal) avatarCropModal.classList.remove("show");
+    cropImgEl = null;
+  }
+
+  if(avatarCropStage){
+    avatarCropStage.addEventListener("pointerdown", (e)=>{
+      if(!cropImgEl) return;
+      cropDragging = true;
+      avatarCropStage.classList.add("dragging");
+      avatarCropStage.setPointerCapture(e.pointerId);
+      cropDragStartX = e.clientX;
+      cropDragStartY = e.clientY;
+      cropDragStartOffX = cropOffsetX;
+      cropDragStartOffY = cropOffsetY;
+    });
+    avatarCropStage.addEventListener("pointermove", (e)=>{
+      if(!cropDragging) return;
+      cropOffsetX = cropDragStartOffX + (e.clientX - cropDragStartX);
+      cropOffsetY = cropDragStartOffY + (e.clientY - cropDragStartY);
+      applyCropTransform();
+    });
+    const endDrag = ()=>{
+      cropDragging = false;
+      avatarCropStage.classList.remove("dragging");
+    };
+    avatarCropStage.addEventListener("pointerup", endDrag);
+    avatarCropStage.addEventListener("pointercancel", endDrag);
+    avatarCropStage.addEventListener("wheel", (e)=>{
+      if(!cropImgEl || !avatarCropZoom) return;
+      e.preventDefault();
+      const next = Math.min(300, Math.max(100, Number(avatarCropZoom.value) - Math.sign(e.deltaY) * 10));
+      avatarCropZoom.value = next;
+      cropZoom = next / 100;
+      applyCropTransform();
+    }, { passive:false });
+  }
+
+  if(avatarCropZoom){
+    avatarCropZoom.addEventListener("input", ()=>{
+      cropZoom = Number(avatarCropZoom.value) / 100;
+      applyCropTransform();
+    });
+  }
+
+  if(avatarCropCloseBtn) avatarCropCloseBtn.addEventListener("click", closeAvatarCropModal);
+  if(avatarCropModal){
+    avatarCropModal.addEventListener("click", (e)=>{
+      if(e.target === avatarCropModal) closeAvatarCropModal();
+    });
+  }
+  if(avatarCropRetakeBtn){
+    avatarCropRetakeBtn.addEventListener("click", ()=>{
+      closeAvatarCropModal();
+      const avatarFileInputEl = document.getElementById("avatarFileInput");
+      if(avatarFileInputEl){ avatarFileInputEl.value = ""; avatarFileInputEl.click(); }
+    });
+  }
+  if(avatarCropConfirmBtn){
+    avatarCropConfirmBtn.addEventListener("click", async ()=>{
+      if(!cropImgEl) return;
+      const msg = document.getElementById("avatarMsg");
+      avatarCropConfirmBtn.disabled = true;
+      avatarCropConfirmBtn.textContent = "處理中…";
+      try {
+        const totalScale = cropBaseScale * cropZoom;
+        const dispW = cropImgEl.naturalWidth * totalScale;
+        const dispH = cropImgEl.naturalHeight * totalScale;
+        // 裁切框在「圖片顯示座標」裡的左上角位置，再換算回原圖的實際像素座標
+        const srcX = (dispW / 2 - CROP_STAGE_SIZE / 2 - cropOffsetX) / totalScale;
+        const srcY = (dispH / 2 - CROP_STAGE_SIZE / 2 - cropOffsetY) / totalScale;
+        const srcSize = CROP_STAGE_SIZE / totalScale;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = CROP_OUTPUT_SIZE;
+        canvas.height = CROP_OUTPUT_SIZE;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(cropImgEl, srcX, srcY, srcSize, srcSize, 0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE);
+        const base64 = canvas.toDataURL("image/jpeg", 0.85);
+
+        if(msg){ msg.textContent = "處理圖片中…"; msg.className = "msg"; }
+        closeAvatarCropModal();
+        await uploadAvatarBase64(base64, msg);
+      } finally {
+        avatarCropConfirmBtn.disabled = false;
+        avatarCropConfirmBtn.textContent = "✓ 確認裁切";
+      }
+    });
+  }
+
   const avatarFileInput = document.getElementById("avatarFileInput");
   if(avatarFileInput){
-    avatarFileInput.addEventListener("change", async (e)=>{
+    avatarFileInput.addEventListener("change", (e)=>{
       const file = e.target.files && e.target.files[0];
       if(!file) return;
       const msg = document.getElementById("avatarMsg");
@@ -1111,71 +1317,20 @@ if(backBtn){
         if(msg){ msg.textContent = "請選擇圖片檔案"; msg.className = "msg error"; }
         return;
       }
-      if(msg){ msg.textContent = "處理圖片中…"; msg.className = "msg"; }
-      try{
-        const reader = new FileReader();
-        reader.onload = (re) => {
-          const img = new Image();
-          img.onload = async () => {
-            const canvas = document.createElement("canvas");
-            const size = 160;
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext("2d");
-            const minSide = Math.min(img.width, img.height);
-            const sx = (img.width - minSide) / 2;
-            const sy = (img.height - minSide) / 2;
-            ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-            const base64 = canvas.toDataURL("image/jpeg", 0.78);
-
-            const { data: updateRes, error: updateErr } = await sb.auth.updateUser({ data: { avatar_url: base64 } });
-            if(updateErr){
-              console.error("auth updateUser error:", updateErr);
-              if(msg){ msg.textContent = "雲端同步失敗：" + updateErr.message; msg.className = "msg error"; }
-              return;
-            }
-            if(updateRes && updateRes.user){
-              currentUser = updateRes.user;
-              window.currentUser = updateRes.user;
-            }
-
-            // 同步寫入 members 資料庫表（跨群組觸發器會自動同步所有群組）。
-            // Supabase 查詢失敗是回傳 {error}、不是丟例外，只包 try/catch
-            // 接不到，要自己檢查 error 才會發現這裡其實沒寫進去。
-            try {
-              if(currentUser && currentUser.id){
-                const { error: memberAvatarErr } = await sb.from("members").update({ avatar_url: base64 }).eq("user_id", currentUser.id);
-                if(memberAvatarErr) console.warn("members avatar_url database update error:", memberAvatarErr);
-              }
-            } catch(dbErr){
-              console.warn("members avatar_url database update error:", dbErr);
-            }
-
-            if(myMember){
-              myMember.avatar_url = base64;
-              localStorage.setItem("sb_avatar_" + myMember.id, base64);
-              if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, base64);
-            }
-            if(currentUser){
-              localStorage.setItem("sb_avatar_" + currentUser.id, base64);
-              if(currentUser.user_metadata) currentUser.user_metadata.avatar_url = base64;
-            }
-            localStorage.setItem("sb_my_avatar", base64);
-            if(window.myMember) window.myMember.avatar_url = base64;
-            if(window.currentUser && window.currentUser.user_metadata) window.currentUser.user_metadata.avatar_url = base64;
-
-            renderSettingsAvatarPreview();
-            const whoamiAvatarEl = document.getElementById("whoamiAvatar");
-            if(whoamiAvatarEl && myMember) whoamiAvatarEl.innerHTML = renderAvatarHTML(myMember, "avatar-md whoami-avatar");
-
-            if(msg){ msg.textContent = "大頭貼已成功更新並同步至雲端！"; msg.className = "msg ok"; }
-          };
-          img.src = re.target.result;
+      if(msg){ msg.textContent = ""; msg.className = "msg"; }
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        const img = new Image();
+        img.onload = () => openAvatarCropModal(img);
+        img.onerror = () => {
+          if(msg){ msg.textContent = "無法讀取此圖片，請換一張再試"; msg.className = "msg error"; }
         };
-        reader.readAsDataURL(file);
-      }catch(err){
-        if(msg){ msg.textContent = "上傳失敗：" + err.message; msg.className = "msg error"; }
-      }
+        img.src = re.target.result;
+      };
+      reader.onerror = () => {
+        if(msg){ msg.textContent = "讀取檔案失敗，請再試一次"; msg.className = "msg error"; }
+      };
+      reader.readAsDataURL(file);
     });
   }
 

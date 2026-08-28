@@ -1734,42 +1734,6 @@ button.dd-btn {
   100%{ opacity:0; transform:translate(var(--dx), 220px) rotate(var(--rot)); }
 }
 
-/* 帳務更動的即時通知（app 內小提示卡） */
-.sb-toast-container{
-  position:fixed;
-  top:14px;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:400;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  width:calc(100% - 32px);
-  max-width:520px;
-  pointer-events:none;
-}
-.sb-toast{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-left:4px solid #7A6B9E;
-  border-radius:12px;
-  padding:12px 14px;
-  box-shadow:0 8px 24px rgba(0,0,0,.18);
-  font-size:12.5px;
-  color:var(--ink);
-  animation:sbToastIn .25s ease;
-  pointer-events:auto;
-}
-.sb-toast b{ display:block; font-size:13px; margin-bottom:2px; }
-@keyframes sbToastIn{
-  from{ opacity:0; transform:translateY(-10px); }
-  to{ opacity:1; transform:translateY(0); }
-}
-.sb-toast.sb-toast-out{ animation:sbToastOut .2s ease forwards; }
-@keyframes sbToastOut{
-  to{ opacity:0; transform:translateY(-10px); }
-}
-
 .my-balance-amt{
   font-family:"JetBrains Mono",monospace;
   font-size:22px;
@@ -2095,11 +2059,82 @@ button.dd-btn {
 .flow-chart-legend{ display:flex; justify-content:center; gap:16px; margin:8px 0 0; font-size:11px; color:var(--ink-soft); }
 .flow-chart-legend .legend-up{ color:var(--negative-text); }
 .flow-chart-legend .legend-down{ color:var(--positive-text); }
-.flow-bar-up[data-amt], .flow-bar-down[data-amt]{ cursor:pointer; }
-.flow-chart-tap-hint{ font-size:13px; font-weight:700; font-family:"JetBrains Mono",monospace; color:var(--ink-soft); margin:6px 0 0; text-align:center; }
-.balance-chart-name{ font-size:11px; font-family:"Noto Sans TC",sans-serif; fill:var(--ink); }
-.balance-amt-pos{ fill:var(--positive-text); }
-.balance-amt-neg{ fill:var(--negative-text); }
+.flow-amt-label{ font-size:10px; font-family:"JetBrains Mono",monospace; font-weight:700; }
+.flow-amt-label.up{ fill:var(--negative-text); }
+.flow-amt-label.down{ fill:var(--positive-text); }
+/* ---------- 淨餘額比較：零線置中。紅色（欠款）那一側由外而內是
+   頭貼－金額－長條，長條尾端貼著零線；綠色（該收）那一側鏡像，由零線
+   往外是長條－金額－頭貼。頭貼／金額整組跟著長條一起貼齊零線（不是釘
+   死在卡片最外側），長條長度代表金額大小；真的空間不夠時長條會優先
+   被壓縮到極短，永遠不會把頭貼、金額擠出畫面外。頭貼點一下才跳出小
+   小的懸浮暱稱（手機沒有 hover，所以用點擊切換顯示/隱藏）。---------- */
+.bal-cmp-grid{
+  position:relative;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+  row-gap:14px;
+}
+.bal-cmp-zeroline{
+  position:absolute;
+  left:50%;
+  top:0;
+  bottom:0;
+  width:1px;
+  background:var(--line);
+}
+.bal-cmp-side{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+.bal-cmp-side.neg{ justify-content:flex-end; padding-right:8px; }
+.bal-cmp-side.pos{ justify-content:flex-start; padding-left:8px; }
+.bal-cmp-avatar-wrap{
+  position:relative;
+  display:inline-flex;
+  flex-shrink:0;
+  cursor:pointer;
+}
+.bal-cmp-nick-tip{
+  position:absolute;
+  bottom:calc(100% + 6px);
+  left:50%;
+  transform:translateX(-50%);
+  background:var(--ink);
+  color:var(--paper);
+  font-size:11px;
+  font-weight:600;
+  padding:3px 9px;
+  border-radius:7px;
+  white-space:nowrap;
+  z-index:5;
+  box-shadow:0 4px 12px rgba(0,0,0,.25);
+}
+.bal-cmp-nick-tip.hidden{ display:none; }
+.bal-cmp-nick-tip.below{ bottom:auto; top:calc(100% + 6px); }
+.bal-cmp-amt{
+  font-size:11px;
+  font-family:"JetBrains Mono",monospace;
+  font-weight:700;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.bal-cmp-amt.pos{ color:var(--positive-text); }
+.bal-cmp-amt.neg{ color:var(--negative-text); }
+.bal-cmp-amt.zero{ color:var(--ink-soft); }
+.bal-cmp-bar-track{
+  flex-shrink:999;
+  min-width:0;
+  height:10px;
+}
+.bal-cmp-fill{
+  height:100%;
+  border-radius:3px;
+}
+.bal-cmp-fill.pos{ background:var(--positive-text); }
+.bal-cmp-fill.neg{ background:var(--negative-text); }
 .filter-toggle-head{
   width:100%;
   display:flex;
@@ -3668,6 +3703,84 @@ button.dd-btn {
   box-shadow:0 4px 16px rgba(0,0,0,.35);
 }
 
+/* ---------- 大頭貼裁切彈窗：拖曳移動、滑桿縮放，確認後裁切成正方形上傳 ---------- */
+.avatar-crop-modal-card{ max-width:340px; }
+.avatar-crop-stage{
+  position:relative;
+  width:240px;
+  height:240px;
+  max-width:100%;
+  aspect-ratio:1 / 1;
+  margin:4px auto 0;
+  border-radius:50%;
+  overflow:hidden;
+  background:#000;
+  cursor:grab;
+  touch-action:none;
+  user-select:none;
+}
+.avatar-crop-stage.dragging{ cursor:grabbing; }
+.avatar-crop-img{
+  position:absolute;
+  left:50%;
+  top:50%;
+  max-width:none;
+  transform-origin:center center;
+  pointer-events:none;
+}
+.avatar-crop-frame{
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  border:2px solid var(--btn-primary);
+  box-shadow:0 0 0 1000px rgba(0,0,0,.2) inset;
+  pointer-events:none;
+}
+.avatar-crop-hint{
+  font-size:12px;
+  color:var(--ink-soft);
+  text-align:center;
+  margin:10px 0 4px;
+}
+.avatar-crop-zoom-slider{
+  width:100%;
+  margin:2px 0 14px;
+  accent-color:var(--btn-primary);
+}
+.avatar-crop-actions{
+  display:flex;
+  gap:8px;
+}
+.avatar-crop-actions .btn,
+.avatar-crop-actions .btn.secondary{ flex:1; margin-top:0; }
+
+/* ---------- 結算圖片預覽彈窗 ---------- */
+.settlement-img-modal-card{ max-width:400px; }
+.settlement-img-preview-wrap{
+  border-radius:14px;
+  overflow:hidden;
+  max-height:60vh;
+  overflow-y:auto;
+  background:rgba(0,0,0,.15);
+}
+.settlement-img-preview{
+  display:block;
+  width:100%;
+  height:auto;
+}
+.settlement-img-hint{
+  font-size:12px;
+  color:var(--ink-soft);
+  text-align:center;
+  margin:10px 0 4px;
+}
+.settlement-img-actions{
+  display:flex;
+  gap:8px;
+}
+.settlement-img-actions .btn,
+.settlement-img-actions .btn.secondary{ flex:1; margin-top:0; }
+
 /* Matrix Header & Copy Settle Button */
 .matrix-header-row{
   display:flex;
@@ -3679,6 +3792,12 @@ button.dd-btn {
 }
 .matrix-header-row h2{
   margin-bottom:0 !important;
+}
+.matrix-header-actions{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
 }
 .copy-settle-btn{
   display:inline-flex;
@@ -5872,9 +5991,9 @@ input#aiExpenseTime {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 999px;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -5886,20 +6005,44 @@ input#aiExpenseTime {
   max-width: 100%;
   box-sizing: border-box;
 }
-.sb-toast b {
+.sb-toast.sb-toast-out {
+  animation: sbToastSlideUp 0.25s ease forwards;
+}
+.sb-toast-text{
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sb-toast-text b {
+  display: inline;
+  flex-shrink: 0;
+  margin: 0;
   color: var(--btn-primary);
   font-weight: 800;
   white-space: nowrap;
 }
-.sb-toast span {
+.sb-toast-text span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
   font-weight: 600;
 }
-.sb-toast.sb-toast-out {
-  animation: sbToastSlideUp 0.25s ease forwards;
+.sb-toast-action{
+  flex-shrink:0;
+  border:none;
+  background:var(--btn-primary);
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  padding:6px 13px;
+  border-radius:999px;
+  cursor:pointer;
 }
+.sb-toast-action:active{ transform:scale(.94); }
 @keyframes sbToastSlideDown {
   from {
     opacity: 0;

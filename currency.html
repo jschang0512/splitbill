@@ -14,14 +14,16 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>分帳</title>
+<title>Splitbill｜分帳記帳</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#7A6B9E">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="帳務系統">
+<meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css?v=420">
@@ -194,9 +196,14 @@ if("serviceWorker" in navigator){
       <div class="card card-wide">
         <div class="matrix-header-row">
           <h2>🧮 債務關係表</h2>
-          <button type="button" class="copy-settle-btn" id="copySettlementBtn" title="複製結算清單至剪貼簿">
-            <span>📋 複製結算清單</span>
-          </button>
+          <div class="matrix-header-actions">
+            <button type="button" class="copy-settle-btn" id="copySettlementBtn" title="複製結算清單至剪貼簿">
+              <span>📋 複製結算清單</span>
+            </button>
+            <button type="button" class="copy-settle-btn" id="exportSettlementImgBtn" title="匯出結算圖片">
+              <span>🖼️ 匯出圖片</span>
+            </button>
+          </div>
         </div>
         <p class="filter-hint summary-hint">1. 點擊格子可以看債務紀錄<br>2. 若分攤過程產生餘數將隨機分配</p>
         <div class="matrix-scroll">
@@ -480,6 +487,23 @@ if("serviceWorker" in navigator){
         1. <b>匯率來源</b>：系統即時匯率取自國際金融市場中價（ExchangeRate-API），每小時同步最新牌價。<br>
         2. <b>手續費與價差</b>：此牌價為國際中間公允匯率（即期中價），不含商業銀行換匯價差或信用卡海外交易手續費（通常約 1.5%）。建議雙方協商確認，亦可直接於上方欄位手動修改自訂匯率。
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="calc-modal" id="settlementImgModal">
+  <div class="calc-card card settlement-img-modal-card">
+    <div class="avatar-modal-header">
+      <div class="avatar-modal-title">🖼️ 結算圖片</div>
+      <button type="button" class="calc-close" id="settlementImgCloseBtn">✕</button>
+    </div>
+    <div class="settlement-img-preview-wrap">
+      <img id="settlementImgPreview" alt="結算圖片" class="settlement-img-preview">
+    </div>
+    <p class="settlement-img-hint">長按圖片可直接儲存，或用下面的按鈕分享</p>
+    <div class="settlement-img-actions">
+      <button type="button" class="btn secondary small hidden" id="settlementImgShareBtn">📤 分享</button>
+      <button type="button" class="btn small" id="settlementImgDownloadBtn">⬇️ 下載圖片</button>
     </div>
   </div>
 </div>

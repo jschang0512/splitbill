@@ -14,14 +14,16 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>帳務總覽</title>
+<title>Splitbill｜帳務總覽</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#7A6B9E">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="帳務系統">
+<meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
@@ -170,10 +172,10 @@ if("serviceWorker" in navigator){
       </div>
     </div>
 
-    <!-- 3. 意見回饋：大家都看得到，只能刪自己寫的 -->
+    <!-- 3. 群組留言：只有同一個群組的人看得到，只能刪自己寫的 -->
     <div class="card">
-      <h2>💬 意見回饋</h2>
-      <textarea id="feedbackInput" placeholder="有什麼想法、建議、抱怨都可以打在這裡…" rows="3"></textarea>
+      <h2>💬 群組留言</h2>
+      <textarea id="feedbackInput" placeholder="想跟這個群組的大家說什麼都可以打在這裡…" rows="3"></textarea>
       <button class="btn secondary small" id="feedbackSubmitBtn">送出</button>
       <div class="msg" id="feedbackMsg"></div>
 
@@ -370,7 +372,7 @@ renderNavLinks();
 
   // escapeHtml() 移到全站共用的 sb-shared.js 了。
 
-  // ---------- 意見回饋：大家都看得到，只能刪自己寫的 ----------
+  // ---------- 群組留言：只有同一個群組的人看得到，只能刪自己寫的 ----------
   function formatFeedbackTime(iso){
     const d = new Date(iso);
     if(isNaN(d.getTime())) return "";
@@ -481,7 +483,8 @@ renderNavLinks();
   }
 
   async function loadFeedback(){
-    const { data } = await sb.from("feedback").select("*").order("created_at", { ascending:false });
+    if(!myMember) return;
+    const { data } = await sb.from("feedback").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false });
     cachedFeedback = data || [];
     renderFeedbackList();
   }
@@ -503,7 +506,7 @@ renderNavLinks();
       const msg = document.getElementById("feedbackMsg");
       const content = input.value.trim();
       if(!content){ msg.textContent = "請輸入內容"; msg.className = "msg error"; return; }
-      const { error } = await sb.from("feedback").insert({ content, created_by: myMember.id });
+      const { error } = await sb.from("feedback").insert({ content, created_by: myMember.id, group_id: myMember.group_id });
       if(error){ msg.textContent = "送出失敗：" + error.message; msg.className = "msg error"; return; }
       input.value = "";
       msg.textContent = "已送出！"; msg.className = "msg ok";
@@ -716,27 +719,10 @@ renderNavLinks();
     return CURRENCIES.map(c => c.code).filter(code => shownCurrencies.includes(code));
   }
 
-  // ---------- 淨餘額比較：橫向長條圖，取代原本的文字總表。不同幣別數字
+  // ---------- 淨餘額比較：頭貼＋名字＋長條，取代原本的文字總表。不同幣別數字
   // 不能混在一起比，所以用下拉選單一次只看一種。
   let balanceChartCode = null;
   let balanceChartData = null; // 存最新一次的 balances，切換幣別時不用重算
-
-  // 用 canvas 量實際文字寬度，長條圖的名字欄寬度/長條可用長度才能跟著
-  // 實際內容自動調整，不會被很長的名字或很大的金額數字擠壓、疊在一起。
-  let measureCtx = null;
-  function measureTextWidth(text, font){
-    if(!measureCtx) measureCtx = document.createElement("canvas").getContext("2d");
-    measureCtx.font = font;
-    return measureCtx.measureText(text).width;
-  }
-  function truncateToWidth(text, font, maxWidth){
-    if(measureTextWidth(text, font) <= maxWidth) return text;
-    for(let len = text.length - 1; len > 0; len--){
-      const candidate = text.slice(0, len) + "*";
-      if(measureTextWidth(candidate, font) <= maxWidth) return candidate;
-    }
-    return "*";
-  }
 
   function renderBalanceCurrencyMenu(codes){
     const menu = document.getElementById("balanceCurrencyMenu");
@@ -765,11 +751,10 @@ renderNavLinks();
     }
     const meta = currencyMeta(balanceChartCode);
     const rows = memberRows.map(m => ({
+      member: m,
       name: m.name,
       amt: (balanceChartData[balanceChartCode] && balanceChartData[balanceChartCode][m.id]) || 0
     })).sort((a, b) => a.amt - b.amt);
-    if(rows[0] && rows[0].amt < -0.05) rows[0].badge = "😠 ";
-    if(rows.length > 1 && rows[rows.length - 1].amt > 0.05) rows[rows.length - 1].badge = "😢 ";
 
     if(!rows.length){
       wrap.innerHTML = `<p class="filter-hint">目前群組還沒有成員</p>`;
@@ -780,52 +765,70 @@ renderNavLinks();
       return;
     }
 
-    // 名字欄寬度、長條可用長度都依實際內容（量測出來的文字寬度）自動調整，
-    // 不用固定寬度——不然遇到很長的名字或很大的金額數字，文字會蓋到長條
-    // 或彼此疊在一起。太長的名字超過欄寬上限就截斷加「…」，滑鼠移過去
-    // （或桌機 title tooltip）還是看得到全名。
-    const w = 320, rowH = 26, rowGap = 6, padTop = 6, padBottom = 6;
-    const NAME_FONT = `11px "Noto Sans TC", sans-serif`;
-    const AMT_FONT = `9px "JetBrains Mono", monospace`;
-
-    const displayNames = rows.map(r => (r.badge || "") + r.name);
-    const rawNameW = Math.max(...displayNames.map(t => measureTextWidth(t, NAME_FONT)));
-    const labelW = Math.min(130, Math.max(60, rawNameW + 20));
-    const truncatedNames = displayNames.map(t => truncateToWidth(t, NAME_FONT, labelW - 18));
-
-    const barAreaW = w - labelW;
-    const midX = labelW + barAreaW / 2;
-
-    const amtLabels = rows.map(r => r.amt > 0.05 ? `+${meta.symbol}${formatAmt(r.amt)}` : r.amt < -0.05 ? `-${meta.symbol}${formatAmt(Math.abs(r.amt))}` : "已結清");
-    const maxAmtW = Math.max(...amtLabels.map(t => measureTextWidth(t, AMT_FONT)));
-    const halfMax = Math.max(20, Math.min(80, barAreaW / 2 - maxAmtW - 8));
-
     const max = Math.max(1, ...rows.map(r => Math.abs(r.amt)));
-    const h = rows.length * (rowH + rowGap) - rowGap + padTop + padBottom;
 
-    const bars = rows.map((r, i)=>{
-      const y = padTop + i * (rowH + rowGap);
-      const cy = y + rowH / 2;
-      const barLen = Math.abs(r.amt) > 0.05 ? Math.max(3, Math.round((Math.abs(r.amt) / max) * halfMax)) : 0;
+    // 零線置中，左右兩欄天生等寬。紅色（欠款）那一側：頭貼－金額－長條，
+    // 長條尾端貼零線；綠色（該收）那一側鏡像：長條－金額－頭貼。長條長度
+    // 代表金額比例（上限抓這一側可用寬度的 55%），真的空間不夠時長條會
+    // 優先被壓縮（flex-shrink），永遠不會把頭貼、金額擠出畫面外。頭貼點
+    // 一下才彈出小小的暱稱懸浮框。
+    const rowsHtml = rows.map(r=>{
       const isPos = r.amt > 0.05;
-      const barX = isPos ? midX : midX - barLen;
-      const cls = isPos ? "flow-bar-down" : r.amt < -0.05 ? "flow-bar-up" : "";
-      const barRect = barLen > 0
-        ? `<rect x="${barX.toFixed(1)}" y="${(cy - 8).toFixed(1)}" width="${barLen}" height="16" rx="3" class="${cls}"></rect>`
-        : "";
-      const textX = isPos ? midX + barLen + 4 : midX - barLen - 4;
-      const textAnchor = isPos ? "start" : "end";
-      const textCls = isPos ? "balance-amt-pos" : r.amt < -0.05 ? "balance-amt-neg" : "";
-      return `<text x="${(labelW - 14).toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" text-anchor="end" class="balance-chart-name"><title>${escapeHtml(displayNames[i])}</title>${escapeHtml(truncatedNames[i])}</text>
-        ${barRect}
-        <text x="${textX.toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" text-anchor="${textAnchor}" class="spend-bar-label ${textCls}">${amtLabels[i]}</text>`;
+      const isNeg = r.amt < -0.05;
+      const cls = isPos ? "pos" : isNeg ? "neg" : "zero";
+      const amtLabel = isPos ? `+${meta.symbol}${formatAmt(r.amt)}` : isNeg ? `-${meta.symbol}${formatAmt(Math.abs(r.amt))}` : "已結清";
+      const pct = Math.abs(r.amt) > 0.05 ? Math.max(8, Math.round((Math.abs(r.amt) / max) * 55)) : 0;
+      const safeName = escapeHtml(r.name);
+      const avatarHtml = `
+        <span class="bal-cmp-avatar-wrap">
+          ${renderAvatarHTML(r.member, "avatar-sm")}
+          <span class="bal-cmp-nick-tip hidden">${safeName}</span>
+        </span>
+      `;
+      const amtHtml = `<span class="bal-cmp-amt ${cls}">${amtLabel}</span>`;
+      const barHtml = `<div class="bal-cmp-bar-track" style="${pct > 0 ? `width:${pct}%;` : ""}">${pct > 0 ? `<div class="bal-cmp-fill ${cls}" style="width:100%;"></div>` : ""}</div>`;
+
+      if(isNeg){
+        // 欠錢：頭貼－金額－長條，長條貼零線
+        return `<div class="bal-cmp-side neg">${avatarHtml}${amtHtml}${barHtml}</div><div class="bal-cmp-side"></div>`;
+      }
+      // 該收錢／已結清：長條－金額－頭貼，長條貼零線
+      return `<div class="bal-cmp-side"></div><div class="bal-cmp-side pos">${barHtml}${amtHtml}${avatarHtml}</div>`;
     }).join("");
 
-    wrap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" class="spend-chart" role="img" aria-label="淨餘額比較">
-      <line x1="${midX.toFixed(1)}" y1="0" x2="${midX.toFixed(1)}" y2="${h}" class="flow-zero-line"/>
-      ${bars}
-    </svg>`;
+    wrap.innerHTML = `<div class="bal-cmp-grid"><div class="bal-cmp-zeroline"></div>${rowsHtml}</div>`;
   }
+
+  // 點頭貼跳出小小的暱稱懸浮框（手機沒有 hover，所以用點擊切換顯示/隱藏）。
+  // #balanceChartWrap 這個容器本身不會被重新建立（只有裡面的 innerHTML
+  // 每次重繪會換掉），所以監聽器只要掛一次、用事件委派就能一直有效。
+  const balanceChartWrapEl = document.getElementById("balanceChartWrap");
+  if(balanceChartWrapEl){
+    balanceChartWrapEl.addEventListener("click", (e)=>{
+      const avatarWrap = e.target.closest(".bal-cmp-avatar-wrap");
+      balanceChartWrapEl.querySelectorAll(".bal-cmp-nick-tip").forEach(tip=>{
+        if(!avatarWrap || tip !== avatarWrap.querySelector(".bal-cmp-nick-tip")){
+          tip.classList.add("hidden");
+        }
+      });
+      if(avatarWrap){
+        const tip = avatarWrap.querySelector(".bal-cmp-nick-tip");
+        if(tip){
+          const willShow = tip.classList.contains("hidden");
+          if(willShow){
+            // 第一列上面沒空間放懸浮框，靠不夠時自動翻到頭貼下方顯示
+            const rect = avatarWrap.getBoundingClientRect();
+            tip.classList.toggle("below", rect.top < 50);
+          }
+          tip.classList.toggle("hidden");
+        }
+      }
+    });
+  }
+  document.addEventListener("click", (e)=>{
+    if(!balanceChartWrapEl || balanceChartWrapEl.contains(e.target)) return;
+    balanceChartWrapEl.querySelectorAll(".bal-cmp-nick-tip").forEach(tip=> tip.classList.add("hidden"));
+  });
 
   let isSettledListExpanded = false;
 
