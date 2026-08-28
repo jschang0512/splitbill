@@ -593,6 +593,7 @@ textarea{ resize:vertical; min-height:70px; }
   -webkit-backdrop-filter:blur(3px);
   animation:sbBackdropIn .2s ease;
 }
+@keyframes sbBackdropIn{ from{ opacity:0; } to{ opacity:1; } }
 .calc-modal.show, .calc-modal.open{ display:flex; }
 
 /* 重設密碼是從信件連結專程點進來的，用比較輕柔、歡迎感的遮罩，
@@ -3457,7 +3458,6 @@ button.dd-btn {
 /* 確保彈窗完全實色遮蔽，不透出底層遮罩色，保持純淨質感 */
 .calc-modal .calc-card{
   background:#FFFFFF !important;
-  opacity:1 !important;
   border:1px solid rgba(122, 107, 158, 0.16) !important;
   box-shadow:0 24px 60px rgba(70, 55, 105, 0.22), 0 4px 16px rgba(0,0,0,0.06) !important;
 }

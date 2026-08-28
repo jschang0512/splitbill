@@ -6781,8 +6781,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     }
   }
 
-  setupAiReceiptModal();
-
   // ---------- boot: check for an existing session ----------
   (async function boot(){
     const goToLogin = () => {
