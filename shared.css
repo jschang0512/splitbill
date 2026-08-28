@@ -1669,6 +1669,11 @@ button.dd-btn {
   position:relative;
   overflow:hidden;
   transition:all .25s ease;
+  /* 資料還沒載入完、還沒判斷出正負餘額之前（.pos/.neg/.zero 都還沒被加上去）
+     的預設底色，跟 .zero 同一組深紫灰——沒有這個的話這裡是透明的，裡面
+     skeleton-light 那種白色系的骨架屏動畫會直接跟頁面底色融在一起看不見。
+     等資料回來、.pos/.neg/.zero 其中一個 class 加上去就會蓋掉這裡。 */
+  background:linear-gradient(135deg, #5C576E 0%, #433F52 100%);
 }
 .my-balance::after{
   display:none !important;

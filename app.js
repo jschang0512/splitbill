@@ -1944,16 +1944,25 @@
     </div>`;
   }
   async function refreshExpenses(){
-    const { data: expenses, error: expError } = await sb.from("expenses")
-      .select("*")
-      .eq("currency", CURRENCY)
-      .order("expense_date", { ascending:false })
-      .order("created_at", { ascending:false });
-    const { data: repayments, error: repError } = await sb.from("repayments")
-      .select("*")
-      .eq("currency", CURRENCY)
-      .order("payment_date", { ascending:false })
-      .order("created_at", { ascending:false });
+    // 這兩個查詢彼此獨立（不同表、互不依賴對方結果），原本一個 await 完
+    // 才發下一個，等於把兩趟網路來回時間疊加起來；改成同時發出去，
+    // 總時間變成取兩者較慢的那個，而不是兩個相加。這裡是每次新增/編輯/
+    // 刪除、甚至別人那邊有異動觸發即時同步時都會跑一次的路徑，很值得省。
+    const [
+      { data: expenses, error: expError },
+      { data: repayments, error: repError }
+    ] = await Promise.all([
+      sb.from("expenses")
+        .select("*")
+        .eq("currency", CURRENCY)
+        .order("expense_date", { ascending:false })
+        .order("created_at", { ascending:false }),
+      sb.from("repayments")
+        .select("*")
+        .eq("currency", CURRENCY)
+        .order("payment_date", { ascending:false })
+        .order("created_at", { ascending:false })
+    ]);
 
     // 讀取失敗就先不要用空陣列覆蓋畫面——那樣看起來會像「所有紀錄都不見了」，
     // 寧可維持上一次成功讀到的內容，等下一次重新整理再試。
@@ -2869,14 +2878,19 @@
     chartRepaymentsCache = repayments;
     updateSpendChart();
 
-    renderSettlement(expenses, repayments);
-    renderDebtMatrix(expenses, repayments);
+    // 這兩個畫面用的是同一份債務資料，算一次共用，不用各自重算一遍
+    // buildDebtMatrix()（要重新掃過全部支出/還款，資料一多會是浪費）。
+    const owedForRender = buildDebtMatrix(expenses, repayments);
+    renderSettlement(expenses, repayments, owedForRender);
+    renderDebtMatrix(expenses, repayments, owedForRender);
   }
 
-  function renderSettlement(expenses, repayments){
+  function renderSettlement(expenses, repayments, owed){
     // 跟債務關係表用同一份資料（buildDebtMatrix），
-    // 「建議還款方式」的數字才會跟表格上的一致。
-    const owed = buildDebtMatrix(expenses, repayments);
+    // 「建議還款方式」的數字才會跟表格上的一致。呼叫端通常已經算好一份
+    // 共用傳進來（見下面呼叫處），這裡就不用把所有支出/還款再重算一次；
+    // 沒傳的話（保留給其他呼叫方式相容）才自己算。
+    owed = owed || buildDebtMatrix(expenses, repayments);
     let tx = [];
     Object.keys(owed).forEach(creditorId=>{
       Object.keys(owed[creditorId]).forEach(debtorId=>{
@@ -3028,11 +3042,6 @@ function computeExpenseDebts(e){
   return result;
 }
 
-function expensePairDebt(e, debtorId, creditorId){
-  const debts = computeExpenseDebts(e);
-  return (debts[creditorId] && debts[creditorId][debtorId]) || 0;
-}
-
 function buildDebtMatrix(expenses, repayments){
 
   const owed = {};
@@ -3181,7 +3190,8 @@ function truncateNameChars(name, max){
 
 function renderDebtMatrix(
   expenses,
-  repayments
+  repayments,
+  owed
 ){
 
   const table =
@@ -3198,14 +3208,15 @@ function renderDebtMatrix(
 
 
   // ----------------------------------------------------------
-  // 取得債務資料
+  // 取得債務資料（呼叫端通常已經算好一份共用傳進來，跟 renderSettlement()
+  // 是同一份資料，不用每次重新整理都把所有支出/還款再算一次；沒傳的話
+  // 才自己算，保留給其他呼叫方式相容）
   // ----------------------------------------------------------
 
-  const owed =
-    buildDebtMatrix(
-      expenses,
-      repayments
-    );
+  owed = owed || buildDebtMatrix(
+    expenses,
+    repayments
+  );
 
 
   const ids =
@@ -3503,7 +3514,8 @@ function renderDebtMatrix(
             cell.dataset.debtor,
             cell.dataset.creditor,
             expenses,
-            repayments
+            repayments,
+            owed
           );
 
         }
@@ -3980,7 +3992,8 @@ function showPairDetail(
   debtorId,
   creditorId,
   expenses,
-  repayments
+  repayments,
+  owedMatrix
 ){
 
   // ==========================================================
@@ -4021,8 +4034,11 @@ function showPairDetail(
   const allPairEvents = [];
 
   expenses.forEach(e => {
-    const d1 = expensePairDebt(e, debtorId, creditorId); // debtorId 欠 creditorId
-    const d2 = expensePairDebt(e, creditorId, debtorId); // creditorId 欠 debtorId
+    // d1/d2 都是同一筆支出、同一份 computeExpenseDebts() 結果裡的兩個方向，
+    // 算一次共用就好，不用分別各叫一次 computeExpenseDebts() 重跑一遍配對邏輯。
+    const pairDebts = computeExpenseDebts(e);
+    const d1 = (pairDebts[creditorId] && pairDebts[creditorId][debtorId]) || 0; // debtorId 欠 creditorId
+    const d2 = (pairDebts[debtorId] && pairDebts[debtorId][creditorId]) || 0; // creditorId 欠 debtorId
     if(d1 > 0.005){
       allPairEvents.push({
         type: "expense_debt",
@@ -4186,9 +4202,10 @@ function showPairDetail(
   const totalSettledCount = settledExpenses.length + settledRepayments.length;
 
   // ==========================================================
-  // 金額統計
+  // 金額統計（呼叫端／debt矩陣渲染時通常已經算好一份共用傳進來，
+  // 不用再把全部支出/還款重新掃一次；沒傳的話才自己算）
   // ==========================================================
-  const owed = buildDebtMatrix(expenses, repayments);
+  const owed = owedMatrix || buildDebtMatrix(expenses, repayments);
   const remainingDebt = (owed[creditorId] && owed[creditorId][debtorId]) || 0;
   const reverseDebt = (owed[debtorId] && owed[debtorId][creditorId]) || 0;
   const offsetAmt = Math.min(remainingDebt, reverseDebt);
