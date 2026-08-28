@@ -293,22 +293,11 @@
     return m ? m.name : email;
   }
 
-  // ---------- 12-hour auto-logout（滑動式：詳見 refreshLoginTime） ----------
-  const LOGIN_TIME_KEY = "sb_login_time";
-  const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
-
-  function isSessionExpired(){
-    const loginTime = Number(localStorage.getItem(LOGIN_TIME_KEY));
-    if(!loginTime) return false;
-    return (Date.now() - loginTime > SESSION_DURATION_MS);
-  }
-  // 滑動式：只要在 12 小時內有繼續使用，時間就往後推，不會單純因為
-  // 帳號用得久就被踢出；真的超過 12 小時完全沒有任何動作才會被登出。
-  function refreshLoginTime(){
-    localStorage.setItem(LOGIN_TIME_KEY, String(Date.now()));
-  }
-  // 登入畫面已經搬去 index.html，這裡 session 一失效就直接導過去，
-  // 帶著 redirect 記住目前這個幣別頁，登入完成後才回得來。
+  // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()
+  // 移到全站共用的 sb-shared.js 了。登入畫面已經搬去 index.html，這裡
+  // session 一失效就直接導過去，帶著 redirect 記住目前這個幣別頁，
+  // 登入完成後才回得來——這段導向邏輯是這頁專屬的，所以 forceLogout()
+  // 還是留在這裡自己定義。
   async function forceLogout(){
     try{ await sb.auth.signOut(); }catch(e){}
     localStorage.removeItem(LOGIN_TIME_KEY);
@@ -359,24 +348,7 @@
 
   // (篩選器切換與歷史紀錄切換統一由 switchHistoryTab 處理)
 
-  // ---------- 帳務更動通知 ----------
-  function showToast(title, body){
-    let container = document.getElementById("sbToastContainer");
-    if(!container){
-      container = document.createElement("div");
-      container.id = "sbToastContainer";
-      container.className = "sb-toast-container";
-      document.body.appendChild(container);
-    }
-    const toast = document.createElement("div");
-    toast.className = "sb-toast";
-    toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body)}`;
-    container.appendChild(toast);
-    setTimeout(()=>{
-      toast.classList.add("sb-toast-out");
-      setTimeout(()=> toast.remove(), 250);
-    }, 4000);
-  }
+  // showToast() 移到全站共用的 sb-shared.js 了。
 
   // Web Push 公鑰（可公開，用來讓瀏覽器跟推播服務建立訂閱）
   const VAPID_PUBLIC_KEY = "BNR-GFJ6UxpQWVk6ghTFNUl9RYncDp_WX9W6XNA1vqsyWk9zQ4WC5ghAGiuBqqXQhluRiVB7KsAPGxTWNl27JW4";
@@ -2161,65 +2133,7 @@
     });
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  }
-  // ---------- 全站統一的自訂下拉選單：外觀跟債務趨勢圖的日/週/月/年選單一致。
-  // 把真正的 <select> 包一層視覺隱藏起來當資料來源，.value/innerHTML/dataset
-  // 這些既有邏輯完全不用改；每次選項或值有變動，呼叫 enhanceSelect(選到的
-  // select) 讓畫面上顯示的按鈕/選單重新同步一次即可（第一次呼叫時才會真的
-  // 建立包裝）。----------
-  function enhanceSelect(selectEl){
-    if(!selectEl) return;
-    if(!selectEl._ddSync){
-      const wrap = document.createElement("div");
-      wrap.className = "dd-select";
-      selectEl.parentNode.insertBefore(wrap, selectEl);
-      wrap.appendChild(selectEl);
-      selectEl.tabIndex = -1; // 視覺隱藏的原生 select 不該再佔用 Tab 鍵順序，交給下面的 .dd-btn
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "dd-btn";
-      btn.innerHTML = '<span class="dd-btn-text"></span><span class="dd-caret">▾</span>';
-      const textEl = btn.querySelector(".dd-btn-text");
-      const menu = document.createElement("div");
-      menu.className = "dd-menu hidden";
-      wrap.appendChild(btn);
-      wrap.appendChild(menu);
-
-      const closeMenu = () => { menu.classList.add("hidden"); btn.classList.remove("open"); };
-      const openMenu = () => { menu.classList.remove("hidden"); btn.classList.add("open"); };
-      btn.addEventListener("click", (e)=>{
-        e.stopPropagation();
-        if(selectEl.disabled) return;
-        menu.classList.contains("hidden") ? openMenu() : closeMenu();
-      });
-      document.addEventListener("click", (e)=>{ if(!wrap.contains(e.target)) closeMenu(); });
-
-      selectEl._ddSync = function(){
-        menu.innerHTML = "";
-        Array.from(selectEl.options).forEach((o, i)=>{
-          const optBtn = document.createElement("button");
-          optBtn.type = "button";
-          optBtn.className = "dd-option" + (o.selected ? " active" : "");
-          optBtn.textContent = o.textContent;
-          optBtn.disabled = o.disabled;
-          optBtn.addEventListener("click", ()=>{
-            selectEl.selectedIndex = i;
-            closeMenu();
-            selectEl._ddSync();
-            selectEl.dispatchEvent(new Event("change", { bubbles:true }));
-          });
-          menu.appendChild(optBtn);
-        });
-        const cur = selectEl.selectedOptions[0];
-        textEl.textContent = cur ? cur.textContent : "";
-        btn.classList.toggle("disabled", !!selectEl.disabled);
-        closeMenu();
-      };
-    }
-    selectEl._ddSync();
-  }
+  // escapeHtml() / enhanceSelect() 移到全站共用的 sb-shared.js 了。
   function emptyStateHTML(icon, title, text){
     return `<div class="debt-empty-state">
       <div class="debt-empty-icon">${icon}</div>

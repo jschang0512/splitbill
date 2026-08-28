@@ -29,6 +29,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js"></script>
 <script src="version.js"></script>
+<script src="sb-shared.js"></script>
 <script src="theme.js" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
@@ -351,20 +352,9 @@ renderNavLinks();
     memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
   }
 
-  // ---------- 12-hour auto-logout（滑動式：詳見 refreshLoginTime） ----------
-  const LOGIN_TIME_KEY = "sb_login_time";
-  const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
-  function isSessionExpired(){
-    const loginTime = Number(localStorage.getItem(LOGIN_TIME_KEY));
-    if(!loginTime) return false;
-    return (Date.now() - loginTime > SESSION_DURATION_MS);
-  }
-  // 滑動式：只要在 12 小時內有繼續使用，時間就往後推，不會單純因為
-  // 帳號用得久就被踢出；真的超過 12 小時完全沒有任何動作才會被登出。
-  function refreshLoginTime(){
-    localStorage.setItem(LOGIN_TIME_KEY, String(Date.now()));
-  }
-  // 登入畫面已經搬去 index.html，這裡 session 一失效就直接導過去。
+  // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()
+  // 移到全站共用的 sb-shared.js 了。登入畫面已經搬去 index.html，
+  // 這裡只留這頁自己導向邏輯不一樣的 forceLogout()。
   async function forceLogout(){
     try{ await sb.auth.signOut(); }catch(e){}
     localStorage.removeItem(LOGIN_TIME_KEY);
@@ -378,9 +368,7 @@ renderNavLinks();
     location.href = "index.html";
   });
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  }
+  // escapeHtml() 移到全站共用的 sb-shared.js 了。
 
   // ---------- 意見回饋：大家都看得到，只能刪自己寫的 ----------
   function formatFeedbackTime(iso){
@@ -530,24 +518,7 @@ renderNavLinks();
     });
   }
 
-  // ---------- 帳務更動通知 ----------
-  function showToast(title, body){
-    let container = document.getElementById("sbToastContainer");
-    if(!container){
-      container = document.createElement("div");
-      container.id = "sbToastContainer";
-      container.className = "sb-toast-container";
-      document.body.appendChild(container);
-    }
-    const toast = document.createElement("div");
-    toast.className = "sb-toast";
-    toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body)}`;
-    container.appendChild(toast);
-    setTimeout(()=>{
-      toast.classList.add("sb-toast-out");
-      setTimeout(()=> toast.remove(), 250);
-    }, 4000);
-  }
+  // showToast() 移到全站共用的 sb-shared.js 了。
 
   // Web Push 公鑰（可公開，用來讓瀏覽器跟推播服務建立訂閱）
   const VAPID_PUBLIC_KEY = "BNR-GFJ6UxpQWVk6ghTFNUl9RYncDp_WX9W6XNA1vqsyWk9zQ4WC5ghAGiuBqqXQhluRiVB7KsAPGxTWNl27JW4";
@@ -719,7 +690,14 @@ renderNavLinks();
   // balances 的形狀： { 幣別代碼: { 成員id: 淨餘額 } }，幣別完全依 RPC 實際
   // 回傳的資料決定 ── 沒用過的幣別根本不會出現，總表跟我的款項都不用列出來。
   async function loadBalances(sinceDate){
-    const { data } = await sb.rpc("member_balances", { p_since: sinceDate || null });
+    const { data, error } = await sb.rpc("member_balances", { p_since: sinceDate || null });
+    if(error){
+      // 讀取失敗不能回傳空物件——下面 renderMyAmtList() 會把「查無資料」
+      // 跟「這個人真的每個幣別都結清了」當成同一件事，顯示假的「已結清 🎉」，
+      // 回傳 null 讓呼叫端知道這次是讀取失敗、不要拿去畫面。
+      console.error("讀取餘額失敗：", error);
+      return null;
+    }
     const balances = {};
     (data || []).forEach(row=>{
       if(!balances[row.currency]) balances[row.currency] = {};
@@ -1080,6 +1058,7 @@ renderNavLinks();
 
   async function loadAndRenderAllBalances(){
     const allTime = await loadBalances(null);
+    if(!allTime) return; // 讀取失敗，維持畫面上一次成功的內容，不要蓋成假的「已結清」
     renderMyAmtList(allTime);
 
     balanceChartData = allTime;

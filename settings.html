@@ -30,6 +30,7 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <script src="currencies.js"></script>
 <script src="version.js"></script>
+<script src="sb-shared.js"></script>
 <script src="theme.js" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
@@ -551,83 +552,7 @@ if(backBtn){
   function isRealEmail(email){
     return !!email && !email.endsWith("@splitbill.local");
   }
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  }
-  // 跟 app.js 帳務更動通知同一套小提示卡元件，這裡拿來當切換/建立/加入
-  // 群組成功的明顯回饋——inline 的 .msg 文字太不顯眼，容易被當成沒反應。
-  function showToast(title, body){
-    let container = document.getElementById("sbToastContainer");
-    if(!container){
-      container = document.createElement("div");
-      container.id = "sbToastContainer";
-      container.className = "sb-toast-container";
-      document.body.appendChild(container);
-    }
-    const toast = document.createElement("div");
-    toast.className = "sb-toast";
-    toast.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body)}`;
-    container.appendChild(toast);
-    setTimeout(()=>{
-      toast.classList.add("sb-toast-out");
-      setTimeout(()=> toast.remove(), 250);
-    }, 4000);
-  }
-  // ---------- 全站統一的自訂下拉選單：外觀跟債務趨勢圖的日/週/月/年選單一致。
-  // 把真正的 <select> 包一層視覺隱藏起來當資料來源，.value/innerHTML 這些既有
-  // 邏輯完全不用改；每次選項或值有變動，呼叫 enhanceSelect(選到的 select) 讓
-  // 畫面上顯示的按鈕/選單重新同步一次即可（第一次呼叫時才會真的建立包裝）。----------
-  function enhanceSelect(selectEl){
-    if(!selectEl) return;
-    if(!selectEl._ddSync){
-      const wrap = document.createElement("div");
-      wrap.className = "dd-select";
-      selectEl.parentNode.insertBefore(wrap, selectEl);
-      wrap.appendChild(selectEl);
-      selectEl.tabIndex = -1; // 視覺隱藏的原生 select 不該再佔用 Tab 鍵順序，交給下面的 .dd-btn
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "dd-btn";
-      btn.innerHTML = '<span class="dd-btn-text"></span><span class="dd-caret">▾</span>';
-      const textEl = btn.querySelector(".dd-btn-text");
-      const menu = document.createElement("div");
-      menu.className = "dd-menu hidden";
-      wrap.appendChild(btn);
-      wrap.appendChild(menu);
-
-      const closeMenu = () => { menu.classList.add("hidden"); btn.classList.remove("open"); };
-      const openMenu = () => { menu.classList.remove("hidden"); btn.classList.add("open"); };
-      btn.addEventListener("click", (e)=>{
-        e.stopPropagation();
-        if(selectEl.disabled) return;
-        menu.classList.contains("hidden") ? openMenu() : closeMenu();
-      });
-      document.addEventListener("click", (e)=>{ if(!wrap.contains(e.target)) closeMenu(); });
-
-      selectEl._ddSync = function(){
-        menu.innerHTML = "";
-        Array.from(selectEl.options).forEach((o, i)=>{
-          const optBtn = document.createElement("button");
-          optBtn.type = "button";
-          optBtn.className = "dd-option" + (o.selected ? " active" : "");
-          optBtn.textContent = o.textContent;
-          optBtn.disabled = o.disabled;
-          optBtn.addEventListener("click", ()=>{
-            selectEl.selectedIndex = i;
-            closeMenu();
-            selectEl._ddSync();
-            selectEl.dispatchEvent(new Event("change", { bubbles:true }));
-          });
-          menu.appendChild(optBtn);
-        });
-        const cur = selectEl.selectedOptions[0];
-        textEl.textContent = cur ? cur.textContent : "";
-        btn.classList.toggle("disabled", !!selectEl.disabled);
-        closeMenu();
-      };
-    }
-    selectEl._ddSync();
-  }
+  // escapeHtml() / showToast() / enhanceSelect() 移到全站共用的 sb-shared.js 了。
 
   async function loadMembers(){
     let activeGroupId = null;
@@ -672,19 +597,8 @@ if(backBtn){
     memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
   }
 
-  // ---------- 12-hour auto-logout（滑動式：詳見 refreshLoginTime） ----------
-  const LOGIN_TIME_KEY = "sb_login_time";
-  const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
-  function isSessionExpired(){
-    const loginTime = Number(localStorage.getItem(LOGIN_TIME_KEY));
-    if(!loginTime) return false;
-    return (Date.now() - loginTime > SESSION_DURATION_MS);
-  }
-  // 滑動式：只要在 12 小時內有繼續使用，時間就往後推，不會單純因為
-  // 帳號用得久就被踢出；真的超過 12 小時完全沒有任何動作才會被登出。
-  function refreshLoginTime(){
-    localStorage.setItem(LOGIN_TIME_KEY, String(Date.now()));
-  }
+  // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()
+  // 移到全站共用的 sb-shared.js 了，這裡只留這頁自己導向邏輯不一樣的 forceLogout()。
   async function forceLogout(){
     try{ await sb.auth.signOut(); }catch(e){}
     localStorage.removeItem(LOGIN_TIME_KEY);
@@ -1225,10 +1139,13 @@ if(backBtn){
               window.currentUser = updateRes.user;
             }
 
-            // 同步寫入 members 資料庫表（跨群組觸發器會自動同步所有群組）
+            // 同步寫入 members 資料庫表（跨群組觸發器會自動同步所有群組）。
+            // Supabase 查詢失敗是回傳 {error}、不是丟例外，只包 try/catch
+            // 接不到，要自己檢查 error 才會發現這裡其實沒寫進去。
             try {
               if(currentUser && currentUser.id){
-                await sb.from("members").update({ avatar_url: base64 }).eq("user_id", currentUser.id);
+                const { error: memberAvatarErr } = await sb.from("members").update({ avatar_url: base64 }).eq("user_id", currentUser.id);
+                if(memberAvatarErr) console.warn("members avatar_url database update error:", memberAvatarErr);
               }
             } catch(dbErr){
               console.warn("members avatar_url database update error:", dbErr);
@@ -1296,13 +1213,17 @@ if(backBtn){
 
       // 4. 同步更新至遠端 Supabase Auth 與 Members
       try {
-        await sb.auth.updateUser({ data: { avatar_url: "" } });
+        const { error: authAvatarErr } = await sb.auth.updateUser({ data: { avatar_url: "" } });
+        if(authAvatarErr) console.warn("auth updateUser avatar_url error:", authAvatarErr);
       } catch(err){
         console.warn("auth updateUser avatar_url error:", err);
       }
       try {
-        await sb.from("members").update({ avatar_url: null }).eq("user_id", currentUser.id);
-      } catch(e){}
+        const { error: clearAvatarErr } = await sb.from("members").update({ avatar_url: null }).eq("user_id", currentUser.id);
+        if(clearAvatarErr) console.warn("members avatar_url 清除失敗：", clearAvatarErr);
+      } catch(e){
+        console.warn("members avatar_url 清除異常：", e);
+      }
 
       if(msg){ msg.textContent = "已移除大頭貼，恢復姓名首字頭像！"; msg.className = "msg ok"; }
     });
