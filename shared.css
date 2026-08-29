@@ -3768,6 +3768,10 @@ button.dd-btn {
   display:block;
   width:100%;
   height:auto;
+  user-select: auto !important;
+  -webkit-user-select: auto !important;
+  -webkit-touch-callout: default !important;
+  pointer-events: auto !important;
 }
 .settlement-img-hint{
   font-size:12px;
@@ -3847,6 +3851,13 @@ button.dd-btn {
   font-size:20px;
   flex-shrink:0;
   box-shadow:0 2px 6px rgba(0,0,0,.04);
+}
+.history-twoweek-hint{
+  font-size:12px;
+  color:var(--ink-soft);
+  text-align:center;
+  padding:6px 12px 10px;
+  opacity:0.75;
 }
 .exp-date-group{
   margin-bottom:16px;

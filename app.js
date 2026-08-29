@@ -2039,7 +2039,7 @@
 
     if(from && e.expense_date < from) return false;
     if(to && e.expense_date > to) return false;
-    if(keyword && !e.description.toLowerCase().includes(keyword) && !(e.note || "").toLowerCase().includes(keyword)) return false;
+    if(keyword && !(e.description || "").toLowerCase().includes(keyword) && !(e.note || "").toLowerCase().includes(keyword)) return false;
     if(payerIds.length && !(e.payers || []).some(p => payerIds.includes(p.member_id))) return false;
     if(involvedIds.length && !(e.shares || []).some(s => involvedIds.includes(s.member_id))) return false;
     return true;
@@ -2357,7 +2357,12 @@
       curGroup.total += Number(e.amount) || 0;
     });
 
-    el.innerHTML = groups.map(g => {
+    const isDefaultDateFilter = !document.getElementById("filterFrom")?.value;
+    const twoWeekHint = isDefaultDateFilter
+      ? `<div class="history-twoweek-hint">📅 僅列出近兩週記錄，若要尋找更遠的記錄請使用篩選功能</div>`
+      : "";
+
+    el.innerHTML = twoWeekHint + groups.map(g => {
       const dateTitle = formatDateGroupTitle(g.date);
       const itemsHtml = g.items.map(e => {
         const { title, note } = splitExpenseTitleAndNote(e.description, e.note);
@@ -3023,146 +3028,40 @@ function buildDebtMatrix(expenses, repayments){
       (owed[creditorId][debtorId] || 0) + amount;
   }
 
-
   // ==========================================================
-  // 每一筆支出獨立處理
+  // 1. 每一筆支出獨立拆算並加總到債務矩陣
   // ==========================================================
-  //
-  // 跟 showPairDetail() 共用 computeExpenseDebts()：債務人盡量
-  // 只還給少數幾個債權人，兩邊數字保證一致。
-  // ==========================================================
-
   expenses.forEach(e=>{
-
     const debts = computeExpenseDebts(e);
-
     Object.keys(debts).forEach(creditorId=>{
       Object.keys(debts[creditorId]).forEach(debtorId=>{
         addDebt(creditorId, debtorId, debts[creditorId][debtorId]);
       });
     });
-
   });
 
-
   // ==========================================================
-  // 還款
+  // 2. 還款直接沖銷對應債務
   // ==========================================================
-  //
-  // 例如：
-  //
-  // 原本：
-  //
-  // C → A 300
-  //
-  // C 還 A 100
-  //
-  // 表格只變成：
-  //
-  // C → A 200
-  //
-  // 不會把這 100 拿去抵銷 B → C。
-  //
-  // 找零／多還的處理：
-  //
-  // 如果 C 還 A 的這筆金額，比 C 當下欠 A 的還多（例如沒有零錢
-  // 多還了一點），多還的部分不會憑空消失，而是反過來變成
-  // 「A 欠 C」那一筆（用同一個 addDebt，疊加在原本可能已經存在
-  // 的 A 欠 C 金額上面，不會拿去互相抵銷）。
-  // ==========================================================
-
-  // 「一鍵抵銷」會同時新增兩筆方向相反、金額相同、同一個 offset_group 的
-  // 還款，本意是互相取消金額，不是要製造新欠款。如果照下面逐筆處理的
-  // 邏輯（多還的部分反過來變成新欠款），這兩筆抵銷紀錄剛好都發生在同一
-  // 秒、陣列裡誰先誰後又沒有穩定保證時，其中一筆可能會在另一筆還沒
-  // 處理、對方餘額還是 0 的情況下被誤判成「整筆都是多還」，憑空生出一筆
-  // 不存在的欠款（跟 showPairDetail() 的 offset_pair 是同一個 bug，這裡
-  // 也要用一樣的方式先配對處理掉）。
-  const offsetGroups = {};
   repayments.forEach(r=>{
-    if(!r.offset_group) return;
-    (offsetGroups[r.offset_group] = offsetGroups[r.offset_group] || []).push(r);
-  });
-  const matchedOffsetIds = new Set();
-  Object.values(offsetGroups).forEach(group=>{
-    if(group.length !== 2) return; // 不是乾淨的一對，當一般還款處理
-    const [a, b] = group;
-    if(a.from_member !== b.to_member || a.to_member !== b.from_member) return;
-    matchedOffsetIds.add(a.id);
-    matchedOffsetIds.add(b.id);
-    [a, b].forEach(r=>{
-      const payerId = r.from_member, receiverId = r.to_member;
-      const amount = Number(r.amount) || 0;
-      if(!payerId || !receiverId || payerId === receiverId || amount <= 0.01) return;
-      const receiverDebts = owed[receiverId] || (owed[receiverId] = {});
-      const current = receiverDebts[payerId] || 0;
-      const paid = Math.min(current, amount);
-      if(paid > 0){
-        receiverDebts[payerId] = current - paid;
-        if(receiverDebts[payerId] <= 0.01) delete receiverDebts[payerId];
-      }
-      // 刻意不處理「多還」的部分——抵銷各自只扣自己既有的欠款，不會、
-      // 也不應該讓超出的部分溢出變成新欠款。
-    });
-  });
+    const payerId = r.from_member;
+    const receiverId = r.to_member;
+    let remaining = Number(r.amount) || 0;
+    if(!payerId || !receiverId || payerId === receiverId || remaining <= 0.01) return;
 
-  repayments.forEach(r=>{
-
-    if(matchedOffsetIds.has(r.id)) return; // 已經用上面的配對邏輯處理過了
-
-    const payerId =
-      r.from_member;
-
-    const receiverId =
-      r.to_member;
-
-    let remaining =
-      Number(r.amount) || 0;
-
-
-    if(!payerId) return;
-    if(!receiverId) return;
-    if(payerId === receiverId) return;
-    if(remaining <= 0.01) return;
-
-
-    const receiverDebts =
-      owed[receiverId] || (owed[receiverId] = {});
-
-    const current =
-      receiverDebts[payerId] || 0;
-
-
-    const paid =
-      Math.min(
-        current,
-        remaining
-      );
-
-
+    const receiverDebts = owed[receiverId] || (owed[receiverId] = {});
+    const current = receiverDebts[payerId] || 0;
+    const paid = Math.min(current, remaining);
     if(paid > 0){
-
-      receiverDebts[payerId] =
-        current - paid;
-
-      if(
-        receiverDebts[payerId] <= 0.01
-      ){
-
-        delete receiverDebts[payerId];
-      }
-
+      receiverDebts[payerId] = current - paid;
+      if(receiverDebts[payerId] <= 0.01) delete receiverDebts[payerId];
       remaining -= paid;
     }
-
-
-    // 沒有零錢多還的部分，反過來記一筆「receiver 欠 payer」
+    // 總還款若超過總消費時，反過來記一筆「receiver 欠 payer」
     if(remaining > 0.01){
       addDebt(payerId, receiverId, remaining);
     }
-
   });
-
 
   return owed;
 }
@@ -3948,62 +3847,66 @@ if(exportSettlementImgBtn){
 
       if(currentSettlementImgUrl) URL.revokeObjectURL(currentSettlementImgUrl);
       currentSettlementImgUrl = URL.createObjectURL(blob);
+      const dataUrl = canvas.toDataURL("image/png");
 
       const img = document.getElementById("settlementImgPreview");
-      if(img) img.src = currentSettlementImgUrl;
+      if(img) img.src = dataUrl || currentSettlementImgUrl;
       if(settlementImgModal) settlementImgModal.classList.add("show");
 
-      // iOS Safari（含 iPadOS，navigator.platform 回報跟桌機一樣是 MacIntel，
-      // 要另外用 touch 支援去判斷）不支援 blob URL 搭配 <a download> 直接下載，
-      // 點下去要嘛沒反應要嘛直接原地開圖，這是 WebKit 已知限制，不是我們的
-      // bug 能修好的；這種情況改成開新分頁顯示原始大小的圖片，使用者可以長按
-      // 「儲存圖片」，跟上面提示文字「長按圖片可直接儲存」一致。
-      const isIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
-        (navigator.userAgent.includes("Mac") && navigator.maxTouchPoints > 1);
+      const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
+      const filename = `Splitbill結算_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
+
+      async function handleMobileShareOrSave(){
+        if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+          try {
+            await navigator.share({
+              files: [file],
+              title: `Splitbill 帳務結算 - ${groupName}`,
+              text: `這是 ${groupName} 的帳務結算圖`
+            });
+            return true;
+          } catch(e){
+            if(e && e.name === "AbortError") return true; // 使用者主動取消
+          }
+        }
+        return false;
+      }
+
+      function handleDirectDownload(){
+        try {
+          const a = document.createElement("a");
+          a.href = dataUrl || currentSettlementImgUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => a.remove(), 200);
+        } catch(e){
+          window.open(dataUrl || currentSettlementImgUrl, "_blank");
+        }
+      }
 
       const dlBtn = document.getElementById("settlementImgDownloadBtn");
       if(dlBtn){
-        dlBtn.onclick = () => {
-          if(isIOS){
-            window.open(currentSettlementImgUrl, "_blank");
-            return;
+        dlBtn.onclick = async () => {
+          if(isMobile && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+            const shared = await handleMobileShareOrSave();
+            if(shared) return;
           }
-          const a = document.createElement("a");
-          a.href = currentSettlementImgUrl;
-          const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
-          a.download = `Splitbill結算_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+          handleDirectDownload();
         };
       }
 
-      // 分享按鈕的顯示與否只看 navigator.share 存不存在就好，不要卡在
-      // navigator.canShare({files})——這個判斷式在部分行動瀏覽器（尤其 iOS
-      // Safari）於非同步流程（這裡前面已經 await 過 canvas.toBlob）之後，
-      // 使用者互動狀態可能已經失效，導致 canShare 誤判成 false，讓分享
-      // 按鈕整個消失不見。改成按鈕一律先顯示，實際分享時才判斷要不要帶
-      // 檔案、分享失敗（含裝置真的不支援）才降級成分享純文字，一樣讓使用者
-      // 有辦法把結算結果傳出去。
       const shareBtn = document.getElementById("settlementImgShareBtn");
       if(shareBtn){
-        const file = new File([blob], "splitbill-settlement.png", { type: "image/png" });
-        const canShareFile = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-        shareBtn.classList.toggle("hidden", !navigator.share);
-        if(navigator.share){
-          shareBtn.onclick = async () => {
-            try {
-              if(canShareFile){
-                await navigator.share({ files: [file], title: "Splitbill 帳務結算" });
-              } else {
-                await navigator.share({ title: "Splitbill 帳務結算", text: "長按圖片可另存，或用「下載圖片」取得結算圖片。" });
-              }
-            } catch(e){
-              if(e && e.name === "AbortError") return; // 使用者自己取消分享，不用特別處理
-              window.open(currentSettlementImgUrl, "_blank");
-            }
-          };
-        }
+        shareBtn.classList.remove("hidden");
+        shareBtn.onclick = async () => {
+          const shared = await handleMobileShareOrSave();
+          if(!shared){
+            handleDirectDownload();
+          }
+        };
       }
     } catch(err){
       console.error("匯出結算圖片失敗：", err);
@@ -4452,26 +4355,27 @@ function showPairDetail(
   // ==========================================================
   // ==========================================================
   // ==========================================================
-  // 計算「debtorId 欠 creditorId」的組成支出與還款紀錄（雙向時間軸追蹤）
+  // ==========================================================
+  // 計算「debtorId 欠 creditorId」的組成支出與還款紀錄（真實帳目 + 溢付透明化）
   // 規則：
-  // 1. 欠款部分：收集 debtorId 欠 creditorId 的支出分攤
-  // 2. 還款部分：收集 debtorId 還給 creditorId 的還款紀錄
-  // 3. 找零溢付：收集 creditorId 償還 debtorId 時超出先前欠款之溢付部分
-  // 4. 時間切點：沿時間軸追蹤累積欠款，只要被還款沖銷至 0（結清），切點自動往後移
+  // 1. 債務組成：100% 只放 debtorId 欠 creditorId 的真實支出分攤，不摻雜假卡片
+  // ==========================================================
+  // 計算「debtorId 欠 creditorId」的組成支出與還款紀錄（原汁原味真實呈現）
+  // 規則：
+  // 1. 欠款部分：收集 debtorId 欠 creditorId 的真實支出分攤
+  // 2. 還款部分：收集 debtorId 還給 creditorId 的真實還款紀錄
+  // 3. 不生成任何超額還款虛擬卡片，原汁原味呈現純粹帳目
   // ==========================================================
 
   // 1. 收集雙方之間所有可能影響欠款關係的支出與還款事件
   const allPairEvents = [];
 
   expenses.forEach(e => {
-    // d1/d2 都是同一筆支出、同一份 computeExpenseDebts() 結果裡的兩個方向，
-    // 算一次共用就好，不用分別各叫一次 computeExpenseDebts() 重跑一遍配對邏輯。
     const pairDebts = computeExpenseDebts(e);
     const d1 = (pairDebts[creditorId] && pairDebts[creditorId][debtorId]) || 0; // debtorId 欠 creditorId
-    const d2 = (pairDebts[debtorId] && pairDebts[debtorId][creditorId]) || 0; // creditorId 欠 debtorId
     if(d1 > 0.005){
       allPairEvents.push({
-        type: "expense_debt",
+        type: "expense",
         date: e.expense_date || "",
         createdAt: e.created_at || "",
         expense: e,
@@ -4479,28 +4383,8 @@ function showPairDetail(
         id: e.id
       });
     }
-    if(d2 > 0.005){
-      allPairEvents.push({
-        type: "expense_credit",
-        date: e.expense_date || "",
-        createdAt: e.created_at || "",
-        expense: e,
-        d2,
-        id: e.id
-      });
-    }
   });
 
-  // 「一鍵抵銷」會同時新增兩筆方向相反、金額相同、同一個 offset_group 的
-  // 還款（見下面 5xxx 行附近產生抵銷的地方）。這兩筆本來就是同一個動作、
-  // 目的是互相取消金額，不是各自獨立的還款。如果照時間軸逐筆處理，兩筆
-  // 抵銷紀錄的日期/建立時間常常完全相同，排序沒有穩定的先後順序——先處理
-  // 到的那筆正常沖掉既有欠款，後處理到的那筆卻誤判成「當下對方沒欠這麼
-  // 多」而被當成超額轉帳，形成一筆莫名其妙的反向新欠款（明明用戶是要兩筆
-  // 互相抵銷，不是要製造新欠款）。這裡先把同一組 offset_group、剛好落在
-  // debtorId／creditorId 這一對之間的兩筆抵銷紀錄配對起來，當成同一個
-  // 動作一次處理：兩個方向各自扣自己既有的欠款（各自最多扣到 0 為止），
-  // 兩邊都不會因為抵銷而溢出變成新欠款。
   const offsetPairsByGroup = {};
   repayments.forEach(r => {
     if(!r.offset_group) return;
@@ -4514,167 +4398,67 @@ function showPairDetail(
   });
   const matchedOffsetIds = new Set();
   Object.values(offsetPairsByGroup).forEach(pair => {
-    if(!pair.toCreditor || !pair.toDebtor) return; // 只有單邊、不是完整一對，當一般還款處理
+    if(!pair.toCreditor || !pair.toDebtor) return;
     matchedOffsetIds.add(pair.toCreditor.id);
     matchedOffsetIds.add(pair.toDebtor.id);
     const earlier = (pair.toCreditor.created_at || "") <= (pair.toDebtor.created_at || "") ? pair.toCreditor : pair.toDebtor;
     allPairEvents.push({
-      type: "offset_pair",
+      type: "repayment",
       date: earlier.payment_date || "",
       createdAt: earlier.created_at || "",
-      toCreditor: pair.toCreditor,
-      toDebtor: pair.toDebtor,
+      repayment: pair.toCreditor,
+      amount: Number(pair.toCreditor.amount) || 0,
       id: earlier.id
     });
   });
 
   repayments.forEach(r => {
-    if(matchedOffsetIds.has(r.id)) return; // 已經用 offset_pair 一次處理過，不要再重複收集
+    if(matchedOffsetIds.has(r.id)) return;
     const from = r.from_member;
     const to = r.to_member;
     const amount = Number(r.amount) || 0;
-    if(amount > 0.005){
-      if(from === debtorId && to === creditorId){
-        allPairEvents.push({
-          type: "repayment_debt",
-          date: r.payment_date || "",
-          createdAt: r.created_at || "",
-          repayment: r,
-          amount,
-          id: r.id
-        });
-      } else if(from === creditorId && to === debtorId){
-        allPairEvents.push({
-          type: "repayment_credit",
-          date: r.payment_date || "",
-          createdAt: r.created_at || "",
-          repayment: r,
-          amount,
-          id: r.id
-        });
-      }
+    if(amount > 0.005 && from === debtorId && to === creditorId){
+      allPairEvents.push({
+        type: "repayment",
+        date: r.payment_date || "",
+        createdAt: r.created_at || "",
+        repayment: r,
+        amount,
+        id: r.id
+      });
     }
   });
 
-  // 2. 按時間正序排列（舊到新；同一天同時刻時，支出先於還款發生）
+  // 2. 按實際建立/發生時間正序排列（舊到新；同一天同時刻時，支出先於還款發生）
   allPairEvents.sort((a, b) => {
-    if(a.date !== b.date) return a.date.localeCompare(b.date);
-    if(a.createdAt && b.createdAt && a.createdAt !== b.createdAt) return a.createdAt.localeCompare(b.createdAt);
+    const timeA = a.createdAt || (a.date ? a.date + "T00:00:00.000Z" : "");
+    const timeB = b.createdAt || (b.date ? b.date + "T00:00:00.000Z" : "");
+    if(timeA && timeB && timeA !== timeB) return timeA.localeCompare(timeB);
+    const dA = a.date || "";
+    const dB = b.date || "";
+    if(dA !== dB) return dA.localeCompare(dB);
     const aIsExp = a.type.startsWith("expense") ? 0 : 1;
     const bIsExp = b.type.startsWith("expense") ? 0 : 1;
     return aIsExp - bIsExp;
   });
 
-  // 3. 雙向追蹤時間軸，精確捕獲直接支出、還款、與還款溢付找零
+  // 3. 追蹤時間軸結清切點
   let debtorOwesCreditor = 0;
-  let creditorOwesDebtor = 0;
+  let lastZeroIndex = 0;
   const pairEventsForDebtor = [];
-
-  // 這兩個方向的餘額刻意不互相抵銷（之前版本這裡有一個 reconcileBalances()，
-  // 一有機會就把兩個方向的餘額互相沖掉，結果反而是這裡的 bug 來源）。
-  // 債務關係表（buildDebtMatrix）本身也沒有任何自動把兩個方向互相抵銷的
-  // 機制——owed[A][D] 跟 owed[D][A] 是完全獨立的兩格，支出各自累加，
-  // 還款只會減少「自己這個方向」的欠款，多還的部分才會溢出變成另一個
-  // 方向的新欠款；兩個方向真的要互相抵銷，只能靠使用者自己按「一鍵
-  // 抵銷」（這也是抵銷這個按鈕存在的意義：如果系統會自動抵銷，這顆按鈕
-  // 就沒有用了）。這裡如果自己另外加一套「兩個方向一有機會就自動抵銷」
-  // 的邏輯，算出來的金額就會跟債務關係表對不起來——這正是这次修正的
-  // bug（明細彈窗跟矩陣格子數字不一致）。所以這裡直接比照 buildDebtMatrix
-  // 的邏輯：兩個方向各自累加，只有「還款」跟「一鍵抵銷」才會讓餘額變動，
-  // 而且都比照 buildDebtMatrix 的規則（同方向還款減少自己、多還的部分
-  // 溢出到另一個方向；抵銷則是兩邊各自 clamp、不溢出）。
 
   for(let i = 0; i < allPairEvents.length; i++){
     const ev = allPairEvents[i];
-    if(ev.type === "expense_debt"){
+    if(ev.type === "expense"){
       debtorOwesCreditor += ev.d1;
-      pairEventsForDebtor.push({
-        type: "expense",
-        date: ev.date,
-        createdAt: ev.createdAt,
-        expense: ev.expense,
-        d1: ev.d1,
-        originalD1: ev.d1,
-        id: ev.id
-      });
-    } else if(ev.type === "repayment_debt"){
+      pairEventsForDebtor.push(ev);
+    } else if(ev.type === "repayment"){
       const paid = Math.min(debtorOwesCreditor, ev.amount);
       debtorOwesCreditor -= paid;
-      pairEventsForDebtor.push({
-        type: "repayment",
-        date: ev.date,
-        createdAt: ev.createdAt,
-        repayment: ev.repayment,
-        amount: ev.amount,
-        id: ev.id
-      });
-      if(ev.amount > paid){
-        creditorOwesDebtor += (ev.amount - paid);
-      }
-    } else if(ev.type === "offset_pair"){
-      // 一鍵抵銷產生的一對還款，當成同一個動作一次處理：兩個方向各自只扣
-      // 自己既有的欠款（各自 clamp 到 0 為止），刻意不像一般還款那樣讓
-      // 超出的部分溢出變成另一個方向的新欠款——因為抵銷的本意就是互相
-      // 取消金額，不會、也不應該憑空造出新欠款。
-      // 畫面只呈現「debtorId 還 creditorId」這一筆（對這個方向的欠款組成
-      // 有意義），另一筆反方向（creditorId 還 debtorId）純粹是抵銷機制的
-      // 內部bookkeeping，只影響餘額計算，不再重複顯示成兩張卡片。
-      const cutDebtor = Math.min(debtorOwesCreditor, Number(ev.toCreditor.amount) || 0);
-      debtorOwesCreditor -= cutDebtor;
-      const cutCreditor = Math.min(creditorOwesDebtor, Number(ev.toDebtor.amount) || 0);
-      creditorOwesDebtor -= cutCreditor;
-      pairEventsForDebtor.push({
-        type: "repayment",
-        date: ev.toCreditor.payment_date || "",
-        createdAt: ev.toCreditor.created_at || "",
-        repayment: ev.toCreditor,
-        amount: Number(ev.toCreditor.amount) || 0,
-        id: ev.toCreditor.id
-      });
-    } else if(ev.type === "expense_credit"){
-      creditorOwesDebtor += ev.d2;
-    } else if(ev.type === "repayment_credit"){
-      const paid = Math.min(creditorOwesDebtor, ev.amount);
-      creditorOwesDebtor -= paid;
-      const overpaid = ev.amount - paid;
-      if(overpaid > 0.005){
-        debtorOwesCreditor += overpaid;
-        // 這個面板規定只能出現「debtorId 欠 creditorId」跟「debtorId 還
-        // creditorId」這兩種方向的資訊，不能直接把這筆真實還款（方向是
-        // creditorId 還 debtorId，反方向）秀出來，不然使用者看不懂為什麼
-        // 反方向的還款卻讓 debtorId 欠錢。改成在「債務組成」補一張虛擬的
-        // 欠款卡片，一樣是「debtorId 欠 creditorId」的方向，純粹讓金額有
-        // 地方顯示、對得起來。
-        pairEventsForDebtor.push({
-          type: "repayment",
-          date: ev.date,
-          createdAt: ev.createdAt,
-          repayment: ev.repayment,
-          d1: overpaid,
-          originalD1: overpaid,
-          amount: overpaid,
-          isReverseRepayment: true,
-          originalOwed: paid, // 這筆還款發生當下，creditorId 原本欠 debtorId 多少
-          repaidAmount: ev.amount, // creditorId 實際還了多少（= originalOwed + overpaid）
-          id: ev.id
-        });
-      }
+      pairEventsForDebtor.push(ev);
     }
-  }
-
-  // 4. 找出 debtorId 欠 creditorId 的最近一次結清點
-  let runDebt = 0;
-  let lastZeroIndex = 0;
-
-  for(let i = 0; i < pairEventsForDebtor.length; i++){
-    const ev = pairEventsForDebtor[i];
-    if(ev.type === "expense" || (ev.type === "repayment" && ev.isReverseRepayment)){
-      runDebt += ev.d1;
-    } else if(ev.type === "repayment"){
-      runDebt -= ev.amount;
-    }
-    if(runDebt <= 0.005){
-      runDebt = 0;
+    if(debtorOwesCreditor <= 0.005){
+      debtorOwesCreditor = 0;
       lastZeroIndex = i + 1;
     }
   }
@@ -4682,41 +4466,41 @@ function showPairDetail(
   const activeEvents = pairEventsForDebtor.slice(lastZeroIndex);
   const settledHistory = pairEventsForDebtor.slice(0, lastZeroIndex);
 
-  // 這個彈窗是「debtorId 欠 creditorId」的單一方向視角，只允許出現兩種
-  // 資訊：「debtorId 欠 creditorId」（債務組成）跟「debtorId 還 creditorId」
-  // （已還款紀錄）。isReverseRepayment 那筆本質上是「creditorId 還
-  // debtorId」——方向反過來，不能直接以還款紀錄的樣子出現在「已還款
-  // 紀錄」，不然使用者會看到一筆方向相反的還款卡片，搞不懂為什麼
-  // 「明明是 creditorId 還錢給 debtorId，畫面卻說 debtorId 欠
-  // creditorId」；改成歸進「債務組成」，用虛擬欠款卡片、以
-  // 「debtorId 欠 creditorId」這個唯一允許的方向呈現金額。
   const detailExpenses = activeEvents
-    .filter(ev => ev.type === "expense" || (ev.type === "repayment" && ev.isReverseRepayment))
+    .filter(ev => ev.type === "expense")
     .sort((a, b) => {
-      if(b.date !== a.date) return b.date.localeCompare(a.date);
+      const da = a.date || "";
+      const db = b.date || "";
+      if(db !== da) return db.localeCompare(da);
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
 
   const detailRepayments = activeEvents
-    .filter(ev => ev.type === "repayment" && !ev.isReverseRepayment)
+    .filter(ev => ev.type === "repayment")
     .map(ev => ev.repayment)
     .sort((a, b) => {
-      if(b.payment_date !== a.payment_date) return b.payment_date.localeCompare(a.payment_date);
+      const pa = a.payment_date || "";
+      const pb = b.payment_date || "";
+      if(pb !== pa) return pb.localeCompare(pa);
       return (b.created_at || "").localeCompare(a.created_at || "");
     });
 
   const settledExpenses = settledHistory
-    .filter(ev => ev.type === "expense" || (ev.type === "repayment" && ev.isReverseRepayment))
+    .filter(ev => ev.type === "expense")
     .sort((a, b) => {
-      if(b.date !== a.date) return b.date.localeCompare(a.date);
+      const da = a.date || "";
+      const db = b.date || "";
+      if(db !== da) return db.localeCompare(da);
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
 
   const settledRepayments = settledHistory
-    .filter(ev => ev.type === "repayment" && !ev.isReverseRepayment)
+    .filter(ev => ev.type === "repayment")
     .map(ev => ev.repayment)
     .sort((a, b) => {
-      if(b.payment_date !== a.payment_date) return b.payment_date.localeCompare(a.payment_date);
+      const pa = a.payment_date || "";
+      const pb = b.payment_date || "";
+      if(pb !== pa) return pb.localeCompare(pa);
       return (b.created_at || "").localeCompare(a.created_at || "");
     });
 
@@ -4775,41 +4559,9 @@ function showPairDetail(
   // ==========================================================
   if(detailExpenses.length){
     detailExpenses.forEach(item => {
-      if(item.type === "repayment" && item.isReverseRepayment){
-        // 對方還款超出當時實際欠款所形成的欠款——這筆錢沒有對應的支出，
-        // 也不能用還款卡片呈現（方向相反，這個面板只允許「debtorId 欠／
-        // 還 creditorId」兩種），所以用一張很單純的虛擬欠款卡片：只有
-        // 「debtorId 欠 creditorId 多少錢」，不附任何編輯/刪除功能（沒有
-        // 單一一筆可以編輯的紀錄可以對應），純粹讓這筆金額有地方顯示、
-        // 跟畫面下方「記錄還款」按鈕的總額對得起來。備註寫清楚原本欠多少、
-        // 還了多少、才會導致這筆欠款，讓人一看就懂算式，不用另外點進去查。
-        html += `
-          <div class="debt-expense-card virtual-debt-card">
-            <div class="debt-expense-top">
-              <div class="debt-expense-info">
-                <div class="debt-expense-name">${escapeHtml(memberById[creditorId] || "?")} 超額還款 <span class="badge-virtual-debt">非支出</span></div>
-                <div class="debt-expense-date">
-                  ${escapeHtml(item.date || "")}（原本${escapeHtml(memberById[creditorId] || "?")}欠${escapeHtml(memberById[debtorId] || "?")} ${SYM}${formatAmt(item.originalOwed)}，${escapeHtml(memberById[creditorId] || "?")}還了 ${SYM}${formatAmt(item.repaidAmount)}，所以導致${escapeHtml(memberById[debtorId] || "?")}欠款 ${SYM}${formatAmt(item.originalD1)}）
-                </div>
-              </div>
-            </div>
-            <div class="debt-formed-row">
-              <div class="debt-formed-route">
-                <b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>
-              </div>
-              <div class="debt-formed-amount">
-                ${SYM}${formatAmt(item.d1)}
-              </div>
-            </div>
-          </div>
-        `;
-        return;
-      }
-
       const e = item.expense;
       const canEditExpense = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
-      const isD1 = item.d1 > 0.005;
-      const formedAmount = isD1 ? item.d1 : item.d2;
+      const formedAmount = item.d1;
 
       // 計算機算式故意不塞進這張卡片——算式字串常常很長（例如多筆金額相加除份數），
       // 這裡空間窄，硬塞只會把卡片撐破。完整算式改成點卡片彈出「跟紀錄分頁一模一樣」
@@ -4864,9 +4616,9 @@ function showPairDetail(
             </div>
             <div class="debt-formed-row">
               <div class="debt-formed-route">
-                ${isD1 ? `<b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>` : `<b>${escapeHtml(memberById[creditorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[debtorId] || "?")} (抵銷)</b>`}
+                <b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>
               </div>
-              <div class="debt-formed-amount"${!isD1 ? ' style="color:var(--positive-text);"' : ""}>
+              <div class="debt-formed-amount">
                 ${SYM}${formatAmt(formedAmount)}
               </div>
             </div>
@@ -4875,23 +4627,16 @@ function showPairDetail(
       `;
     });
   }else if(remainingDebt > 0.01){
-    // 沒有支出組成，但實際上還是欠著錢——這種情況是對方還款超出當時實際
-    // 欠款所形成的（方向是 creditorId 還 debtorId，不屬於這個面板只顯示
-    // 「debtorId 欠/還 creditorId」的規則，所以不會列在下面的清單裡）。
-    // 不是真的沒有欠款，不能用打勾／「找不到未結清支出」這種暗示「沒事、
-    // 結清了」的呈現方式，不然會跟下面「記錄還款」按鈕顯示的金額互相
-    // 矛盾，讓人搞不懂到底欠不欠錢；但也不指向「已還款紀錄」，因為那裡
-    // 同樣不會有相關紀錄可看。
     html += `
       <div class="debt-empty-state">
         <div class="debt-empty-icon">
-          📋
+          💸
         </div>
         <div class="debt-empty-title">
-          這筆欠款不是來自支出
+          尚有 ${SYM}${formatAmt(remainingDebt)} 待結清
         </div>
         <div class="debt-empty-text">
-          目前 ${escapeHtml(memberById[debtorId] || "?")} 仍欠 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}，可於下方直接記錄還款。
+          目前沒有未結清的消費支出紀錄，此筆款項代表 <b>${escapeHtml(memberById[creditorId] || "對方")}</b> 先前有多還／溢付的款項。
         </div>
       </div>
     `;
@@ -4902,15 +4647,15 @@ function showPairDetail(
           ✓
         </div>
         <div class="debt-empty-title">
-          找不到未結清支出
+          已全部結清
         </div>
         <div class="debt-empty-text">
           ${
             detailRepayments.length
-              ? "這兩人之間沒有共同的支出欠款紀錄，相關還款請見下方「已還款紀錄」。"
+              ? "雙方支出欠款已全數沖銷完畢，相關還款請見下方「已還款紀錄」。"
               : totalSettledCount > 0
               ? "先前的債務已全數結清，可點擊下方「查看更早的已結清歷史」查看紀錄。"
-              : "目前沒有找到形成這筆債務的支出紀錄。"
+              : "目前沒有找到未結清的支出分攤紀錄。"
           }
         </div>
       </div>
@@ -4995,32 +4740,8 @@ function showPairDetail(
         </button>
         <div class="debt-settled-history-list hidden" id="matrixSettledHistoryList">
           ${settledExpenses.map(item => {
-            if(item.type === "repayment" && item.isReverseRepayment){
-              return `
-                <div class="debt-expense-card virtual-debt-card is-settled-card">
-                  <div class="debt-expense-top">
-                    <div class="debt-expense-info">
-                      <div class="debt-expense-name">
-                        ${escapeHtml(memberById[creditorId] || "?")} 超額還款 <span class="badge-virtual-debt">非支出</span> <span class="settled-tag">已結清</span>
-                      </div>
-                      <div class="debt-expense-date">
-                        ${escapeHtml(item.date || "")}（原本${escapeHtml(memberById[creditorId] || "?")}欠${escapeHtml(memberById[debtorId] || "?")} ${SYM}${formatAmt(item.originalOwed)}，${escapeHtml(memberById[creditorId] || "?")}還了 ${SYM}${formatAmt(item.repaidAmount)}，所以導致${escapeHtml(memberById[debtorId] || "?")}欠款 ${SYM}${formatAmt(item.originalD1)}）
-                      </div>
-                    </div>
-                  </div>
-                  <div class="debt-formed-row">
-                    <div class="debt-formed-route"><b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b></div>
-                    <div class="debt-formed-amount">${SYM}${formatAmt(item.originalD1 != null ? item.originalD1 : item.d1)}</div>
-                  </div>
-                </div>
-              `;
-            }
             const e = item.expense;
-            // originalD1 跟 d1 現在其實永遠相等（沒有任何地方會事後改動
-            // d1 了），這裡保留 originalD1 只是讓「已結清歷史該顯示原始
-            // 形成金額」這件事在程式碼裡讀起來意圖清楚，不用另外去確認
-            // d1 有沒有被動過。
-            const formedAmount = item.originalD1 != null ? item.originalD1 : item.d1;
+            const formedAmount = item.d1;
             const firstLine = getFirstLineDesc(e.description || "未命名支出");
             return `
               <div class="debt-expense-card is-settled-card" data-id="${e.id}">
