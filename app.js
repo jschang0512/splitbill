@@ -6504,6 +6504,70 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       if(cl) cl.classList.toggle("hidden", screen !== "claim");
     }
 
+    let aiProgressInterval = null;
+    let currentAiPercent = 0;
+
+    function updateAiProgress(percent, phaseText){
+      const fillEl = document.getElementById("aiProgressBarFill");
+      const numEl = document.getElementById("aiProgressPercent");
+      const phaseEl = document.getElementById("aiProgressPhase");
+
+      const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+      if(fillEl) fillEl.style.width = `${clamped}%`;
+      if(numEl) numEl.textContent = `${clamped}%`;
+      if(phaseEl && phaseText) phaseEl.textContent = phaseText;
+    }
+
+    function startAiProgress(){
+      stopAiProgress();
+      currentAiPercent = 8;
+      updateAiProgress(currentAiPercent, "照片影像前處理與旋轉校正…");
+
+      const startTime = Date.now();
+      aiProgressInterval = setInterval(()=>{
+        const elapsed = Date.now() - startTime;
+        let target = 8;
+        let phaseText = "AI 智慧解析中…";
+
+        if(elapsed < 500){
+          target = 8 + Math.floor((elapsed / 500) * 20); // 8% -> 28%
+          phaseText = "照片影像最佳化與壓縮…";
+        } else if(elapsed < 1800){
+          target = 28 + Math.floor(((elapsed - 500) / 1300) * 32); // 28% -> 60%
+          phaseText = "傳送至 AI 多模態視覺模型…";
+        } else if(elapsed < 4500){
+          target = 60 + Math.floor(((elapsed - 1800) / 2700) * 28); // 60% -> 88%
+          phaseText = "智慧掃描品項、數量、單價與稅率…";
+        } else {
+          target = Math.min(97, 88 + Math.floor(((elapsed - 4500) / 3500) * 9)); // 88% -> 97%
+          phaseText = "結構化校驗與幣別運算中…";
+        }
+
+        if(target > currentAiPercent){
+          currentAiPercent = target;
+          updateAiProgress(currentAiPercent, phaseText);
+        }
+      }, 70);
+    }
+
+    function finishAiProgress(){
+      if(aiProgressInterval){
+        clearInterval(aiProgressInterval);
+        aiProgressInterval = null;
+      }
+      currentAiPercent = 100;
+      updateAiProgress(100, "解析完成！即將進入拆單…");
+    }
+
+    function stopAiProgress(){
+      if(aiProgressInterval){
+        clearInterval(aiProgressInterval);
+        aiProgressInterval = null;
+      }
+      currentAiPercent = 0;
+      updateAiProgress(0, "準備解析…");
+    }
+
     async function openModal(initialScreen = "upload"){
       showScreen(initialScreen);
       modal.classList.add("show");
@@ -6511,6 +6575,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
     function closeModal(){
       modal.classList.remove("show");
+      stopAiProgress();
       editingAiExpenseId = null;
       editingAiExpenseOriginal = null;
       if(aiDirectSaveBtn) aiDirectSaveBtn.textContent = "💾 確認無誤，立即記帳";
@@ -6929,6 +6994,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(!currentRawImage) return;
         const key = await getEffectiveGeminiKey();
         showScreen("loading");
+        startAiProgress();
 
         try {
           const { w: rotW, h: rotH } = getRotatedDimensions();
@@ -7057,8 +7123,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const autoCat = window.getCategoryMeta ? window.getCategoryMeta(parsed.storeName || (parsed.items && parsed.items[0]?.name) || "").type : "food";
           updateAiCategoryUI(autoCat);
           renderClaimBoard();
+          finishAiProgress();
+          await new Promise(r => setTimeout(r, 260));
           showScreen("claim");
         } catch(err){
+          stopAiProgress();
           console.error("AI 辨識收據失敗：", err);
           await sbAlert("AI 辨識收據失敗：" + (err.message || "未知錯誤") + "。請確認網路連線或嘗試重新拍攝一張清晰的照片。", "📷 辨識失敗");
           showScreen("crop");

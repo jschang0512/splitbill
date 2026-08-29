@@ -637,7 +637,7 @@ if("serviceWorker" in navigator){
       </div>
     </div>
 
-    <!-- 步驟 2：AI 辨識中（經典 Logo 三瓣呼吸旋轉動畫） -->
+    <!-- 步驟 2：AI 辨識中（經典 Logo 三瓣呼吸旋轉動畫與百分比進度顯示） -->
     <div class="ai-receipt-screen hidden" id="aiReceiptLoadingScreen">
       <div class="ai-receipt-loading-box">
         <div class="ai-receipt-loading-logo-wrap">
@@ -648,7 +648,18 @@ if("serviceWorker" in navigator){
           </svg>
         </div>
         <div class="ai-receipt-loading-title">🧠 AI 智慧解析中…</div>
-        <div class="ai-receipt-loading-desc">正在掃描品項名稱、數量、單價與服務費…</div>
+        <div class="ai-receipt-loading-desc">正在掃描品項名稱、數量、單價與稅費…</div>
+
+        <!-- 🌟 百分比進度條與階段說明 -->
+        <div class="ai-progress-container">
+          <div class="ai-progress-bar-wrap">
+            <div class="ai-progress-bar-fill" id="aiProgressBarFill"></div>
+          </div>
+          <div class="ai-progress-label-row">
+            <span class="ai-progress-phase" id="aiProgressPhase">照片影像前處理中…</span>
+            <span class="ai-progress-percent" id="aiProgressPercent">0%</span>
+          </div>
+        </div>
       </div>
     </div>
 
