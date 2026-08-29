@@ -128,3 +128,144 @@ function showToast(title, body, actionLabel, actionFn){
   container.appendChild(toast);
   const autoDismissTimer = setTimeout(dismiss, actionLabel ? 5000 : 4000);
 }
+
+// ============================================================
+// 全站頭貼點擊/觸碰懸浮放大預覽卡片 (Floating Magnified Avatar Card)
+// ============================================================
+(function initFloatingAvatarTooltip(){
+  let cardEl = null;
+  let hideTimer = null;
+
+  function getCardEl(){
+    if(!cardEl){
+      cardEl = document.createElement("div");
+      cardEl.id = "sbAvatarFloatingCard";
+      cardEl.className = "sb-avatar-floating-card";
+      document.body.appendChild(cardEl);
+    }
+    return cardEl;
+  }
+
+  function hideCard(){
+    if(cardEl){
+      cardEl.classList.remove("show");
+    }
+    if(hideTimer){
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
+  function showCardForElement(targetEl){
+    if(!targetEl) return;
+    // 嚴格排除所有類別相關與圖表元素
+    if(targetEl.closest(".donut-slice, .donut-legend-item, .exp-cat-badge, .exp-cat-chip, .category-detail-modal-title, #catModalTitleWrap, .cat-modal-icon, .donut-center-info, .donut-svg-wrap, #donutScopeTabs, .exp-cat-dot")) return;
+
+    // 嚴格限定為人物頭貼元件
+    const avatar = targetEl.closest(".sb-avatar, .cat-exp-avatar-bubble, .mem-avatar, .avatar-wrap");
+    if(!avatar) return;
+
+    // 1. 取得名稱與原始文字
+    let rawName = avatar.dataset.name ||
+                  avatar.getAttribute("title") ||
+                  avatar.querySelector("[data-name]")?.dataset?.name ||
+                  avatar.querySelector(".sb-avatar-img")?.alt || "";
+
+    if(!rawName || rawName === "?") return;
+
+    // 2. 格式化身分標籤與純淨姓名
+    let roleBadge = "";
+    let cleanName = rawName;
+    if(cleanName.startsWith("付款人:") || cleanName.startsWith("付款：")){
+      roleBadge = "💳 付款人";
+      cleanName = cleanName.replace(/^付款人[:：]\s*/, "");
+    } else if(cleanName.startsWith("應付人:") || cleanName.startsWith("應付：")){
+      roleBadge = "👥 應付人";
+      cleanName = cleanName.replace(/^應付人[:：]\s*/, "");
+    }
+
+    let displayName = cleanName.replace(/\s*\([^)]*\)/g, "").trim();
+    if(!displayName) displayName = cleanName;
+
+    // 3. 取得頭像圖片或底色與字母
+    const imgEl = avatar.querySelector("img");
+    const imgSrc = (imgEl && imgEl.style.display !== "none" && imgEl.src) ? imgEl.src : "";
+    const initialEl = avatar.querySelector(".sb-avatar-initial");
+    const initialBg = (initialEl && initialEl.style.background) ? initialEl.style.background : (window.getAvatarColor ? window.getAvatarColor(displayName) : "#7A6B9E");
+    const initialChar = (initialEl && initialEl.textContent ? initialEl.textContent.trim() : displayName.charAt(0).toUpperCase()) || "?";
+
+    // 4. 計算該成員解鎖的勳章
+    const memberBadges = (window.getMemberBadges ? window.getMemberBadges(cleanName) : []).slice(0, 4);
+    const badgesHtml = memberBadges.length > 0
+      ? `<div class="sb-afc-badges">${memberBadges.map(b => `<span class="sb-afc-badge-chip" title="${escapeHtml(b.desc)}">${b.icon} ${escapeHtml(b.name)}</span>`).join("")}</div>`
+      : "";
+
+    const card = getCardEl();
+    const avatarHtml = imgSrc 
+      ? `<img src="${imgSrc}" class="sb-afc-avatar-img" alt="${escapeHtml(displayName)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="sb-afc-avatar-initial" style="display:none;background:${initialBg};">${escapeHtml(initialChar)}</span>`
+      : `<span class="sb-afc-avatar-initial" style="background:${initialBg};">${escapeHtml(initialChar)}</span>`;
+
+    card.innerHTML = `
+      <div class="sb-afc-avatar-wrap">
+        ${avatarHtml}
+      </div>
+      <div class="sb-afc-info">
+        <div class="sb-afc-name-row">
+          <span class="sb-afc-name">${escapeHtml(displayName)}</span>
+          ${roleBadge ? `<span class="sb-afc-role">${escapeHtml(roleBadge)}</span>` : ''}
+        </div>
+        ${badgesHtml}
+      </div>
+      <div class="sb-afc-arrow"></div>
+    `;
+
+    // 5. 精準定位至頭貼上方（並支援邊界自動翻轉與靠邊修正）
+    const rect = avatar.getBoundingClientRect();
+    card.style.visibility = "hidden";
+    card.style.display = "flex";
+    card.classList.remove("flipped");
+
+    const cardRect = card.getBoundingClientRect();
+    const avatarCenterX = rect.left + rect.width / 2;
+    let topPos = rect.top - cardRect.height - 12;
+
+    // 若上方空間不足，翻轉至下方
+    if(topPos < 10){
+      topPos = rect.bottom + 12;
+      card.classList.add("flipped");
+    }
+
+    let leftPos = avatarCenterX;
+    const minLeft = cardRect.width / 2 + 10;
+    const maxLeft = window.innerWidth - cardRect.width / 2 - 10;
+    leftPos = Math.max(minLeft, Math.min(maxLeft, leftPos));
+
+    card.style.top = `${topPos}px`;
+    card.style.left = `${leftPos}px`;
+    card.style.visibility = "visible";
+
+    // 6. 觸發平滑彈出動畫
+    card.classList.add("show");
+
+    if(hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(hideCard, 2600);
+  }
+
+  // 監聽全域點擊
+  document.addEventListener("click", (e)=>{
+    if(e.target.closest(".donut-slice, .donut-legend-item, .exp-cat-badge, .exp-cat-chip, .category-detail-modal-title, #catModalTitleWrap, .cat-modal-icon, .donut-center-info, .donut-svg-wrap, #donutScopeTabs, .exp-cat-dot")){
+      hideCard();
+      return;
+    }
+    const avatar = e.target.closest(".sb-avatar, .cat-exp-avatar-bubble, .mem-avatar, .avatar-wrap");
+    if(avatar){
+      showCardForElement(avatar);
+    } else {
+      hideCard();
+    }
+  }, { passive: true });
+
+  // 滾動時自動隱藏
+  window.addEventListener("scroll", hideCard, { passive: true });
+})();
+

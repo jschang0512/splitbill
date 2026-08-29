@@ -136,6 +136,7 @@ if("serviceWorker" in navigator){
         <span id="whoamiText"><b id="whoamiName"></b></span>
       </div>
       <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
         <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
         <button class="btn secondary small" id="logoutBtn">登出</button>
       </div>
@@ -189,6 +190,19 @@ if("serviceWorker" in navigator){
     </div>
 
     <div class="app-footer" id="appFooter"></div>
+  </div>
+</div>
+
+<!-- 🎖️ 成就榜彈窗 -->
+<div id="achievementsModal" class="calc-modal hidden">
+  <div class="calc-card achievements-modal-card">
+    <div class="calc-header">
+      <h3>🎖️ 成就榜</h3>
+      <button type="button" class="calc-close" id="achievementsCloseBtn" aria-label="關閉">✕</button>
+    </div>
+    <div class="achievements-list-scroll" id="achievementsListScroll">
+      <!-- 動態載入成就清單 -->
+    </div>
   </div>
 </div>
 
@@ -778,11 +792,9 @@ renderNavLinks();
       const cls = isPos ? "pos" : isNeg ? "neg" : "zero";
       const amtLabel = isPos ? `+${meta.symbol}${formatAmt(r.amt)}` : isNeg ? `-${meta.symbol}${formatAmt(Math.abs(r.amt))}` : "已結清";
       const pct = Math.abs(r.amt) > 0.05 ? Math.max(8, Math.round((Math.abs(r.amt) / max) * 55)) : 0;
-      const safeName = escapeHtml(r.name);
       const avatarHtml = `
         <span class="bal-cmp-avatar-wrap">
           ${renderAvatarHTML(r.member, "avatar-sm")}
-          <span class="bal-cmp-nick-tip hidden">${safeName}</span>
         </span>
       `;
       const amtHtml = `<span class="bal-cmp-amt ${cls}">${amtLabel}</span>`;
@@ -798,37 +810,6 @@ renderNavLinks();
 
     wrap.innerHTML = `<div class="bal-cmp-grid"><div class="bal-cmp-zeroline"></div>${rowsHtml}</div>`;
   }
-
-  // 點頭貼跳出小小的暱稱懸浮框（手機沒有 hover，所以用點擊切換顯示/隱藏）。
-  // #balanceChartWrap 這個容器本身不會被重新建立（只有裡面的 innerHTML
-  // 每次重繪會換掉），所以監聽器只要掛一次、用事件委派就能一直有效。
-  const balanceChartWrapEl = document.getElementById("balanceChartWrap");
-  if(balanceChartWrapEl){
-    balanceChartWrapEl.addEventListener("click", (e)=>{
-      const avatarWrap = e.target.closest(".bal-cmp-avatar-wrap");
-      balanceChartWrapEl.querySelectorAll(".bal-cmp-nick-tip").forEach(tip=>{
-        if(!avatarWrap || tip !== avatarWrap.querySelector(".bal-cmp-nick-tip")){
-          tip.classList.add("hidden");
-        }
-      });
-      if(avatarWrap){
-        const tip = avatarWrap.querySelector(".bal-cmp-nick-tip");
-        if(tip){
-          const willShow = tip.classList.contains("hidden");
-          if(willShow){
-            // 第一列上面沒空間放懸浮框，靠不夠時自動翻到頭貼下方顯示
-            const rect = avatarWrap.getBoundingClientRect();
-            tip.classList.toggle("below", rect.top < 50);
-          }
-          tip.classList.toggle("hidden");
-        }
-      }
-    });
-  }
-  document.addEventListener("click", (e)=>{
-    if(!balanceChartWrapEl || balanceChartWrapEl.contains(e.target)) return;
-    balanceChartWrapEl.querySelectorAll(".bal-cmp-nick-tip").forEach(tip=> tip.classList.add("hidden"));
-  });
 
   let isSettledListExpanded = false;
 
@@ -970,6 +951,16 @@ renderNavLinks();
     if(isSessionExpired()){ await forceLogout(); return; }
     refreshLoginTime();
     currentUser = user;
+    window.currentUser = user;
+
+    // 背景非阻塞獲取即時 User 資料（包含其他裝置上傳的最新 avatar_url）
+    sb.auth.getUser().then(({ data: freshData, error: freshErr })=>{
+      if(!freshErr && freshData && freshData.user){
+        currentUser = freshData.user;
+        window.currentUser = freshData.user;
+      }
+    }).catch(()=>{});
+
     try{
       await loadMembers();
 
@@ -987,18 +978,6 @@ renderNavLinks();
         throw new Error("member data incomplete");
       }
 
-      // 關鍵：從伺服器獲取即時 User 資料（包含其他裝置上傳的最新 avatar_url）
-      let freshUser = user;
-      try {
-        const { data: freshData, error: freshErr } = await sb.auth.getUser();
-        if(!freshErr && freshData && freshData.user){
-          freshUser = freshData.user;
-        }
-      } catch(e){}
-
-      user = freshUser;
-      currentUser = freshUser;
-      window.currentUser = freshUser;
       window.myMember = myMember;
 
       let myAvatar = "";
@@ -1044,15 +1023,34 @@ renderNavLinks();
       localStorage.setItem("splitbill-shown-currencies", JSON.stringify(shownCurrencies));
       renderNavLinks();
 
-      await loadAndRenderAllBalances();
-      if(typeof hidePwaSplash === "function") hidePwaSplash();
+      window.memberRows = memberRows;
+      initAchievementsModal();
 
-      try { await loadFeedback(); } catch(e){ console.error("loadFeedback error:", e); }
-      try { subscribeRealtime(); } catch(e){ console.error("subscribeRealtime error:", e); }
-      try { ensurePushSubscribed(); } catch(e){ console.error("ensurePushSubscribed error:", e); }
+      // 同時並行讀取餘額、支出與還款紀錄（大幅縮短載入時間）
+      const [allTime, expRes, repRes] = await Promise.all([
+        loadBalances(null),
+        sb.from("expenses").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false }),
+        sb.from("repayments").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false })
+      ]);
+
+      if(allTime){
+        renderMyAmtList(allTime);
+        balanceChartData = allTime;
+        renderBalanceCurrencyMenu(activeCurrencyCodes());
+        renderBalanceChart();
+      }
+
+      window.cachedExpenses = expRes.data || [];
+      window.cachedRepayments = repRes.data || [];
+      window.allGroupExpenses = expRes.data || [];
+      window.allGroupRepayments = repRes.data || [];
+
+      // 非核心功能在背景非同步執行
+      loadFeedback().catch(e => console.error("loadFeedback error:", e));
+      subscribeRealtime();
+      ensurePushSubscribed().catch(e => console.error("ensurePushSubscribed error:", e));
     }catch(e){
       console.error("總覽頁載入異常：", e);
-      if(typeof hidePwaSplash === "function") hidePwaSplash();
       if(!myMember){
         await forceLogout();
       }
@@ -1096,6 +1094,72 @@ renderNavLinks();
         scheduleRefresh();
       })
       .subscribe();
+  }
+
+  // ============================================================
+  // 🎖️ 成就榜管理 (Achievements Wall Management)
+  // ============================================================
+  function initAchievementsModal(){
+    const openBtn = document.getElementById("openAchievementsModalBtn");
+    const modal = document.getElementById("achievementsModal");
+    const closeBtn = document.getElementById("achievementsCloseBtn");
+    const listScroll = document.getElementById("achievementsListScroll");
+
+    if(!modal) return;
+
+    function renderAchievementsWall(){
+      if(!listScroll) return;
+      const badges = window.BADGES_CATALOG || [];
+      const expList = window.cachedExpenses || [];
+      const repList = window.cachedRepayments || [];
+      const members = (memberRows && memberRows.length) ? memberRows : (MEMBERS || []);
+
+      const html = badges.map(b => {
+        const unlockedHolders = members.filter(m => {
+          try { return b.check(m, expList, repList, members); } catch(e){ return false; }
+        });
+
+        const isUnlocked = unlockedHolders.length > 0;
+        const holdersHtml = isUnlocked
+          ? unlockedHolders.map(m => `
+              <span class="achievement-holder-chip">
+                ${renderAvatarHTML(m, "avatar-xs")}
+                <span>${escapeHtml(m.name || "成員")}</span>
+              </span>
+            `).join("")
+          : `<span class="achievement-desc" style="color:var(--ink-soft);font-style:italic;">🔒 尚未有人解鎖，加油！</span>`;
+
+        return `
+          <div class="achievement-card ${isUnlocked ? 'unlocked' : ''}">
+            <div class="achievement-icon-wrap">${b.icon}</div>
+            <div class="achievement-info-col">
+              <div class="achievement-name">${escapeHtml(b.name)}</div>
+              <div class="achievement-desc">${escapeHtml(b.desc)}</div>
+              <div class="achievement-holders">${holdersHtml}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      listScroll.innerHTML = html;
+    }
+
+    function openModal(){
+      renderAchievementsWall();
+      modal.classList.remove("hidden");
+      modal.classList.add("show");
+    }
+
+    function closeModal(){
+      modal.classList.remove("show");
+      setTimeout(()=> modal.classList.add("hidden"), 200);
+    }
+
+    if(openBtn) openBtn.addEventListener("click", openModal);
+    if(closeBtn) closeBtn.addEventListener("click", closeModal);
+    modal.addEventListener("click", (e)=>{
+      if(e.target === modal) closeModal();
+    });
   }
 
   (async function boot(){

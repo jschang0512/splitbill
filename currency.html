@@ -141,6 +141,7 @@ if("serviceWorker" in navigator){
         <span id="whoamiText"><b id="whoamiName"></b></span>
       </div>
       <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
         <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
         <button class="btn secondary small" id="logoutBtn">登出</button>
       </div>
@@ -193,6 +194,20 @@ if("serviceWorker" in navigator){
         </div>
       </div>
 
+      <!-- 🍩 花費類別分析卡片 -->
+      <div class="card card-category-donut">
+        <div class="chart-title-row">
+          <h2>🍩 花費類別分佈</h2>
+          <div class="donut-scope-tabs" id="donutScopeTabs">
+            <button type="button" class="donut-scope-tab active" data-scope="all">全團支出</button>
+            <button type="button" class="donut-scope-tab" data-scope="my">我的支出</button>
+          </div>
+        </div>
+        <div id="categoryDonutWrap" class="category-donut-wrap">
+          <p class="filter-hint">載入中…</p>
+        </div>
+      </div>
+
       <div class="card card-wide">
         <div class="matrix-header-row">
           <h2>🧮 債務關係表</h2>
@@ -225,6 +240,24 @@ if("serviceWorker" in navigator){
 
         <label>項目</label>
         <input type="text" id="expDesc" placeholder="例如 晚餐、租車油錢">
+
+        <!-- 支出類別下拉式選單 -->
+        <label for="expCategorySelect">類別 (自動辨識 / 可手動選擇)</label>
+        <div class="select-wrap exp-category-select-wrap">
+          <select id="expCategorySelect" class="exp-category-select">
+            <option value="general">🧾 一般支出</option>
+            <option value="food">🍜 美食餐飲</option>
+            <option value="drink">☕ 飲料甜點</option>
+            <option value="transit">🚄 大眾交通</option>
+            <option value="car">🚗 租車用油</option>
+            <option value="flight">✈️ 機票航班</option>
+            <option value="hotel">🏨 住宿溫泉</option>
+            <option value="ticket">🎟️ 門票娛樂</option>
+            <option value="shopping">🛍️ 購物藥妝</option>
+            <option value="medical">💊 醫療藥品</option>
+            <option value="network">📶 網卡通訊</option>
+          </select>
+        </div>
 
         <!-- 稅費計算模式：內含 vs 外加 -->
         <label>稅費模式</label>
@@ -366,16 +399,21 @@ if("serviceWorker" in navigator){
           <input type="text" id="filterKeyword" placeholder="支出說明或還款備註">
 
           <div id="filterExpenseFields">
-            <label>誰付的（可複選，不選代表不篩選）</label>
-            <div class="checks" id="filterPayerChecks"></div>
-            <label>應付人</label>
-            <div class="checks" id="filterInvolvedChecks"></div>
+            <label>支出類別（可多選）</label>
+            <div class="sb-multi-select" id="filterCategoryDropdown"></div>
+
+            <label>誰付的（可多選）</label>
+            <div class="sb-multi-select" id="filterPayerDropdown"></div>
+
+            <label>應付人（可多選）</label>
+            <div class="sb-multi-select" id="filterInvolvedDropdown"></div>
           </div>
           <div id="filterRepayFields" class="hidden">
-            <label>誰還錢（可複選，不選代表不篩選）</label>
-            <div class="checks" id="filterRepayFromChecks"></div>
-            <label>誰收錢（可複選，不選代表不篩選）</label>
-            <div class="checks" id="filterRepayToChecks"></div>
+            <label>誰還錢（可多選）</label>
+            <div class="sb-multi-select" id="filterRepayFromDropdown"></div>
+
+            <label>誰欠錢 / 誰收錢（可多選）</label>
+            <div class="sb-multi-select" id="filterRepayToDropdown"></div>
           </div>
 
           <button type="button" class="link-btn" id="filterClearBtn">清除篩選</button>
@@ -500,9 +538,13 @@ if("serviceWorker" in navigator){
     <div class="settlement-img-preview-wrap">
       <img id="settlementImgPreview" alt="結算圖片" class="settlement-img-preview">
     </div>
-    <p class="settlement-img-hint">💡 手機可直接「長按圖片」儲存至相簿，或點擊下方按鈕</p>
+    <div class="settlement-img-tip-box">
+      <span class="settlement-img-tip-icon">💡</span>
+      <span>手機可直接<b>「長按圖片」</b>選擇<b>「儲存影像」</b>存入相簿</span>
+    </div>
     <div class="settlement-img-actions">
-      <button type="button" class="btn secondary small" id="settlementImgShareBtn">📤 分享 / 存至相簿</button>
+      <button type="button" class="btn secondary small" id="settlementImgCopyBtn">📋 複製圖片</button>
+      <button type="button" class="btn secondary small" id="settlementImgShareBtn">📤 分享 / 儲存</button>
       <button type="button" class="btn small" id="settlementImgDownloadBtn">⬇️ 下載圖片</button>
     </div>
   </div>
@@ -521,6 +563,25 @@ if("serviceWorker" in navigator){
       </div>
     </div>
     <div class="exp-debt-modal-body" id="expDebtModalBody"></div>
+  </div>
+</div>
+
+<!-- 類別支出明細彈窗 (點擊總表甜甜圈或類別項目時彈出) -->
+<div class="calc-modal" id="categoryExpensesModal">
+  <div class="calc-card card category-modal-card">
+    <div class="calc-header">
+      <div class="category-detail-modal-title" id="catModalTitleWrap">
+        <span class="cat-modal-icon" id="catModalIcon">🍜</span>
+        <div class="cat-modal-title-col">
+          <span class="cat-modal-name" id="catModalName">美食餐飲</span>
+          <span class="cat-modal-sub" id="catModalSub">共 0 筆 · $0</span>
+        </div>
+      </div>
+      <button type="button" class="calc-close" id="catModalCloseBtn" title="關閉">✕</button>
+    </div>
+    <div class="category-modal-list-scroll" id="catModalList">
+      <!-- 該類別支出清單由 JS 動態生成 -->
+    </div>
   </div>
 </div>
 
@@ -600,6 +661,26 @@ if("serviceWorker" in navigator){
         </div>
         <div class="ai-receipt-store-wrap">
           <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或聚餐名稱 (可點擊修改)">
+        </div>
+
+        <!-- AI 支出類別下拉式選單 -->
+        <div class="ai-category-select-row">
+          <label for="aiCategorySelect" class="ai-tax-label" style="font-size:12.5px;color:var(--ink);font-weight:600;">類別:</label>
+          <div class="select-wrap ai-category-select-wrap">
+            <select id="aiCategorySelect" class="ai-category-select">
+              <option value="general">🧾 一般支出</option>
+              <option value="food" selected>🍜 美食餐飲</option>
+              <option value="drink">☕ 飲料甜點</option>
+              <option value="transit">🚄 大眾交通</option>
+              <option value="car">🚗 租車用油</option>
+              <option value="flight">✈️ 機票航班</option>
+              <option value="hotel">🏨 住宿溫泉</option>
+              <option value="ticket">🎟️ 門票娛樂</option>
+              <option value="shopping">🛍️ 購物藥妝</option>
+              <option value="medical">💊 醫療藥品</option>
+              <option value="network">📶 網卡通訊</option>
+            </select>
+          </div>
         </div>
 
         <!-- 1. 稅費計算模式：外加 vs 內含 -->
@@ -744,6 +825,19 @@ if("serviceWorker" in navigator){
         <button type="button" class="btn secondary ai-receipt-retake-btn" id="aiReceiptRetakeBtn">📷 重選照片</button>
         <button type="button" class="btn ai-receipt-save-btn" id="aiReceiptDirectSaveBtn">💾 確認無誤，立即記帳</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🎖️ 成就榜彈窗 -->
+<div id="achievementsModal" class="calc-modal hidden">
+  <div class="calc-card achievements-modal-card">
+    <div class="calc-header">
+      <h3>🎖️ 成就榜</h3>
+      <button type="button" class="calc-close" id="achievementsCloseBtn" aria-label="關閉">✕</button>
+    </div>
+    <div class="achievements-list-scroll" id="achievementsListScroll">
+      <!-- 動態載入成就清單 -->
     </div>
   </div>
 </div>

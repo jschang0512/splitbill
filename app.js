@@ -286,7 +286,6 @@
     myMember = currentUser ? (MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) || MEMBERS.find(m => m.user_id === currentUser.id)) : null;
     memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
   }
-  const membersLoadedPromise = loadMembers();
 
   function emailToName(email){
     const m = MEMBERS.find(x=>x.email === email);
@@ -528,18 +527,16 @@
     if(isSessionExpired()){ await forceLogout(); return; }
     refreshLoginTime();
 
-    // 關鍵：從伺服器獲取即時 User 資料（包含其他裝置上傳的最新 avatar_url）
-    let freshUser = user;
-    try {
-      const { data: freshData, error: freshErr } = await sb.auth.getUser();
-      if(!freshErr && freshData && freshData.user){
-        freshUser = freshData.user;
-      }
-    } catch(e){}
+    currentUser = user;
+    window.currentUser = user;
 
-    currentUser = freshUser;
-    user = freshUser;
-    window.currentUser = freshUser;
+    // 背景非阻塞獲取即時 User 資料（包含其他裝置上傳的最新 avatar_url）
+    sb.auth.getUser().then(({ data: freshData, error: freshErr })=>{
+      if(!freshErr && freshData && freshData.user){
+        currentUser = freshData.user;
+        window.currentUser = freshData.user;
+      }
+    }).catch(()=>{});
 
     if(appScreen){
       appScreen.style.display = "block";
@@ -555,7 +552,6 @@
     }
 
     try{
-      await membersLoadedPromise;
       await loadMembers();
     }catch(e){
       // 讀不到成員資料就直接登出，不要卡在半載入的畫面上。
@@ -626,26 +622,9 @@
       window.renderNavLinks();
     }
 
-    function buildFilterChecks(containerId){
-      const wrap = document.getElementById(containerId);
-      if(!wrap) return;
-      wrap.innerHTML = "";
-      memberRows.forEach(m=>{
-        const label = document.createElement("label");
-        label.className = "check-pill";
-        label.innerHTML = `<input type="checkbox" value="${m.id}">${renderAvatarHTML(m, "avatar-xs")}<span class="check-pill-name">${escapeHtml(m.name)}</span>`;
-        label.querySelector("input").addEventListener("change", (e)=>{
-          label.classList.toggle("checked", e.target.checked);
-          applyFiltersAndRenderHistory();
-          applyFiltersAndRenderRepayments();
-        });
-        wrap.appendChild(label);
-      });
-    }
-    buildFilterChecks("filterPayerChecks");
-    buildFilterChecks("filterInvolvedChecks");
-    buildFilterChecks("filterRepayFromChecks");
-    buildFilterChecks("filterRepayToChecks");
+    window.memberRows = memberRows;
+    initFilterMultiSelects(memberRows);
+    initAchievementsModal();
 
     // 新增支出／還款的付款人・分攤人・還款人下拉/勾選清單，只列出「還在群組裡」的人——
     // 已退出/帳號已銷毀的人不該被選成新支出的付款人。編輯舊紀錄時如果剛好牽涉到
@@ -1239,6 +1218,38 @@
     }
   }
 
+  // ---------- 支出類別下拉選單 (Category Select) ----------
+  let selectedExpCategory = "general";
+  let userManuallyPickedCategory = false;
+
+  function updateExpCategoryUI(catType){
+    selectedExpCategory = catType || "general";
+    const select = document.getElementById("expCategorySelect");
+    if(select){
+      select.value = selectedExpCategory;
+      if(typeof enhanceSelect === "function") enhanceSelect(select);
+    }
+  }
+
+  const expCategorySelect = document.getElementById("expCategorySelect");
+  if(expCategorySelect){
+    expCategorySelect.addEventListener("change", ()=>{
+      userManuallyPickedCategory = true;
+      selectedExpCategory = expCategorySelect.value || "general";
+    });
+  }
+
+  const expDescInput = document.getElementById("expDesc");
+  if(expDescInput){
+    expDescInput.addEventListener("input", ()=>{
+      if(!userManuallyPickedCategory || !expDescInput.value.trim()){
+        const meta = window.getCategoryMeta ? window.getCategoryMeta(expDescInput.value) : { type: "general" };
+        updateExpCategoryUI(meta.type);
+        if(!expDescInput.value.trim()) userManuallyPickedCategory = false;
+      }
+    });
+  }
+
   const addExpBtn = document.getElementById("addExpenseBtn");
   if(addExpBtn){
     addExpBtn.addEventListener("click", async ()=>{
@@ -1449,8 +1460,12 @@
         (editingExpenseOriginal && editingExpenseOriginal.note) || ""
       );
       let fullDescription = itemTitle;
+      if(selectedExpCategory && selectedExpCategory !== "general"){
+        fullDescription += ` <!--CAT:${selectedExpCategory}-->`;
+      }
       if(meta){
-        fullDescription += " " + meta;
+        const cleanMeta = meta.replace(/<!--?\s*CAT:[a-z0-9_-]+\s*-->?/gi, "").trim();
+        if(cleanMeta) fullDescription += " " + cleanMeta;
       }
       const description = fullDescription;
 
@@ -1772,6 +1787,9 @@
     document.getElementById("expDate").value = e.expense_date;
     manualTaxType = "inclusive";
     updateManualTaxTypeUI();
+    const catMeta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note) : { type: "general" };
+    updateExpCategoryUI(catMeta.type);
+    userManuallyPickedCategory = true;
 
     const payers = e.payers || [];
     const payerModeBtn = document.querySelector(payers.length <= 1 ? '.split-mode-btn[data-payer-mode="single"]' : '.split-mode-btn[data-payer-mode="multi"]');
@@ -1833,6 +1851,9 @@
     updateManualTaxTypeUI();
     document.getElementById("expDesc").value = "";
     if(document.getElementById("expNote")) document.getElementById("expNote").value = "";
+    selectedExpCategory = "general";
+    userManuallyPickedCategory = false;
+    updateExpCategoryUI("general");
     clearTempEditOptions();
   }
 
@@ -1947,38 +1968,42 @@
     </div>`;
   }
   async function refreshExpenses(){
-    // 這兩個查詢彼此獨立（不同表、互不依賴對方結果），原本一個 await 完
-    // 才發下一個，等於把兩趟網路來回時間疊加起來；改成同時發出去，
-    // 總時間變成取兩者較慢的那個，而不是兩個相加。這裡是每次新增/編輯/
-    // 刪除、甚至別人那邊有異動觸發即時同步時都會跑一次的路徑，很值得省。
-    const [
-      { data: expenses, error: expError },
-      { data: repayments, error: repError }
-    ] = await Promise.all([
-      sb.from("expenses")
-        .select("*")
-        .eq("currency", CURRENCY)
-        .order("expense_date", { ascending:false })
-        .order("created_at", { ascending:false }),
-      sb.from("repayments")
-        .select("*")
-        .eq("currency", CURRENCY)
-        .order("payment_date", { ascending:false })
-        .order("created_at", { ascending:false })
-    ]);
+    const gid = (myMember && myMember.group_id) || (MEMBERS[0] && MEMBERS[0].group_id);
+    let expQuery = sb.from("expenses").select("*").order("expense_date", { ascending:false }).order("created_at", { ascending:false });
+    let repQuery = sb.from("repayments").select("*").order("payment_date", { ascending:false }).order("created_at", { ascending:false });
 
-    // 讀取失敗就先不要用空陣列覆蓋畫面——那樣看起來會像「所有紀錄都不見了」，
-    // 寧可維持上一次成功讀到的內容，等下一次重新整理再試。
+    if(gid){
+      expQuery = expQuery.eq("group_id", gid);
+      repQuery = repQuery.eq("group_id", gid);
+    } else {
+      expQuery = expQuery.eq("currency", CURRENCY);
+      repQuery = repQuery.eq("currency", CURRENCY);
+    }
+
+    const [
+      { data: allExp, error: expError },
+      { data: allRep, error: repError }
+    ] = await Promise.all([expQuery, repQuery]);
+
     if(expError || repError){
       console.error("讀取支出/還款失敗：", expError || repError);
       return;
     }
 
-    cachedExpenses = expenses || [];
-    cachedRepayments = repayments || [];
+    window.allGroupExpenses = allExp || [];
+    window.allGroupRepayments = allRep || [];
+
+    const expenses = (allExp || []).filter(e => e.currency === CURRENCY);
+    const repayments = (allRep || []).filter(r => r.currency === CURRENCY);
+
+    cachedExpenses = expenses;
+    cachedRepayments = repayments;
+    window.cachedExpenses = cachedExpenses;
+    window.cachedRepayments = cachedRepayments;
+
     applyFiltersAndRenderHistory();
     applyFiltersAndRenderRepayments();
-    await renderBalances(expenses || [], repayments || []);
+    await renderBalances(expenses, repayments);
   }
 
   // ---------- 即時同步：別人新增/編輯/刪除支出或還款時，自動重新整理 ----------
@@ -2015,8 +2040,209 @@
       .subscribe();
   }
 
-  function checkedIds(containerId){
-    return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(i => i.value);
+  // ---------- 多選型下拉式選單狀態與元件 (Multi-Select Dropdown Component) ----------
+  const multiSelectStates = {
+    filterCategoryDropdown: [],
+    filterPayerDropdown: [],
+    filterInvolvedDropdown: [],
+    filterRepayFromDropdown: [],
+    filterRepayToDropdown: []
+  };
+
+  let cachedFilterMembers = [];
+
+  function setupMultiSelectDropdown({ containerId, defaultLabel, options, onChange }){
+    const container = document.getElementById(containerId);
+    if(!container) return;
+
+    if(!multiSelectStates[containerId]){
+      multiSelectStates[containerId] = [];
+    }
+
+    function renderUI(){
+      const selected = multiSelectStates[containerId] || [];
+      let summaryText = defaultLabel || "全部 (未篩選)";
+      let badgeHtml = "";
+
+      if(selected.length > 0){
+        const selectedItems = options.filter(o => selected.includes(o.value));
+        if(selectedItems.length === 1){
+          summaryText = selectedItems[0].shortLabel || selectedItems[0].label;
+        } else if(selectedItems.length === 2){
+          summaryText = `${selectedItems[0].shortLabel || selectedItems[0].label}、${selectedItems[1].shortLabel || selectedItems[1].label}`;
+        } else if(selectedItems.length > 2){
+          summaryText = `${selectedItems[0].shortLabel || selectedItems[0].label} 等 ${selectedItems.length} 項`;
+        }
+        badgeHtml = `<span class="sb-ms-count-badge">${selected.length}</span>`;
+      }
+
+      const isOpen = container.classList.contains("open");
+
+      container.innerHTML = `
+        <button type="button" class="sb-ms-trigger ${selected.length ? 'has-selection' : ''}">
+          <span class="sb-ms-trigger-text">${escapeHtml(summaryText)}</span>
+          <div class="sb-ms-trigger-right">
+            ${badgeHtml}
+            <span class="sb-ms-caret">▾</span>
+          </div>
+        </button>
+        <div class="sb-ms-popover ${isOpen ? 'show' : ''}">
+          <div class="sb-ms-header">
+            <button type="button" class="sb-ms-action-btn select-all-btn">全選</button>
+            <span class="sb-ms-header-sep">|</span>
+            <button type="button" class="sb-ms-action-btn clear-all-btn">清除</button>
+          </div>
+          <div class="sb-ms-list">
+            ${options.map(opt => {
+              const isChecked = selected.includes(opt.value);
+              return `
+                <label class="sb-ms-item ${isChecked ? 'checked' : ''}">
+                  <input type="checkbox" value="${opt.value}" ${isChecked ? 'checked' : ''}>
+                  <div class="sb-ms-item-content">
+                    ${opt.iconHtml || ''}
+                    <span class="sb-ms-item-label">${escapeHtml(opt.label)}</span>
+                  </div>
+                </label>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+
+      // 綁定事件
+      const trigger = container.querySelector(".sb-ms-trigger");
+      const popover = container.querySelector(".sb-ms-popover");
+
+      trigger.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        // 關閉其他開啟中的多選下拉選單
+        document.querySelectorAll(".sb-multi-select.open").forEach(ms => {
+          if(ms !== container){
+            ms.classList.remove("open");
+            const p = ms.querySelector(".sb-ms-popover");
+            if(p) p.classList.remove("show");
+          }
+        });
+
+        const willOpen = !container.classList.contains("open");
+        container.classList.toggle("open", willOpen);
+        if(popover) popover.classList.toggle("show", willOpen);
+      });
+
+      popover.addEventListener("click", (e)=>{
+        e.stopPropagation();
+      });
+
+      const selectAllBtn = popover.querySelector(".select-all-btn");
+      if(selectAllBtn){
+        selectAllBtn.addEventListener("click", ()=>{
+          multiSelectStates[containerId] = options.map(o => o.value);
+          renderUI();
+          if(onChange) onChange(multiSelectStates[containerId]);
+        });
+      }
+
+      const clearAllBtn = popover.querySelector(".clear-all-btn");
+      if(clearAllBtn){
+        clearAllBtn.addEventListener("click", ()=>{
+          multiSelectStates[containerId] = [];
+          renderUI();
+          if(onChange) onChange(multiSelectStates[containerId]);
+        });
+      }
+
+      popover.querySelectorAll(".sb-ms-item input").forEach(inp => {
+        inp.addEventListener("change", ()=>{
+          const val = inp.value;
+          if(inp.checked){
+            if(!multiSelectStates[containerId].includes(val)){
+              multiSelectStates[containerId].push(val);
+            }
+          } else {
+            multiSelectStates[containerId] = multiSelectStates[containerId].filter(v => v !== val);
+          }
+          renderUI();
+          if(onChange) onChange(multiSelectStates[containerId]);
+        });
+      });
+    }
+
+    renderUI();
+  }
+
+  // 全域點擊關閉所有 multi-select popover
+  document.addEventListener("click", (e)=>{
+    if(!e.target.closest(".sb-multi-select")){
+      document.querySelectorAll(".sb-multi-select.open").forEach(ms => {
+        ms.classList.remove("open");
+        const p = ms.querySelector(".sb-ms-popover");
+        if(p) p.classList.remove("show");
+      });
+    }
+  });
+
+  function initFilterMultiSelects(rows){
+    if(rows) cachedFilterMembers = rows;
+    const currentMembers = cachedFilterMembers || [];
+
+    const memberOptions = currentMembers.map(m => ({
+      value: m.id,
+      label: m.name,
+      shortLabel: m.name,
+      iconHtml: renderAvatarHTML(m, "avatar-xs")
+    }));
+
+    const categoryOptions = Object.keys(CATEGORY_MAP || {}).filter(k => k !== "xcur").map(k => ({
+      value: k,
+      label: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name}`,
+      shortLabel: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name.slice(0, 2)}`,
+      iconHtml: `<span class="cat-chip-icon" style="font-size:15px;line-height:1;">${CATEGORY_MAP[k].icon}</span>`
+    }));
+
+    setupMultiSelectDropdown({
+      containerId: "filterCategoryDropdown",
+      defaultLabel: "所有類別 (未篩選)",
+      options: categoryOptions,
+      onChange: () => {
+        applyFiltersAndRenderHistory();
+      }
+    });
+
+    setupMultiSelectDropdown({
+      containerId: "filterPayerDropdown",
+      defaultLabel: "所有人 (未篩選)",
+      options: memberOptions,
+      onChange: () => {
+        applyFiltersAndRenderHistory();
+      }
+    });
+
+    setupMultiSelectDropdown({
+      containerId: "filterInvolvedDropdown",
+      defaultLabel: "所有人 (未篩選)",
+      options: memberOptions,
+      onChange: () => {
+        applyFiltersAndRenderHistory();
+      }
+    });
+
+    setupMultiSelectDropdown({
+      containerId: "filterRepayFromDropdown",
+      defaultLabel: "所有人 (未篩選)",
+      options: memberOptions,
+      onChange: () => {
+        applyFiltersAndRenderRepayments();
+      }
+    });
+
+    setupMultiSelectDropdown({
+      containerId: "filterRepayToDropdown",
+      defaultLabel: "所有人 (未篩選)",
+      options: memberOptions,
+      onChange: () => {
+        applyFiltersAndRenderRepayments();
+      }
+    });
   }
 
   function getEffectiveFrom(){
@@ -2034,14 +2260,27 @@
     const to = toEl ? toEl.value : "";
     const kwEl = document.getElementById("filterKeyword");
     const keyword = kwEl ? kwEl.value.trim().toLowerCase() : "";
-    const payerIds = checkedIds("filterPayerChecks");
-    const involvedIds = checkedIds("filterInvolvedChecks");
+
+    const selectedCats = multiSelectStates.filterCategoryDropdown || [];
+    const payerIds = multiSelectStates.filterPayerDropdown || [];
+    const involvedIds = multiSelectStates.filterInvolvedDropdown || [];
 
     if(from && e.expense_date < from) return false;
     if(to && e.expense_date > to) return false;
     if(keyword && !(e.description || "").toLowerCase().includes(keyword) && !(e.note || "").toLowerCase().includes(keyword)) return false;
+
+    // 類別多選篩選
+    if(selectedCats.length > 0){
+      const catMeta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note)) || { type: "general" };
+      if(!selectedCats.includes(catMeta.type)) return false;
+    }
+
+    // 付款人多選篩選
     if(payerIds.length && !(e.payers || []).some(p => payerIds.includes(p.member_id))) return false;
+
+    // 應付人多選篩選
     if(involvedIds.length && !(e.shares || []).some(s => involvedIds.includes(s.member_id))) return false;
+
     return true;
   }
 
@@ -2051,8 +2290,9 @@
     const to = toEl ? toEl.value : "";
     const kwEl = document.getElementById("filterKeyword");
     const keyword = kwEl ? kwEl.value.trim().toLowerCase() : "";
-    const fromIds = checkedIds("filterRepayFromChecks");
-    const toIds = checkedIds("filterRepayToChecks");
+
+    const fromIds = multiSelectStates.filterRepayFromDropdown || [];
+    const toIds = multiSelectStates.filterRepayToDropdown || [];
 
     if(from && r.payment_date < from) return false;
     if(to && r.payment_date > to) return false;
@@ -2087,10 +2327,10 @@
       document.getElementById("filterFrom").value = "";
       document.getElementById("filterTo").value = "";
       document.getElementById("filterKeyword").value = "";
-      document.querySelectorAll("#filterPayerChecks input, #filterInvolvedChecks input, #filterRepayFromChecks input, #filterRepayToChecks input").forEach(inp=>{
-        inp.checked = false;
-        inp.closest(".check-pill").classList.remove("checked");
+      Object.keys(multiSelectStates).forEach(k => {
+        multiSelectStates[k] = [];
       });
+      initFilterMultiSelects();
       applyFiltersAndRenderHistory();
       applyFiltersAndRenderRepayments();
     });
@@ -2369,12 +2609,15 @@
         const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
         const isXcur = isXcurStr(e.description) || isXcurStr(e.note);
         const isAiSplit = Boolean((e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細"))) || (e.note && e.note.includes("<!--AI_RECEIPT_DATA:")));
-        const icon = getCategoryIcon(title || e.description);
+        const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || e.description)) || { icon: "🧾", type: "general", name: "一般" };
+        const icon = catMeta.icon;
         const payerNames = (e.payers || []).map(p => escapeHtml(memberById[p.member_id] || "?")).join("、");
         const shareNames = (e.shares || []).map(s => escapeHtml(memberById[s.member_id] || "?")).join("、");
+        const shareAvatars = (e.shares || []).slice(0, 4).map(s => renderAvatarHTML({ id: s.member_id, name: memberById[s.member_id] }, "avatar-xs")).join("");
+        const shareMore = (e.shares || []).length > 4 ? `<span class="avatar-stack-more">+${(e.shares || []).length - 4}</span>` : "";
         const firstLineNote = note ? note.split("\n")[0].trim() : "";
         return `<div class="exp-item" data-id="${e.id}" title="點擊查看本項目的債務關係表與品項明細">
-          <div class="exp-cat-badge">${icon}</div>
+          <div class="exp-cat-badge exp-cat-${catMeta.type}" title="${catMeta.name}">${icon}</div>
           <div class="exp-main">
             <div class="exp-desc">${escapeHtml(title)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI拆單</span>' : ""}${isXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}</div>
             <div class="exp-meta">
@@ -2836,12 +3079,303 @@
     chartExpensesCache = expenses;
     chartRepaymentsCache = repayments;
     updateSpendChart();
+    renderCategoryDonutChart(expenses);
 
     // 這兩個畫面用的是同一份債務資料，算一次共用，不用各自重算一遍
     // buildDebtMatrix()（要重新掃過全部支出/還款，資料一多會是浪費）。
     const owedForRender = buildDebtMatrix(expenses, repayments);
     renderSettlement(expenses, repayments, owedForRender);
     renderDebtMatrix(expenses, repayments, owedForRender);
+  }
+
+  // ==========================================================
+  // 🍩 花費類別分佈甜甜圈圖 (Category Donut Chart)
+  // ==========================================================
+  let donutScope = "all"; // "all" | "my"
+
+  function renderCategoryDonutChart(expenses){
+    const wrap = document.getElementById("categoryDonutWrap");
+    if(!wrap) return;
+    const expList = expenses || chartExpensesCache || [];
+    if(!expList.length){
+      wrap.innerHTML = `<p class="filter-hint">目前沒有任何支出紀錄</p>`;
+      return;
+    }
+
+    const myId = myMember && myMember.id;
+    const filteredExp = donutScope === "my"
+      ? expList.filter(e => (e.shares || []).some(s => s.member_id === myId))
+      : expList;
+
+    if(!filteredExp.length){
+      wrap.innerHTML = `<p class="filter-hint">${donutScope === "my" ? "目前沒有跟你相關的支出" : "目前沒有支出紀錄"}</p>`;
+      return;
+    }
+
+    const catMap = {};
+    let totalAmt = 0;
+
+    filteredExp.forEach(e => {
+      const meta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note)) || { icon: "🧾", name: "一般支出", type: "general", color: "#868E96" };
+      let amt = 0;
+      if(donutScope === "my"){
+        const myShare = (e.shares || []).find(s => s.member_id === myId);
+        amt = myShare ? (Number(myShare.amount) || 0) : 0;
+      } else {
+        amt = Number(e.amount) || 0;
+      }
+      if(amt > 0.01){
+        totalAmt += amt;
+        if(!catMap[meta.type]){
+          catMap[meta.type] = {
+            type: meta.type,
+            name: meta.name,
+            icon: meta.icon,
+            color: meta.color || "#868E96",
+            amount: 0,
+            count: 0
+          };
+        }
+        catMap[meta.type].amount += amt;
+        catMap[meta.type].count += 1;
+      }
+    });
+
+    const catList = Object.values(catMap).sort((a, b) => b.amount - a.amount);
+    if(!catList.length || totalAmt <= 0.01){
+      wrap.innerHTML = `<p class="filter-hint">尚無有效支出金額</p>`;
+      return;
+    }
+
+    // SVG 圓餅甜甜圈圖計算
+    const size = 180;
+    const cx = size / 2, cy = size / 2;
+    const r = 68;
+    const strokeWidth = 22;
+    const circumference = 2 * Math.PI * r;
+
+    let accumulatedPct = 0;
+    const paths = catList.map((cat) => {
+      const pct = cat.amount / totalAmt;
+      const strokeDasharray = `${(pct * circumference).toFixed(2)} ${(circumference * (1 - pct)).toFixed(2)}`;
+      const strokeDashoffset = (-accumulatedPct * circumference).toFixed(2);
+      accumulatedPct += pct;
+
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${cat.color}" stroke-width="${strokeWidth}" stroke-dasharray="${strokeDasharray}" stroke-dashoffset="${strokeDashoffset}" class="donut-slice" data-type="${cat.type}" data-name="${escapeHtml(cat.name)}" data-icon="${cat.icon}" data-color="${cat.color}" data-amt="${formatAmt(cat.amount)}" data-pct="${(pct * 100).toFixed(1)}" data-count="${cat.count}"></circle>`;
+    }).join("");
+
+    const legendHtml = catList.map(cat => {
+      const pct = ((cat.amount / totalAmt) * 100).toFixed(1);
+      return `
+        <div class="donut-legend-item" data-type="${cat.type}" data-name="${escapeHtml(cat.name)}" data-icon="${cat.icon}" data-color="${cat.color}" data-amt="${formatAmt(cat.amount)}" data-pct="${pct}" data-count="${cat.count}">
+          <div class="donut-legend-left">
+            <span class="donut-legend-dot" style="background:${cat.color};"></span>
+            <span class="donut-legend-icon">${cat.icon}</span>
+            <span class="donut-legend-name">${escapeHtml(cat.name)}</span>
+          </div>
+          <div class="donut-legend-right">
+            <span class="donut-legend-amt">${SYM}${formatAmt(cat.amount)}</span>
+            <span class="donut-legend-pct">${pct}%</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    wrap.innerHTML = `
+      <div class="donut-main-row">
+        <div class="donut-svg-wrap">
+          <svg viewBox="0 0 ${size} ${size}" class="donut-svg">
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${strokeWidth}"></circle>
+            ${paths}
+          </svg>
+          <div class="donut-center-info" id="donutCenterInfo">
+            <span class="donut-center-label">${donutScope === "my" ? "我的支出" : "全團總額"}</span>
+            <span class="donut-center-amt">${SYM}${formatAmt(totalAmt)}</span>
+            <span class="donut-center-sub">${catList.length} 類別</span>
+          </div>
+        </div>
+        <div class="donut-legend-list">
+          ${legendHtml}
+        </div>
+      </div>
+    `;
+
+    // 綁定互動事件：懸停或點擊切換中心資訊
+    wrap.querySelectorAll(".donut-slice, .donut-legend-item").forEach(item => {
+      const type = item.dataset.type;
+      const cat = catList.find(c => c.type === type);
+      if(!cat) return;
+
+      const showCat = () => {
+        const centerInfo = document.getElementById("donutCenterInfo");
+        if(centerInfo){
+          const pct = ((cat.amount / totalAmt) * 100).toFixed(1);
+          centerInfo.innerHTML = `
+            <span class="donut-center-label">${cat.icon} ${escapeHtml(cat.name)}</span>
+            <span class="donut-center-amt" style="color:${cat.color}">${SYM}${formatAmt(cat.amount)}</span>
+            <span class="donut-center-sub">${pct}% · 共 ${cat.count} 筆</span>
+          `;
+        }
+        wrap.querySelectorAll(".donut-legend-item").forEach(el => el.classList.toggle("active", el.dataset.type === type));
+      };
+
+      const resetCat = () => {
+        const centerInfo = document.getElementById("donutCenterInfo");
+        if(centerInfo){
+          centerInfo.innerHTML = `
+            <span class="donut-center-label">${donutScope === "my" ? "我的支出" : "全團總額"}</span>
+            <span class="donut-center-amt">${SYM}${formatAmt(totalAmt)}</span>
+            <span class="donut-center-sub">${catList.length} 類別</span>
+          `;
+        }
+        wrap.querySelectorAll(".donut-legend-item").forEach(el => el.classList.remove("active"));
+      };
+
+      item.addEventListener("mouseenter", showCat);
+      item.addEventListener("mouseleave", resetCat);
+      item.addEventListener("click", ()=>{
+        showCat();
+        showCategoryExpensesModal(cat.type, cat.name, cat.icon, cat.color);
+      });
+    });
+  }
+
+  // ---------- 類別支出明細視窗 (Category Detail Modal) ----------
+  function showCategoryExpensesModal(catType, catName, catIcon, catColor){
+    const modal = document.getElementById("categoryExpensesModal");
+    if(!modal) return;
+
+    const myId = myMember && myMember.id;
+    const expList = (cachedExpenses && cachedExpenses.length) ? cachedExpenses : (chartExpensesCache || []);
+    const isMyScope = donutScope === "my";
+
+    // 篩選出該類別的支出紀錄（依日期新到舊排序）
+    const matchingExpenses = expList.filter(e => {
+      const meta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note)) || { type: "general" };
+      if(meta.type !== catType) return false;
+      if(isMyScope){
+        return (e.shares || []).some(s => s.member_id === myId);
+      }
+      return true;
+    }).sort((a, b) => (b.expense_date || "").localeCompare(a.expense_date || "") || (b.created_at || "").localeCompare(a.created_at || ""));
+
+    // 計算該類別總額
+    let catTotal = 0;
+    matchingExpenses.forEach(e => {
+      if(isMyScope){
+        const myShare = (e.shares || []).find(s => s.member_id === myId);
+        catTotal += myShare ? (Number(myShare.amount) || 0) : 0;
+      } else {
+        catTotal += Number(e.amount) || 0;
+      }
+    });
+
+    // 更新 Header
+    const iconEl = document.getElementById("catModalIcon");
+    const nameEl = document.getElementById("catModalName");
+    const subEl = document.getElementById("catModalSub");
+    if(iconEl) iconEl.textContent = catIcon || "🧾";
+    if(nameEl) nameEl.textContent = catName || "類別支出";
+    if(subEl) subEl.textContent = `${isMyScope ? "我的支出" : "全團支出"} · 共 ${matchingExpenses.length} 筆 · ${SYM}${formatAmt(catTotal)}`;
+
+    const listEl = document.getElementById("catModalList");
+    if(listEl){
+      if(!matchingExpenses.length){
+        listEl.innerHTML = emptyStateHTML("📭", "暫無支出紀錄", "此類別目前沒有任何支出紀錄。");
+      } else {
+        listEl.innerHTML = matchingExpenses.map(e => {
+          const { title, note } = splitExpenseTitleAndNote(e.description, e.note);
+          const formattedTime = formatTime(e.created_at, e.expense_date);
+          const dateStr = e.expense_date + (formattedTime ? " " + formattedTime : "");
+
+          const payers = e.payers || [];
+          const shares = e.shares || [];
+
+          // 付款人：只出現氣泡頭貼
+          const payersAvatarsHtml = payers.map(p => {
+            const m = (memberRows || activeMembers || []).find(mem => mem.id === p.member_id) || { id: p.member_id, name: (memberById && memberById[p.member_id]) || "成員" };
+            return `<span class="cat-exp-avatar-bubble" title="付款人: ${escapeHtml(m.name)}${payers.length > 1 ? ` (${SYM}${formatAmt(p.amount)})` : ''}">${renderAvatarHTML(m, "avatar-xs")}</span>`;
+          }).join("");
+
+          // 應付人：只出現氣泡頭貼
+          const sharesAvatarsHtml = shares.map(s => {
+            const m = (memberRows || activeMembers || []).find(mem => mem.id === s.member_id) || { id: s.member_id, name: (memberById && memberById[s.member_id]) || "成員" };
+            const isMe = s.member_id === myId;
+            return `<span class="cat-exp-avatar-bubble ${isMe ? 'is-me' : ''}" title="應付人: ${escapeHtml(m.name)}${isMe ? ' (我)' : ''}${shares.length > 1 ? ` (${SYM}${formatAmt(s.amount)})` : ''}">${renderAvatarHTML(m, "avatar-xs")}</span>`;
+          }).join("");
+
+          let myShareBadge = "";
+          if(isMyScope){
+            const myShare = shares.find(s => s.member_id === myId);
+            if(myShare){
+              myShareBadge = `<div class="cat-exp-my-share">我分攤 ${SYM}${formatAmt(myShare.amount)}</div>`;
+            }
+          }
+
+          return `
+            <div class="cat-exp-card" data-id="${e.id}">
+              <div class="cat-exp-card-top">
+                <div class="cat-exp-info-col">
+                  <div class="cat-exp-date"><span class="cat-exp-date-icon">📅</span> ${dateStr}</div>
+                  <div class="cat-exp-title">${escapeHtml(title)}</div>
+                  ${note ? `<div class="cat-exp-note">${escapeHtml(note)}</div>` : ''}
+                </div>
+                <div class="cat-exp-amt-col">
+                  <div class="cat-exp-total-amt">${SYM}${formatAmt(e.amount)}</div>
+                  ${myShareBadge}
+                </div>
+              </div>
+              <div class="cat-exp-card-bottom">
+                <div class="cat-exp-avatar-row">
+                  <span class="cat-exp-row-label">💳 付款</span>
+                  <div class="cat-exp-avatar-stack">${payersAvatarsHtml || "—"}</div>
+                </div>
+                <div class="cat-exp-avatar-row">
+                  <span class="cat-exp-row-label">👥 應付</span>
+                  <div class="cat-exp-avatar-stack">${sharesAvatarsHtml || "—"}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    // 關閉其他可能開啟中的彈窗
+    document.querySelectorAll(".calc-modal.show, .modal.show").forEach(m => {
+      if(m !== modal) m.classList.remove("show");
+    });
+
+    modal.classList.add("show");
+  }
+
+  const catModalCloseBtn = document.getElementById("catModalCloseBtn");
+  if(catModalCloseBtn){
+    catModalCloseBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const modal = document.getElementById("categoryExpensesModal");
+      if(modal) modal.classList.remove("show");
+    });
+  }
+  const catModal = document.getElementById("categoryExpensesModal");
+  if(catModal){
+    catModal.addEventListener("click", (e)=>{
+      if(e.target === catModal || e.target.classList.contains("modal-backdrop") || e.target.classList.contains("calc-modal")){
+        catModal.classList.remove("show");
+      }
+    });
+  }
+
+  const donutScopeTabs = document.getElementById("donutScopeTabs");
+  if(donutScopeTabs){
+    donutScopeTabs.querySelectorAll(".donut-scope-tab").forEach(tab => {
+      tab.addEventListener("click", ()=>{
+        donutScopeTabs.querySelectorAll(".donut-scope-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        donutScope = tab.dataset.scope || "all";
+        renderCategoryDonutChart(chartExpensesCache);
+      });
+    });
   }
 
   function renderSettlement(expenses, repayments, owed){
@@ -3216,9 +3750,10 @@ function renderDebtMatrix(
           if(amount > 0.05){
 
             rowTotal += amount;
+            const intensity = amount >= 8000 ? "debt-high" : (amount >= 2000 ? "debt-med" : "debt-low");
 
             tbody +=
-              '<td class="matrix-cell has-debt"' +
+              '<td class="matrix-cell has-debt ' + intensity + '"' +
                 ' data-creditor="' +
                 creditorId +
                 '"' +
@@ -3856,17 +4391,20 @@ if(exportSettlementImgBtn){
       const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
       const filename = `Splitbill結算_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
       const file = new File([blob], filename, { type: "image/png" });
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isMobile = isIOS || /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
 
       async function handleMobileShareOrSave(){
-        if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+        if(navigator.share){
           try {
-            await navigator.share({
-              files: [file],
-              title: `Splitbill 帳務結算 - ${groupName}`,
-              text: `這是 ${groupName} 的帳務結算圖`
-            });
-            return true;
+            if(navigator.canShare && navigator.canShare({ files: [file] })){
+              await navigator.share({
+                files: [file],
+                title: `Splitbill 帳務結算 - ${groupName}`,
+                text: `這是 ${groupName} 的帳務結算圖`
+              });
+              return true;
+            }
           } catch(e){
             if(e && e.name === "AbortError") return true; // 使用者主動取消
           }
@@ -3874,23 +4412,59 @@ if(exportSettlementImgBtn){
         return false;
       }
 
+      async function handleCopyImage(){
+        if(navigator.clipboard && typeof ClipboardItem !== "undefined"){
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ [blob.type || "image/png"]: blob })
+            ]);
+            const copyBtn = document.getElementById("settlementImgCopyBtn");
+            if(copyBtn){
+              const old = copyBtn.innerHTML;
+              copyBtn.innerHTML = "✓ 已複製！";
+              setTimeout(()=>{ copyBtn.innerHTML = old; }, 2000);
+            }
+            showToast("📋 圖片已複製", "可直接切換到 LINE / 社群按「貼上」發送！");
+            return true;
+          } catch(e){
+            console.warn("ClipboardItem write error:", e);
+          }
+        }
+        return false;
+      }
+
       function handleDirectDownload(){
+        if(isIOS){
+          // iOS Safari / In-App 瀏覽器封鎖 data/blob 標籤下載，引導長按儲存
+          sbAlert("📱 iPhone / iPad 儲存相簿教學：\n\n1. 請直接「長按」上方預覽圖片\n2. 選擇「儲存影像」或「加入照片」\n即可立即存入手機相簿！", "💡 儲存至相簿");
+          return;
+        }
         try {
           const a = document.createElement("a");
-          a.href = dataUrl || currentSettlementImgUrl;
+          a.href = currentSettlementImgUrl || dataUrl;
           a.download = filename;
           document.body.appendChild(a);
           a.click();
-          setTimeout(() => a.remove(), 200);
+          setTimeout(() => a.remove(), 250);
         } catch(e){
-          window.open(dataUrl || currentSettlementImgUrl, "_blank");
+          window.open(currentSettlementImgUrl || dataUrl, "_blank");
         }
+      }
+
+      const copyBtn = document.getElementById("settlementImgCopyBtn");
+      if(copyBtn){
+        copyBtn.onclick = async () => {
+          const ok = await handleCopyImage();
+          if(!ok){
+            await sbAlert("您的瀏覽器暫不支援直接複製圖片，請直接「長按上方圖片」選擇「拷貝」或「儲存影像」。", "💡 複製提示");
+          }
+        };
       }
 
       const dlBtn = document.getElementById("settlementImgDownloadBtn");
       if(dlBtn){
         dlBtn.onclick = async () => {
-          if(isMobile && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+          if(isMobile && isIOS){
             const shared = await handleMobileShareOrSave();
             if(shared) return;
           }
@@ -3900,11 +4474,13 @@ if(exportSettlementImgBtn){
 
       const shareBtn = document.getElementById("settlementImgShareBtn");
       if(shareBtn){
-        shareBtn.classList.remove("hidden");
         shareBtn.onclick = async () => {
           const shared = await handleMobileShareOrSave();
           if(!shared){
-            handleDirectDownload();
+            const copied = await handleCopyImage();
+            if(!copied){
+              handleDirectDownload();
+            }
           }
         };
       }
@@ -4521,27 +5097,41 @@ function showPairDetail(
   let html = `
     <div class="debt-detail-panel">
 
-      <!-- 頂部標題 -->
+      <!-- 頂部列：左邊大標題，右邊獨立關閉按鈕 -->
+      <div class="debt-detail-top-bar">
+        <div class="debt-detail-title-main">
+          <span class="debt-detail-title-icon">📊</span>
+          <span>債務明細</span>
+        </div>
+        <button type="button" id="matrixDetailClose" class="debt-detail-close" aria-label="關閉">✕</button>
+      </div>
+
+      <!-- 頂部動態金流傳送條（獨立滿版置中） -->
       <div class="debt-detail-header">
-        <div class="debt-detail-title-wrap">
-          <div class="debt-detail-eyebrow">
-            債務明細
+        <div class="debt-flow-header-card">
+          <div class="debt-flow-party debtor">
+            ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-md")}
+            <div class="debt-flow-party-info">
+              <span class="debt-flow-name">${escapeHtml(memberById[debtorId] || "?")}</span>
+              <span class="debt-flow-role debtor">應付</span>
+            </div>
           </div>
-          <div class="debt-detail-title">
-            <span class="debt-person debtor" style="display:inline-flex;align-items:center;gap:6px;">
-              ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-sm")}
-              ${escapeHtml(memberById[debtorId] || "?")}
-            </span>
-            <span class="debt-arrow">
-              欠
-            </span>
-            <span class="debt-person creditor" style="display:inline-flex;align-items:center;gap:6px;">
-              ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-sm")}
-              ${escapeHtml(memberById[creditorId] || "?")}
-            </span>
+          <div class="debt-flow-track">
+            <div class="debt-flow-line">
+              <span class="debt-flow-pulse"></span>
+            </div>
+            <div class="debt-flow-amount-pill ${remainingDebt <= 0.01 ? 'settled' : ''}">
+              ${remainingDebt > 0.01 ? `欠 ${SYM}${formatAmt(remainingDebt)}` : `✓ 已結清`}
+            </div>
+          </div>
+          <div class="debt-flow-party creditor">
+            ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-md")}
+            <div class="debt-flow-party-info">
+              <span class="debt-flow-name">${escapeHtml(memberById[creditorId] || "?")}</span>
+              <span class="debt-flow-role creditor">收款</span>
+            </div>
           </div>
         </div>
-        <button type="button" id="matrixDetailClose" class="debt-detail-close" aria-label="關閉">×</button>
       </div>
 
       <!-- 債務組成 -->
@@ -4626,6 +5216,17 @@ function showPairDetail(
         </div>
       `;
     });
+
+    // debtorOwesCreditor 是當前活躍區間內（扣除下方已還款後）的淨消費欠款
+    const priorOverpaidAmt = Math.max(0, remainingDebt - debtorOwesCreditor);
+    if(priorOverpaidAmt > 0.01){
+      html += `
+        <div class="debt-overpayment-notice">
+          <span class="debt-overpayment-icon">💸</span>
+          <span>另有 ${SYM}${formatAmt(priorOverpaidAmt)} 欠款來自 <b>${escapeHtml(memberById[creditorId] || "對方")}</b> 先前多還／溢付的款項</span>
+        </div>
+      `;
+    }
   }else if(remainingDebt > 0.01){
     html += `
       <div class="debt-empty-state">
@@ -4643,10 +5244,16 @@ function showPairDetail(
   }else{
     html += `
       <div class="debt-empty-state">
-        <div class="debt-empty-icon icon-positive">
-          ✓
+        <div class="debt-settled-stamp-wrap">
+          <div class="debt-settled-stamp">
+            <div class="stamp-inner">
+              <span class="stamp-check">✓</span>
+              <span class="stamp-text">ALL CLEARED</span>
+              <span class="stamp-sub">已全數結清</span>
+            </div>
+          </div>
         </div>
-        <div class="debt-empty-title">
+        <div class="debt-empty-title" style="margin-top:14px;">
           已全部結清
         </div>
         <div class="debt-empty-text">
@@ -5708,6 +6315,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
         renderClaimBoard();
 
+        const initialCat = (expense && window.getCategoryMeta && window.getCategoryMeta(expense.description, expense.note).type) ||
+                           (window.getCategoryMeta && window.getCategoryMeta(currentReceiptData.storeName).type) ||
+                           "food";
+        updateAiCategoryUI(initialCat);
+
         if(aiPayerMode === "single" && payers[0] && aiPaidBySingle){
           aiPaidBySingle.value = payers[0].member_id;
         } else if(aiPayerMode === "multi" && aiPayerMultiList){
@@ -5732,6 +6344,34 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     if(!modal || !openBtn) return;
     if(isAiReceiptModalInitialized) return;
     isAiReceiptModalInitialized = true;
+
+    // AI 拆單類別選擇器 (下拉式選單)
+    let selectedAiCategory = "food";
+
+    function updateAiCategoryUI(catType){
+      selectedAiCategory = catType || "food";
+      const select = document.getElementById("aiCategorySelect");
+      if(select){
+        select.value = selectedAiCategory;
+        if(typeof enhanceSelect === "function") enhanceSelect(select);
+      }
+    }
+
+    const aiCategorySelect = document.getElementById("aiCategorySelect");
+    if(aiCategorySelect){
+      aiCategorySelect.addEventListener("change", ()=>{
+        selectedAiCategory = aiCategorySelect.value || "food";
+      });
+    }
+
+    if(storeInputEl){
+      storeInputEl.addEventListener("input", ()=>{
+        const meta = window.getCategoryMeta ? window.getCategoryMeta(storeInputEl.value) : { type: "food" };
+        if(meta && meta.type !== "general"){
+          updateAiCategoryUI(meta.type);
+        }
+      });
+    }
 
     // 初始化幣別選單 (依序呈現：中文幣別 (符號)，例如 日幣 (¥))
     if(aiReceiptCurrencySelect){
@@ -6348,6 +6988,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             });
           }
 
+          const autoCat = window.getCategoryMeta ? window.getCategoryMeta(parsed.storeName || (parsed.items && parsed.items[0]?.name) || "").type : "food";
+          updateAiCategoryUI(autoCat);
           renderClaimBoard();
           showScreen("claim");
         } catch(err){
@@ -7325,9 +7967,13 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         aiDirectSaveBtn.textContent = "⏳ 正在儲存中…";
 
         try {
+          let storeNameWithCat = storeName;
+          if(selectedAiCategory && selectedAiCategory !== "general"){
+            storeNameWithCat += ` <!--CAT:${selectedAiCategory}-->`;
+          }
           const payload = {
             amount: finalTotal,
-            description: storeName,
+            description: storeNameWithCat,
             note: aiNote,
             expense_date: expenseDate,
             created_by: editingAiExpenseOriginal ? editingAiExpenseOriginal.created_by : (myMember ? myMember.id : activeMembers[0].id),
@@ -7370,6 +8016,82 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
       });
     }
+  }
+
+  // ============================================================
+  // 🎖️ 成就榜管理 (Achievements Wall Management)
+  // ============================================================
+  function initAchievementsModal(){
+    const openBtn = document.getElementById("openAchievementsModalBtn");
+    const modal = document.getElementById("achievementsModal");
+    const closeBtn = document.getElementById("achievementsCloseBtn");
+    const listScroll = document.getElementById("achievementsListScroll");
+
+    if(!modal) return;
+
+    function renderAchievementsWall(){
+      if(!listScroll) return;
+      const badges = window.BADGES_CATALOG || [];
+      const expList = cachedExpenses || chartExpensesCache || [];
+      const repList = cachedRepayments || [];
+      const members = (memberRows && memberRows.length) ? memberRows : (MEMBERS || []);
+
+      const html = badges.map(b => {
+        const unlockedHolders = members.filter(m => {
+          try { return b.check(m, expList, repList, members); } catch(e){ return false; }
+        });
+
+        const isUnlocked = unlockedHolders.length > 0;
+        const holdersHtml = isUnlocked
+          ? unlockedHolders.map(m => `
+              <span class="achievement-holder-chip">
+                ${renderAvatarHTML(m, "avatar-xs")}
+                <span>${escapeHtml(m.name || "成員")}</span>
+              </span>
+            `).join("")
+          : `<span class="achievement-desc" style="color:var(--ink-soft);font-style:italic;">🔒 尚未有人解鎖，加油！</span>`;
+
+        return `
+          <div class="achievement-card ${isUnlocked ? 'unlocked' : ''}">
+            <div class="achievement-icon-wrap">${b.icon}</div>
+            <div class="achievement-info-col">
+              <div class="achievement-name">${escapeHtml(b.name)}</div>
+              <div class="achievement-desc">${escapeHtml(b.desc)}</div>
+              <div class="achievement-holders">${holdersHtml}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      listScroll.innerHTML = html;
+    }
+
+    async function openModal(){
+      if(myMember && myMember.group_id && (!window.allGroupExpenses || !window.allGroupExpenses.length)){
+        try {
+          const [allExpRes, allRepRes] = await Promise.all([
+            sb.from("expenses").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false }),
+            sb.from("repayments").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false })
+          ]);
+          if(allExpRes.data) window.allGroupExpenses = allExpRes.data;
+          if(allRepRes.data) window.allGroupRepayments = allRepRes.data;
+        } catch(e){}
+      }
+      renderAchievementsWall();
+      modal.classList.remove("hidden");
+      modal.classList.add("show");
+    }
+
+    function closeModal(){
+      modal.classList.remove("show");
+      setTimeout(()=> modal.classList.add("hidden"), 200);
+    }
+
+    if(openBtn) openBtn.addEventListener("click", openModal);
+    if(closeBtn) closeBtn.addEventListener("click", closeModal);
+    modal.addEventListener("click", (e)=>{
+      if(e.target === modal) closeModal();
+    });
   }
 
   // ---------- boot: check for an existing session ----------
