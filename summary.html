@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css">
-<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="theme.css?v=483">
+<link rel="stylesheet" href="shared.css?v=483">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js"></script>
-<script src="version.js"></script>
-<script src="sb-shared.js"></script>
-<script src="theme.js" defer></script>
-<script src="app-banner.js" defer></script>
+<script src="currencies.js?v=483"></script>
+<script src="version.js?v=483"></script>
+<script src="sb-shared.js?v=483"></script>
+<script src="theme.js?v=483" defer></script>
+<script src="app-banner.js?v=483" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -189,7 +189,152 @@ if("serviceWorker" in navigator){
       </div>
     </div>
 
+    <!-- ⚡ 浮動快速記帳按鈕 -->
+    <button type="button" class="quick-exp-fab" id="openQuickExpenseBtn" title="一鍵快速記帳" aria-label="一鍵快速記帳">
+      <span class="quick-exp-fab-icon">⚡</span>
+      <span class="quick-exp-fab-text">記一筆</span>
+    </button>
+
     <div class="app-footer" id="appFooter"></div>
+  </div>
+</div>
+
+<!-- ⚡ 一鍵快速記帳彈窗 -->
+<div id="quickExpenseModal" class="calc-modal hidden">
+  <div class="calc-card quick-exp-modal-card">
+    <div class="calc-header">
+      <div class="quick-exp-modal-title">
+        <span class="quick-exp-modal-title-icon">⚡</span>
+        <span class="quick-exp-modal-title-text">快速記帳</span>
+      </div>
+      <button type="button" class="calc-close" id="quickExpenseCloseBtn" aria-label="關閉">✕</button>
+    </div>
+
+    <div class="quick-exp-modal-body">
+
+      <!-- 幣別智慧推薦與手動切換 -->
+      <div class="quick-field-label-row">
+        <label for="quickExpCurrencySelect">幣別</label>
+        <span class="quick-cur-auto-badge" id="quickCurAutoBadge">🌍 依時區自動推薦</span>
+      </div>
+      <div class="select-wrap">
+        <select id="quickExpCurrencySelect" class="quick-exp-currency-select"></select>
+      </div>
+
+      <label for="quickExpDesc">項目 / 店名</label>
+      <input type="text" id="quickExpDesc" placeholder="例如 晚餐、淺草雷門 星巴克">
+
+      <!-- 類別下拉式選單 -->
+      <label for="quickExpCategorySelect">類別 (自動辨識 / 可手動選擇)</label>
+      <div class="select-wrap exp-category-select-wrap">
+        <select id="quickExpCategorySelect" class="exp-category-select">
+          <option value="general">🧾 一般支出</option>
+          <option value="food" selected>🍜 美食餐飲</option>
+          <option value="drink">☕ 飲料甜點</option>
+          <option value="transit">🚄 大眾交通</option>
+          <option value="car">🚗 租車用油</option>
+          <option value="flight">✈️ 機票航班</option>
+          <option value="hotel">🏨 住宿溫泉</option>
+          <option value="ticket">🎟️ 門票娛樂</option>
+          <option value="shopping">🛍️ 購物藥妝</option>
+          <option value="medical">💊 醫療藥品</option>
+          <option value="network">📶 網卡通訊</option>
+        </select>
+      </div>
+
+      <!-- 稅費模式 -->
+      <label>稅費模式</label>
+      <div class="ai-tax-type-toggle exp-tax-type-toggle">
+        <button type="button" class="ai-tax-type-btn active" id="quickTaxTypeInclusive">內含稅 (免外加)</button>
+        <button type="button" class="ai-tax-type-btn" id="quickTaxTypeExclusive">外加稅費 (+)</button>
+      </div>
+
+      <!-- 金額 -->
+      <label id="quickExpAmountLabel">支出總金額 (已含稅/免稅)</label>
+      <div class="input-calc-wrap">
+        <input type="number" id="quickExpAmount" placeholder="例如 850" min="0" step="1">
+        <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickExpAmountCalcBtn" title="小計算機">🧮</button>
+      </div>
+
+      <!-- 服務費 / 稅（選填折疊） -->
+      <div class="exp-addons-container exp-tax-container-spaced" id="quickTaxContainer">
+        <button type="button" class="exp-addons-toggle" id="quickTaxToggle">
+          <div class="exp-addons-toggle-left">
+            <span class="exp-addons-icon">🏷️</span>
+            <span class="exp-addons-title">服務費 / 稅</span>
+            <span class="exp-addons-badge">選填</span>
+          </div>
+          <span class="exp-addons-caret" id="quickTaxCaret">▾</span>
+        </button>
+        <div class="exp-addons-body hidden" id="quickTaxBody">
+          <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
+          <label class="exp-addon-label">服務費 / 稅額金額</label>
+          <div class="input-calc-wrap exp-addon-calc-wrap">
+            <input type="number" id="quickTaxAmount" placeholder="例如 85" min="0" step="1">
+          </div>
+          <label class="exp-tax-label">分配方式</label>
+          <div class="ai-tax-split-toggle exp-tax-split-wrap">
+            <button type="button" class="ai-tax-btn active" data-quick-tax-mode="ratio" id="quickTaxRatioBtn">依消費比例</button>
+            <button type="button" class="ai-tax-btn" data-quick-tax-mode="equal" id="quickTaxEqualBtn">全員平分</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 誰付的錢 -->
+      <label>
+        誰付的錢
+        <span class="split-toggle">
+          <button type="button" class="split-mode-btn active" data-quick-payer-mode="single">單人全付</button>
+          <button type="button" class="split-mode-btn" data-quick-payer-mode="multi">多人付款</button>
+        </span>
+      </label>
+      <select id="quickExpPaidBy"></select>
+      <div class="amt-grid hidden" id="quickExpPayers"></div>
+      <div class="sum-check" id="quickPayerSumCheck"></div>
+
+      <!-- 怎麼分攤 -->
+      <label>
+        怎麼分攤
+        <span class="split-toggle">
+          <button type="button" class="split-mode-btn active" data-quick-mode="equal">平均分攤</button>
+          <button type="button" class="split-mode-btn" data-quick-mode="custom">自訂金額</button>
+        </span>
+      </label>
+      <div class="checks" id="quickExpParticipants"></div>
+      <button type="button" class="link-btn" id="quickToggleAllParticipants">取消全選</button>
+
+      <!-- 個人自付（選填折疊） -->
+      <div class="exp-addons-container" id="quickAddonsContainer">
+        <button type="button" class="exp-addons-toggle" id="quickAddonsToggle">
+          <div class="exp-addons-toggle-left">
+            <span class="exp-addons-icon">✨</span>
+            <span class="exp-addons-title">個人自付 / 額外消費</span>
+            <span class="exp-addons-badge">選填</span>
+          </div>
+          <span class="exp-addons-caret" id="quickAddonsCaret">▾</span>
+        </button>
+        <div class="exp-addons-body hidden" id="quickAddonsBody">
+          <div class="exp-addons-hint">💡 若有人有個人專屬消費（如個人加點、自購用品、私人支出等），填入金額後系統會自動先扣除該總額，將共同費用平分，再把個人自付費用計入各自應付帳目。</div>
+          <div class="amt-grid" id="quickAddonsList"></div>
+          <div class="exp-addons-preview hidden" id="quickAddonsPreview"></div>
+        </div>
+      </div>
+
+      <div class="amt-grid hidden" id="quickSharesCustom"></div>
+      <div class="sum-check" id="quickShareSumCheck"></div>
+
+      <!-- 備註 -->
+      <label>備註（選填）</label>
+      <textarea id="quickExpNote" placeholder="例如 金額+匯率、備註說明" rows="2" style="resize:vertical;"></textarea>
+
+      <!-- 日期 -->
+      <label>日期</label>
+      <input type="date" id="quickExpDate" lang="en-CA">
+
+      <div class="msg" id="quickExpMsg"></div>
+
+      <button type="button" class="btn" id="quickExpSubmitBtn">加入這筆支出</button>
+    </div>
   </div>
 </div>
 
@@ -1025,6 +1170,7 @@ renderNavLinks();
 
       window.memberRows = memberRows;
       initAchievementsModal();
+      initQuickExpenseModal();
 
       // 同時並行讀取餘額、支出與還款紀錄（大幅縮短載入時間）
       const [allTime, expRes, repRes] = await Promise.all([
@@ -1049,6 +1195,8 @@ renderNavLinks();
       loadFeedback().catch(e => console.error("loadFeedback error:", e));
       subscribeRealtime();
       ensurePushSubscribed().catch(e => console.error("ensurePushSubscribed error:", e));
+      // 背景偵測城市/國家變化
+      detectAndNotifyLocationChange().catch(() => {});
     }catch(e){
       console.error("總覽頁載入異常：", e);
       if(!myMember){
@@ -1094,6 +1242,40 @@ renderNavLinks();
         scheduleRefresh();
       })
       .subscribe();
+  }
+
+  // ============================================================
+  // 🌏 GPS 城市/國家變化偵測
+  // ============================================================
+  async function detectAndNotifyLocationChange(){
+    if(!navigator.geolocation) return;
+    try {
+      const pos = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+      });
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=5&addressdetails=1&accept-language=zh-TW,zh,en`;
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } }).catch(() => null);
+      if(!r || !r.ok) return;
+      const d = await r.json();
+      const addr = d.address || {};
+      const countryCode = (addr.country_code || '').toLowerCase();
+      const city = addr.city || addr.town || addr.state || '';
+      const CC_MAP = { jp:'JPY', kr:'KRW', th:'THB', sg:'SGD', hk:'HKD', cn:'CNY', gb:'GBP', us:'USD', au:'AUD', vn:'VND', tw:'TWD', fr:'EUR', de:'EUR', it:'EUR', es:'EUR', nl:'EUR', be:'EUR', at:'EUR', pl:'EUR', se:'EUR', my:'MYR', id:'IDR', ph:'PHP', in:'INR' };
+      const detectedCurrency = CC_MAP[countryCode] || null;
+      const lastCountry = localStorage.getItem('sb_last_country_code');
+      localStorage.setItem('sb_last_country_code', countryCode);
+      if(city) localStorage.setItem('sb_last_city', city);
+      if(lastCountry && lastCountry !== countryCode && detectedCurrency){
+        const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
+        const curOk = avail.includes(detectedCurrency);
+        const countryName = addr.country || countryCode.toUpperCase();
+        const cityStr = city ? ` ${city}` : '';
+        if(typeof showToast === 'function'){
+          showToast(`🌏 偵測到您在${countryName}${cityStr}`, curOk ? `快速記帳將預選 ${detectedCurrency}` : `提醒：目前未啟用 ${detectedCurrency} 幣別`, 6000);
+        }
+      }
+    } catch(e){ /* 靜默失敗 */ }
   }
 
   // ============================================================
@@ -1159,6 +1341,366 @@ renderNavLinks();
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
     modal.addEventListener("click", (e)=>{
       if(e.target === modal) closeModal();
+    });
+  }
+
+  // ============================================================
+  // ⚡ 總覽頁一鍵快速記帳 (Quick Expense Modal)
+  // ============================================================
+  function initQuickExpenseModal(){
+    const fabBtn = document.getElementById("openQuickExpenseBtn");
+    const modal = document.getElementById("quickExpenseModal");
+    const closeBtn = document.getElementById("quickExpenseCloseBtn");
+    if(!modal || !fabBtn) return;
+
+    const curSelect = document.getElementById("quickExpCurrencySelect");
+    const curAutoBadge = document.getElementById("quickCurAutoBadge");
+    const amtInput = document.getElementById("quickExpAmount");
+    const amtLabel = document.getElementById("quickExpAmountLabel");
+    const descInput = document.getElementById("quickExpDesc");
+    const catSelect = document.getElementById("quickExpCategorySelect");
+    const taxIncBtn = document.getElementById("quickTaxTypeInclusive");
+    const taxExcBtn = document.getElementById("quickTaxTypeExclusive");
+    const taxToggle = document.getElementById("quickTaxToggle");
+    const taxBody = document.getElementById("quickTaxBody");
+    const taxCaret = document.getElementById("quickTaxCaret");
+    const taxAmtInput = document.getElementById("quickTaxAmount");
+    const paidBySelect = document.getElementById("quickExpPaidBy");
+    const participantsWrap = document.getElementById("quickExpParticipants");
+    const toggleAllBtn = document.getElementById("quickToggleAllParticipants");
+    const addonsToggle = document.getElementById("quickAddonsToggle");
+    const addonsBody = document.getElementById("quickAddonsBody");
+    const addonsCaret = document.getElementById("quickAddonsCaret");
+    const addonsList = document.getElementById("quickAddonsList");
+    const quickSharesCustom = document.getElementById("quickSharesCustom");
+    const quickShareSumCheck = document.getElementById("quickShareSumCheck");
+    const quickPayerSumCheck = document.getElementById("quickPayerSumCheck");
+    const noteInput = document.getElementById("quickExpNote");
+    const dateInput = document.getElementById("quickExpDate");
+    const submitBtn = document.getElementById("quickExpSubmitBtn");
+    const msgEl = document.getElementById("quickExpMsg");
+
+    let userManuallyPickedCat = false;
+    let quickTaxMode = "inclusive"; // inclusive | exclusive
+    let quickPayerMode = "single";
+    let quickSplitMode = "equal";
+    let quickTaxSplitMode = "ratio";
+
+    // --- 時區自動偵測幣別 ---
+    function detectLocalCurrency(availableList){
+      try {
+        const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || "").toLowerCase();
+        const map = [
+          [["tokyo","japan"], "JPY"], [["seoul","korea"], "KRW"],
+          [["bangkok","thailand"], "THB"], [["singapore"], "SGD"],
+          [["hong_kong"], "HKD"], [["shanghai","beijing"], "CNY"],
+          [["paris","berlin","rome","madrid","amsterdam","brussels","vienna","warsaw","stockholm"], "EUR"],
+          [["london"], "GBP"], [["new_york","los_angeles","chicago","denver","phoenix"], "USD"],
+          [["sydney","melbourne"], "AUD"], [["ho_chi_minh","saigon","hanoi"], "VND"]
+        ];
+        for(const [keys, code] of map){
+          if(keys.some(k => tz.includes(k)) && availableList.includes(code)) return { code, isAuto: true };
+        }
+        const lastCur = localStorage.getItem("sb_last_active_currency");
+        if(lastCur && availableList.includes(lastCur)) return { code: lastCur, isAuto: false };
+        return { code: availableList[0] || "TWD", isAuto: false };
+      } catch(e){
+        return { code: availableList[0] || "TWD", isAuto: false };
+      }
+    }
+
+    async function detectCurrencyByGPS(){
+      const CC_MAP = {
+        jp:'JPY', kr:'KRW', th:'THB', sg:'SGD', hk:'HKD', cn:'CNY',
+        gb:'GBP', fr:'EUR', de:'EUR', it:'EUR', es:'EUR', nl:'EUR',
+        be:'EUR', at:'EUR', pl:'EUR', se:'EUR', us:'USD', au:'AUD',
+        nz:'NZD', vn:'VND', tw:'TWD', my:'MYR', id:'IDR', ph:'PHP',
+        in:'INR'
+      };
+      return new Promise((resolve) => {
+        if(!navigator.geolocation){ resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          try {
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=5&addressdetails=1&accept-language=en`;
+            const ctrl = new AbortController();
+            setTimeout(() => ctrl.abort(), 4000);
+            const r = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: ctrl.signal }).catch(() => null);
+            if(r && r.ok){
+              const d = await r.json();
+              const cc = ((d.address || {}).country_code || '').toLowerCase();
+              const currency = CC_MAP[cc] || null;
+              resolve(currency ? { code: currency, countryCode: cc } : { code: null, countryCode: cc });
+            } else { resolve(null); }
+          } catch(e){ resolve(null); }
+        }, () => resolve(null), { enableHighAccuracy: false, timeout: 5000, maximumAge: 120000 });
+      });
+    }
+
+    function populateCurrencies(){
+      const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ["TWD"];
+      const allCur = (typeof CURRENCIES !== "undefined") ? CURRENCIES : [];
+      curSelect.innerHTML = allCur.map(c => {
+        const isShown = avail.includes(c.code);
+        return `<option value="${c.code}" data-sym="${c.symbol}">${c.label} (${c.symbol})${isShown ? ' ★' : ''}</option>`;
+      }).join("");
+      const detected = detectLocalCurrency(avail);
+      curSelect.value = detected.code;
+      if(curAutoBadge){
+        curAutoBadge.textContent = detected.isAuto ? `🌍 依時區推薦 (${detected.code})` : `📌 預設 (${detected.code})`;
+      }
+    }
+
+    curSelect && curSelect.addEventListener("change", ()=>{
+      if(curAutoBadge) curAutoBadge.textContent = `手動切換 (${curSelect.value})`;
+      localStorage.setItem("sb_last_active_currency", curSelect.value);
+    });
+
+    // --- 稅費模式切換 ---
+    function setTaxMode(mode){
+      quickTaxMode = mode;
+      taxIncBtn.classList.toggle("active", mode === "inclusive");
+      taxExcBtn.classList.toggle("active", mode === "exclusive");
+      if(amtLabel){
+        amtLabel.textContent = mode === "inclusive" ? "支出總金額 (已含稅/免稅)" : "支出小計 (未含服務費/稅)";
+      }
+    }
+    taxIncBtn && taxIncBtn.addEventListener("click", () => setTaxMode("inclusive"));
+    taxExcBtn && taxExcBtn.addEventListener("click", () => setTaxMode("exclusive"));
+
+    // --- 服務費/稅折疊 ---
+    taxToggle && taxToggle.addEventListener("click", ()=>{
+      const isOpen = !taxBody.classList.contains("hidden");
+      taxBody.classList.toggle("hidden", isOpen);
+      if(taxCaret) taxCaret.textContent = isOpen ? "▾" : "▴";
+    });
+
+    // --- 服務費分配方式切換 ---
+    document.getElementById("quickTaxRatioBtn") && document.getElementById("quickTaxRatioBtn").addEventListener("click", ()=>{
+      quickTaxSplitMode = "ratio";
+      document.getElementById("quickTaxRatioBtn").classList.add("active");
+      document.getElementById("quickTaxEqualBtn").classList.remove("active");
+    });
+    document.getElementById("quickTaxEqualBtn") && document.getElementById("quickTaxEqualBtn").addEventListener("click", ()=>{
+      quickTaxSplitMode = "equal";
+      document.getElementById("quickTaxEqualBtn").classList.add("active");
+      document.getElementById("quickTaxRatioBtn").classList.remove("active");
+    });
+
+    // --- 誰付的錢：單人/多人 ---
+    function setPayerMode(mode){
+      quickPayerMode = mode;
+      modal.querySelectorAll("[data-quick-payer-mode]").forEach(btn =>{
+        btn.classList.toggle("active", btn.dataset.quickPayerMode === mode);
+      });
+      paidBySelect.classList.toggle("hidden", mode === "multi");
+      const payersGrid = document.getElementById("quickExpPayers");
+      if(payersGrid) payersGrid.classList.toggle("hidden", mode === "single");
+    }
+    modal.querySelectorAll("[data-quick-payer-mode]").forEach(btn =>{
+      btn.addEventListener("click", () => setPayerMode(btn.dataset.quickPayerMode));
+    });
+
+    // --- 怎麼分攤：平均/自訂 ---
+    function setSplitMode(mode){
+      quickSplitMode = mode;
+      modal.querySelectorAll("[data-quick-mode]").forEach(btn =>{
+        btn.classList.toggle("active", btn.dataset.quickMode === mode);
+      });
+      participantsWrap.classList.toggle("hidden", mode === "custom");
+      if(toggleAllBtn) toggleAllBtn.classList.toggle("hidden", mode === "custom");
+      if(quickSharesCustom) quickSharesCustom.classList.toggle("hidden", mode === "equal");
+    }
+    modal.querySelectorAll("[data-quick-mode]").forEach(btn =>{
+      btn.addEventListener("click", () => setSplitMode(btn.dataset.quickMode));
+    });
+
+    // --- 取消全選/全選 ---
+    let allSelected = true;
+    toggleAllBtn && toggleAllBtn.addEventListener("click", ()=>{
+      allSelected = !allSelected;
+      participantsWrap.querySelectorAll("input[type=checkbox]").forEach(inp =>{
+        inp.checked = allSelected;
+        inp.closest(".check-pill").classList.toggle("checked", allSelected);
+      });
+      toggleAllBtn.textContent = allSelected ? "取消全選" : "全選";
+    });
+
+    // --- 個人自付折疊 ---
+    addonsToggle && addonsToggle.addEventListener("click", ()=>{
+      const isOpen = !addonsBody.classList.contains("hidden");
+      addonsBody.classList.toggle("hidden", isOpen);
+      if(addonsCaret) addonsCaret.textContent = isOpen ? "▾" : "▴";
+    });
+
+    // --- 成員渲染 ---
+    function populateMembers(){
+      const list = (memberRows && memberRows.length) ? memberRows : (MEMBERS || []);
+      const activeList = list.filter(m => !m.left_at && !m.account_deleted_at);
+
+      // 代付人
+      paidBySelect.innerHTML = activeList.map(m => {
+        const isMe = myMember && m.id === myMember.id;
+        return `<option value="${m.id}" ${isMe ? 'selected' : ''}>${escapeHtml(m.name || "成員")}${isMe ? ' (我)' : ''}</option>`;
+      }).join("");
+
+      // 多人付款列
+      const payersGrid = document.getElementById("quickExpPayers");
+      if(payersGrid){
+        payersGrid.innerHTML = activeList.map(m =>
+          `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
+        ).join("");
+      }
+
+      // 平均分攤藥丸
+      participantsWrap.innerHTML = activeList.map(m =>
+        `<label class="check-pill checked"><input type="checkbox" value="${m.id}" checked><span>${escapeHtml(m.name || "成員")}</span></label>`
+      ).join("");
+      participantsWrap.querySelectorAll("input").forEach(inp =>{
+        inp.addEventListener("change", ()=>{ inp.closest(".check-pill").classList.toggle("checked", inp.checked); });
+      });
+
+      // 自訂分攤列
+      if(quickSharesCustom){
+        quickSharesCustom.innerHTML = activeList.map(m =>
+          `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input quick-share-inp" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
+        ).join("");
+      }
+
+      // 個人自付列
+      if(addonsList){
+        addonsList.innerHTML = activeList.map(m =>
+          `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input quick-addon-inp" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
+        ).join("");
+      }
+
+      allSelected = true;
+      if(toggleAllBtn) toggleAllBtn.textContent = "取消全選";
+    }
+
+    // --- 類別自動預測 ---
+    descInput && descInput.addEventListener("input", ()=>{
+      if(!userManuallyPickedCat || !descInput.value.trim()){
+        const meta = window.getCategoryMeta ? window.getCategoryMeta(descInput.value) : { type: "general" };
+        if(catSelect && meta.type) catSelect.value = meta.type;
+        if(!descInput.value.trim()) userManuallyPickedCat = false;
+      }
+    });
+    catSelect && catSelect.addEventListener("change", () => userManuallyPickedCat = true);
+
+    // --- 開啟 / 關閉 ---
+    function openModal(){
+      populateCurrencies();
+      populateMembers();
+      amtInput.value = "";
+      descInput.value = "";
+      if(noteInput) noteInput.value = "";
+      if(taxAmtInput) taxAmtInput.value = "";
+      userManuallyPickedCat = false;
+      if(catSelect) catSelect.value = "food";
+      setTaxMode("inclusive");
+      setPayerMode("single");
+      setSplitMode("equal");
+      if(taxBody) taxBody.classList.add("hidden");
+      if(taxCaret) taxCaret.textContent = "▾";
+      if(addonsBody) addonsBody.classList.add("hidden");
+      if(addonsCaret) addonsCaret.textContent = "▾";
+      dateInput.value = new Date().toISOString().split("T")[0];
+      if(msgEl){ msgEl.textContent = ""; msgEl.className = "msg"; }
+      modal.classList.remove("hidden");
+      modal.classList.add("show");
+      setTimeout(() => amtInput.focus(), 150);
+      // 背景 GPS 精準幣別偵測：一打開彈窗就先猜一下目前所在國家對應的幣別。
+      detectCurrencyByGPS().then(result => {
+        if(!result || !result.code) return;
+        const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
+        const code = avail.includes(result.code) ? result.code : avail[0];
+        if(curSelect) curSelect.value = code;
+        if(curAutoBadge) curAutoBadge.textContent = `🛰️ GPS 精準 (${code})`;
+      }).catch(() => {});
+    }
+
+    function closeModal(){
+      modal.classList.remove("show");
+      setTimeout(() => modal.classList.add("hidden"), 200);
+    }
+
+    fabBtn.addEventListener("click", openModal);
+    if(closeBtn) closeBtn.addEventListener("click", closeModal);
+    // 故意不加「點背景關閉」：快速記帳表單填到一半，手機上很容易不小心點到
+    // 卡片外面的空白處就整筆消失，只留右上角 ✕ 這個明確的關閉方式。
+
+    // --- 提交支出 ---
+    submitBtn && submitBtn.addEventListener("click", async () =>{
+      const rawAmt = (amtInput.value || "").trim();
+      if(!rawAmt){ msgEl.textContent = "請輸入金額"; msgEl.className = "msg error"; amtInput.focus(); return; }
+      let subtotal = 0;
+      try { subtotal = Number(rawAmt); if(isNaN(subtotal) || subtotal <= 0) throw 0; } catch(e){ msgEl.textContent = "金額必須大於 0"; msgEl.className = "msg error"; amtInput.focus(); return; }
+
+      const taxAmt = Number(taxAmtInput ? taxAmtInput.value : 0) || 0;
+      const totalAmount = quickTaxMode === "exclusive" ? subtotal + taxAmt : subtotal;
+
+      const itemTitle = descInput.value.trim() || "未命名支出";
+      const cat = catSelect ? catSelect.value : "general";
+      let fullDesc = (cat && cat !== "general") ? `${itemTitle} <!--CAT:${cat}-->` : itemTitle;
+      const currency = curSelect.value;
+      const expense_date = dateInput.value || new Date().toISOString().split("T")[0];
+      const noteVal = noteInput ? noteInput.value.trim() : "";
+
+      // 代付人
+      let payers = [];
+      if(quickPayerMode === "single"){
+        if(!paidBySelect.value){ msgEl.textContent = "請選擇代付人"; msgEl.className = "msg error"; return; }
+        payers = [{ member_id: paidBySelect.value, amount: totalAmount }];
+      } else {
+        const payersGrid = document.getElementById("quickExpPayers");
+        const rows = payersGrid ? payersGrid.querySelectorAll(".amt-row-input") : [];
+        rows.forEach(inp => { const v = Number(inp.value); if(v > 0) payers.push({ member_id: inp.dataset.member, amount: v }); });
+        if(!payers.length){ msgEl.textContent = "至少輸入一位代付人的金額"; msgEl.className = "msg error"; return; }
+      }
+
+      // 分攤人
+      let shares = [];
+      if(quickSplitMode === "equal"){
+        const checked = Array.from(participantsWrap.querySelectorAll("input:checked")).map(i => i.value);
+        if(!checked.length){ msgEl.textContent = "至少需要選取一位分攤人"; msgEl.className = "msg error"; return; }
+        const perShare = totalAmount / checked.length;
+        shares = checked.map(id => ({ member_id: id, amount: perShare }));
+      } else {
+        if(quickSharesCustom){
+          quickSharesCustom.querySelectorAll(".quick-share-inp").forEach(inp => {
+            const v = Number(inp.value);
+            if(v > 0) shares.push({ member_id: inp.dataset.member, amount: v });
+          });
+        }
+        if(!shares.length){ msgEl.textContent = "至少需要輸入一位分攤金額"; msgEl.className = "msg error"; return; }
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "⏳ 儲存中…";
+
+      try {
+        const { error } = await sb.from("expenses").insert({
+          amount: totalAmount, description: fullDesc, note: noteVal || null,
+          expense_date, created_by: myMember ? myMember.id : payers[0].member_id,
+          payers, shares, currency
+        });
+        if(error) throw error;
+        localStorage.setItem("sb_last_active_currency", currency);
+        closeModal();
+        if(typeof showToast === "function"){
+          const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === currency) : null;
+          const sym = curObj ? curObj.symbol : "$";
+          showToast("✓ 記帳成功", `${itemTitle} ${sym}${formatAmt(totalAmount)} (${currency})`);
+        }
+        await loadAndRenderAllBalances();
+      } catch(err){
+        msgEl.textContent = "記帳失敗：" + (err.message || "網路異常");
+        msgEl.className = "msg error";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "加入這筆支出";
+      }
     });
   }
 

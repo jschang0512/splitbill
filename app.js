@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Split Bill — shared app logic, used by currency.html (?c=TWD/JPY/USD/...).
 // ============================================================
 (function(){
@@ -1239,6 +1239,7 @@
     });
   }
 
+  // ============================================================
   const expDescInput = document.getElementById("expDesc");
   if(expDescInput){
     expDescInput.addEventListener("input", ()=>{
@@ -1464,7 +1465,7 @@
         fullDescription += ` <!--CAT:${selectedExpCategory}-->`;
       }
       if(meta){
-        const cleanMeta = meta.replace(/<!--?\s*CAT:[a-z0-9_-]+\s*-->?/gi, "").trim();
+        const cleanMeta = meta.replace(/<!--?\s*(CAT|LOC):[^-]*-->?/gi, "").trim();
         if(cleanMeta) fullDescription += " " + cleanMeta;
       }
       const description = fullDescription;
@@ -6039,7 +6040,7 @@ function showPairDetail(
     const prompt = `You are an expert multilingual receipt & invoice OCR parsing AI. Analyze the image carefully.
 Extract all receipt details and output in STRICT JSON format (no markdown, no backticks, only valid raw JSON):
 {
-  "storeName": "Natural Traditional Chinese name with original in parentheses (e.g. '唐吉訶德 (ドン・キホーテ)', '一蘭拉麵 (一蘭)', '星巴克 (Starbucks)')",
+  "storeName": "Natural Traditional Chinese store name with branch, district, station or location if printed on the receipt (e.g. '星巴克 淺草雷門店 (Starbucks)', '唐吉訶德 澀谷本店 (ドン・キホーテ)', '一蘭拉麵 淺草店', '鼎泰豐 101店')",
   "currencyCode": "Detected 3-letter currency code (e.g. 'JPY', 'TWD', 'KRW', 'USD', 'EUR', 'THB', 'VND', 'SGD', 'HKD', 'CNY', 'GBP', 'AUD')",
   "date": "Receipt date in YYYY-MM-DD format if found, otherwise empty string",
   "time": "Receipt time in HH:MM format if found, otherwise empty string",

@@ -26,8 +26,8 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=470">
-<link rel="stylesheet" href="shared.css?v=470">
+<link rel="stylesheet" href="theme.css?v=483">
+<link rel="stylesheet" href="shared.css?v=483">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js"></script>
 <script src="version.js"></script>
@@ -238,8 +238,8 @@ if("serviceWorker" in navigator){
           ✎ 編輯模式 <button type="button" class="link-btn" id="cancelEditBtn">取消編輯</button>
         </div>
 
-        <label>項目</label>
-        <input type="text" id="expDesc" placeholder="例如 晚餐、租車油錢">
+        <label for="expDesc">項目 / 店名</label>
+        <input type="text" id="expDesc" placeholder="例如 晚餐、淺草雷門 星巴克">
 
         <!-- 支出類別下拉式選單 -->
         <label for="expCategorySelect">類別 (自動辨識 / 可手動選擇)</label>
@@ -671,7 +671,7 @@ if("serviceWorker" in navigator){
           <span class="ai-section-title-text">🏪 店家與總額設定</span>
         </div>
         <div class="ai-receipt-store-wrap">
-          <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或聚餐名稱 (可點擊修改)">
+          <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或分店名稱 (可點擊修改)">
         </div>
 
         <!-- AI 支出類別下拉式選單 -->
@@ -883,6 +883,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=470"></script>
+<script src="app.js?v=483"></script>
 </body>
 </html>

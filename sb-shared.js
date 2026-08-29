@@ -288,4 +288,3 @@ function showToast(title, body, actionLabel, actionFn){
   // 滾動時自動隱藏
   window.addEventListener("scroll", hideCard, { passive: true });
 })();
-
