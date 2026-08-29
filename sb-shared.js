@@ -158,6 +158,13 @@ function showToast(title, body, actionLabel, actionFn){
 
   function showCardForElement(targetEl){
     if(!targetEl) return;
+    // 設定頁面與設定相關彈窗/編輯元件不觸發懸浮卡片
+    if(location.pathname.endsWith("settings.html") || 
+       location.href.includes("settings.html") || 
+       targetEl.closest(".settings-card, #avatarCropModal, .avatar-crop-modal, .avatar-preview-wrap, .avatar-editor-modal, .profile-avatar-wrap, .member-manage-pill, .member-manage-row, .settings-section")){
+      return;
+    }
+
     // 嚴格排除所有類別相關與圖表元素
     if(targetEl.closest(".donut-slice, .donut-legend-item, .exp-cat-badge, .exp-cat-chip, .category-detail-modal-title, #catModalTitleWrap, .cat-modal-icon, .donut-center-info, .donut-svg-wrap, #donutScopeTabs, .exp-cat-dot")) return;
 
@@ -219,7 +226,7 @@ function showToast(title, body, actionLabel, actionFn){
       <div class="sb-afc-arrow"></div>
     `;
 
-    // 5. 精準定位至頭貼上方（並支援邊界自動翻轉與靠邊修正）
+    // 5. 精準定位至頭貼上方（並支援邊界自動翻轉、寬裕安全邊界與箭頭偏移校正）
     const rect = avatar.getBoundingClientRect();
     card.style.visibility = "hidden";
     card.style.display = "flex";
@@ -227,18 +234,31 @@ function showToast(title, body, actionLabel, actionFn){
 
     const cardRect = card.getBoundingClientRect();
     const avatarCenterX = rect.left + rect.width / 2;
-    let topPos = rect.top - cardRect.height - 12;
+    let topPos = rect.top - cardRect.height - 14;
 
-    // 若上方空間不足，翻轉至下方
-    if(topPos < 10){
-      topPos = rect.bottom + 12;
+    // 若上方空間不足（< 16px），翻轉至下方
+    if(topPos < 16){
+      topPos = rect.bottom + 14;
       card.classList.add("flipped");
     }
 
+    // 確保底部也不超出視窗邊界
+    topPos = Math.max(12, Math.min(window.innerHeight - cardRect.height - 16, topPos));
+
+    // 左右兩側保留寬裕邊界（至少 18px）
+    const sideMargin = 18;
+    const minLeft = cardRect.width / 2 + sideMargin;
+    const maxLeft = window.innerWidth - cardRect.width / 2 - sideMargin;
     let leftPos = avatarCenterX;
-    const minLeft = cardRect.width / 2 + 10;
-    const maxLeft = window.innerWidth - cardRect.width / 2 - 10;
     leftPos = Math.max(minLeft, Math.min(maxLeft, leftPos));
+
+    // 箭頭動態對齊頭貼中心
+    const arrow = card.querySelector(".sb-afc-arrow");
+    if(arrow){
+      const arrowLeft = Math.max(18, Math.min(cardRect.width - 18, (avatarCenterX - (leftPos - cardRect.width / 2))));
+      arrow.style.left = `${arrowLeft}px`;
+      arrow.style.transform = "translateX(-50%)";
+    }
 
     card.style.top = `${topPos}px`;
     card.style.left = `${leftPos}px`;

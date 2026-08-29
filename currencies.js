@@ -246,67 +246,128 @@ const CATEGORY_KEYWORDS = {
   // 1. 美食餐飲
   food: [
     // 核心動作與餐別
-    "吃", "吃飯", "吃肉", "用餐", "料理", "食堂", "餐廳", "小吃", "便當", "早午餐", "早餐", "午餐", "晚餐", "宵夜", "晚飯", "早點", "外送", "外帶", "熱炒", "快炒", "合菜", "桌菜", "辦桌", "美食", "宴席",
-    // 料理品類 (台港中日韓西)
-    "拉麵", "沾麵", "蕎麥麵", "烏龍麵", "意麵", "米粉", "冬粉", "粄條", "刀削麵", "涼麵", "牛肉麵", "湯麵", "乾麵", "炒麵", "炒飯", "丼", "丼飯", "壽司", "生魚片", "刺身", "握壽司", "燒肉", "烤肉", "牛排", "排餐", "鐵板燒", "火鍋", "麻辣鍋", "涮涮鍋", "壽喜燒", "羊肉爐", "薑母鴨", "鍋物", "披薩", "比薩", "漢堡", "潛艇堡", "炸雞", "鹹酥雞", "鹽酥雞", "雞排", "水餃", "煎餃", "鍋貼", "蒸餃", "小籠包", "湯包", "燒餅", "油條", "蛋餅", "飯糰", "割包", "刈包", "臭豆腐", "蚵仔煎", "麵線", "肉圓", "碗粿", "甜不辣", "關東煮", "滷味", "燒臘", "叉燒", "油雞", "燒鴨", "燒鵝", "飲茶", "港點", "茶餐廳", "雲吞", "餛飩", "抄手", "腸粉", "蘿蔔糕", "泰式", "越式", "韓式", "日式", "義式", "法式", "美式", "印度", "咖哩", "咖喱", "串燒", "串炸", "炸豬排", "部隊鍋", "辣炒年糕", "石鍋拌飯", "蔘雞湯", "炸醬麵", "海南雞", "肉骨茶", "叻沙", "冬蔭功", "河粉", "春捲",
-    // 品牌與日文
-    "鼎泰豐", "點水樓", "八方雲集", "鬍鬚張", "三商巧福", "麥當勞", "肯德基", "摩斯", "漢堡王", "頂呱呱", "拿坡里", "達美樂", "必勝客", "胖老爹", "王品", "西堤", "陶板屋", "原燒", "瓦城", "饗食", "饗饗", "旭集", "一蘭", "一風堂", "天下一品", "すき家", "sukiya", "松屋", "matsuya", "吉野家", "yoshinoya", "くら寿司", "kura", "スシロー", "sushiro", "はま寿司", "叙々苑", "鳥貴族", "磯丸水産", "餃子の王将", "大戸屋", "やよい軒", "かつや", "ラーメン", "らーめん", "つけ麺", "うどん", "そば", "蕎麦", "焼肉", "居酒屋", "定食", "とんかつ", "豚カツ", "天ぷら", "寿司", "すし", "鮨", "刺身", "しゃぶしゃぶ", "すき焼き", "おでん", "餃子", "お好み焼き", "たこ焼き", "弁当", "おにぎり", "kyochon", "bb.q", "bhc",
-    // 英文與國際
-    "restaurant", "dining", "lunch", "dinner", "breakfast", "brunch", "supper", "meal", "food", "eatery", "bistro", "trattoria", "steakhouse", "diner", "buffet", "takeout", "delivery", "ubereats", "foodpanda", "doordash", "pizza", "pasta", "spaghetti", "lasagna", "risotto", "burger", "steak", "bbq", "barbecue", "grill", "taco", "burrito", "sushi", "sashimi", "poke", "ramen", "noodle", "noodles", "pho", "banh mi", "pad thai", "tom yum", "curry", "satay", "laksa", "dim sum", "dumpling", "gyoza", "paella", "sandwich", "bagel", "salad", "soup", "mcdonald", "mcdonalds", "kfc", "burger king", "subway", "chipotle", "shake shack", "five guys", "dominos", "pizza hut", "nandos"
+    "吃", "吃飯", "吃肉", "用餐", "料理", "食堂", "餐廳", "小吃", "便當", "早午餐", "早餐", "午餐", "晚餐", "宵夜", "晚飯", "早點", "外送", "外帶", "熱炒", "快炒", "合菜", "桌菜", "辦桌", "美食", "宴席", "合菜", "聚餐", "大餐", "吃到飽", "buffet", "自助餐", "無菜單", "私廚", "omakase", "主廚", "套餐",
+    // 料理品類 (台港中日韓東南亞西式)
+    "拉麵", "沾麵", "蕎麥麵", "烏龍麵", "意麵", "米粉", "冬粉", "粄條", "刀削麵", "涼麵", "牛肉麵", "湯麵", "乾麵", "炒麵", "炒飯", "燴飯", "油飯", "米糕", "滷肉飯", "魯肉飯", "肉燥飯", "雞肉飯", "火雞肉飯", "爌肉飯", "排骨飯", "排骨酥", "鹹酥雞", "鹽酥雞", "雞排", "碳烤", "炸雞", "韓式炸雞", "水餃", "煎餃", "鍋貼", "蒸餃", "小籠包", "湯包", "生煎包", "包子", "饅頭", "燒餅", "油條", "蛋餅", "飯糰", "割包", "刈包", "臭豆腐", "蚵仔煎", "蚵仔麵線", "麵線", "大腸麵線", "肉圓", "碗粿", "甜不辣", "關東煮", "滷味", "麻辣燙", "東山鴨頭", "燒臘", "叉燒", "油雞", "燒鴨", "燒鵝", "烤鴨", "一鴨三吃", "飲茶", "港點", "茶餐廳", "雲吞", "餛飩", "抄手", "紅油抄手", "腸粉", "蘿蔔糕", "鳳爪", "流沙包", "叉燒包",
+    // 鍋物與燒烤排餐
+    "火鍋", "麻辣鍋", "涮涮鍋", "石頭火鍋", "鴛鴦鍋", "壽喜燒", "羊肉爐", "薑母鴨", "酸菜白肉鍋", "酸菜魚", "牛排", "豬排", "雞排", "排餐", "鐵板燒", "燒肉", "烤肉", "韓式烤肉", "銅盤烤肉", "炭火燒肉", "和牛", "牛舌", "五花肉", "松阪豬", "串燒", "串炸", "炸豬排", "丼", "丼飯", "牛丼", "豬排丼", "親子丼", "鰻魚飯", "天婦羅", "壽司", "生魚片", "刺身", "握壽司", "軍艦", "手卷", "花壽司", "炙燒", "海鮮丼", "釜飯", "懷石料理",
+    // 異國料理 (義美法泰越印墨)
+    "披薩", "比薩", "披薩屋", "義大利麵", "燉飯", "千層麵", "焗烤", "漢堡", "潛艇堡", "熱狗堡", "塔可", "墨西哥捲餅", "法式料理", "地中海料理", "西班牙燉飯", "tapas", "印度咖哩", "日式咖哩", "泰式咖哩", "咖哩", "咖喱", "南洋料理", "泰式", "越式", "韓式", "日式", "義式", "法式", "美式", "印度", "部隊鍋", "辣炒年糕", "石鍋拌飯", "蔘雞湯", "炸醬麵", "雪濃湯", "海鮮煎餅", "海南雞", "海南雞飯", "肉骨茶", "叻沙", "冬蔭功", "泰式酸辣湯", "月亮蝦餅", "綠咖哩", "打拋豬", "椒麻雞", "河粉", "越南河粉", "生春捲", "越式麵包", "沙嗲",
+    // 連鎖品牌與知名店家 (台灣/日本/全球)
+    "鼎泰豐", "添好運", "點水樓", "欣葉", "瓦城", "饗食天堂", "饗饗", "旭集", "饗賓", "探索廚房", "十二廚", "漢來海港", "王品", "西堤", "陶板屋", "夏慕尼", "原燒", "肉次方", "初瓦", "聚", "青花驕", "和牛涮", "嚮辣", "築間", "馬辣", "新馬辣", "老四川", "海底撈", "鼎王", "無老鍋", "這一鍋", "屋馬", "茶六", "碳佐麻里", "乾杯", "胡同", "八方雲集", "四海遊龍", "三商巧福", "鬍鬚張", "大上海", "麥當勞", "肯德基", "摩斯", "漢堡王", "頂呱呱", "拿坡里", "達美樂", "必勝客", "胖老爹", "21世紀", "德州美墨", "一蘭", "一風堂", "天下一品", "麵屋武藏", "花月嵐", "鷹流", "豚骨拉麵", "すき家", "sukiya", "松屋", "matsuya", "吉野家", "yoshinoya", "くら寿司", "藏壽司", "kura", "スシロー", "壽司郎", "sushiro", "はま寿司", "爭鮮", "點爭鮮", "叙々苑", "敘敘苑", "鳥貴族", "磯丸水産", "餃子の王将", "大戸屋", "大戶屋", "やよい軒", "彌生軒", "かつや", "勝博殿", "靜岡勝政", "邁泉", "bb.q", "橋村炸雞", "kyochon", "bhc", "popeyes", "five guys", "shake shack", "in-n-out", "chipotle", "subway", "nandos",
+    // 日文關鍵字
+    "ラーメン", "らーめん", "つけ麺", "うどん", "そば", "蕎麦", "焼肉", "やきにく", "居酒屋", "いざかや", "定食", "ていしょく", "とんかつ", "豚カツ", "天ぷら", "天麩羅", "寿司", "すし", "鮨", "刺身", "さしみ", "しゃぶしゃぶ", "すき焼き", "おでん", "餃子", "お好み焼き", "たこ焼き", "弁当", "おにぎり", "丼", "牛丼", "カツ丼", "親子丼", "海鮮丼", "焼き鳥", "串カツ", "レストラン", "食堂", "屋台",
+    // 英文與國際關鍵字
+    "restaurant", "dining", "lunch", "dinner", "breakfast", "brunch", "supper", "meal", "food", "eatery", "bistro", "trattoria", "steakhouse", "diner", "buffet", "takeout", "delivery", "ubereats", "foodpanda", "doordash", "grubhub", "pizza", "pasta", "spaghetti", "lasagna", "risotto", "burger", "steak", "bbq", "barbecue", "grill", "taco", "burrito", "sushi", "sashimi", "poke", "ramen", "noodle", "noodles", "pho", "banh mi", "pad thai", "tom yum", "curry", "satay", "laksa", "dim sum", "dumpling", "gyoza", "paella", "sandwich", "bagel", "salad", "soup", "tapas", "omakase", "mcdonald", "mcdonalds", "kfc", "burger king", "subway", "chipotle", "shake shack", "five guys", "dominos", "pizza hut", "nandos"
   ],
 
   // 2. 飲料甜點
   drink: [
     // 茶與咖啡
-    "咖啡", "拿鐵", "美式", "卡布奇諾", "卡布", "義式濃縮", "摩卡", "焦糖瑪奇朵", "瑪奇朵", "冷萃", "手沖", "奶茶", "紅茶", "綠茶", "青茶", "烏龍茶", "普洱茶", "鐵觀音", "抹茶", "焙茶", "玄米茶", "冬瓜茶", "花茶", "果茶", "水果茶", "冰沙", "果汁", "手搖", "手搖飲", "手搖杯", "飲料", "珍奶", "珍珠奶茶", "波霸", "椰果", "仙草", "愛玉", "豆花", "豆漿",
-    // 甜品與冰品
-    "剉冰", "刨冰", "雪花冰", "冰淇淋", "霜淇淋", "冰棒", "冰品", "甜點", "甜品", "蛋糕", "鬆餅", "舒芙蕾", "可麗餅", "泡芙", "水果塔", "派", "甜甜圈", "馬卡龍", "司康", "肉桂捲", "提拉米蘇", "奶酪", "布丁", "蛋塔", "可頌", "烘焙",
+    "咖啡", "拿鐵", "美式", "美式咖啡", "卡布奇諾", "卡布", "義式濃縮", "摩卡", "焦糖瑪奇朵", "瑪奇朵", "馥列白", "生椰拿鐵", "燕麥拿鐵", "冷萃", "手沖", "冰滴", "單品咖啡", "咖啡豆", "奶茶", "鮮奶茶", "紅茶", "綠茶", "青茶", "烏龍茶", "四季春", "金萱", "普洱茶", "鐵觀音", "抹茶", "焙茶", "玄米茶", "冬瓜茶", "花茶", "花草茶", "果茶", "水果茶", "洛神花茶", "仙草茶", "冰沙", "思樂冰", "果汁", "現打果汁", "柳橙汁", "西瓜汁", "木瓜牛奶", "楊枝甘露", "手搖", "手搖飲", "手搖杯", "飲料", "珍奶", "珍珠奶茶", "波霸", "椰果", "仙草", "愛玉", "粉條", "芋圓", "地瓜圓", "粉粿", "芝芝", "奶蓋", "豆花", "豆漿", "米漿", "燕麥奶",
+    // 甜品與冰品烘焙
+    "剉冰", "刨冰", "雪花冰", "冰淇淋", "霜淇淋", "冰棒", "冰品", "聖代", "甜點", "甜品", "蛋糕", "起司蛋糕", "乳酪蛋糕", "戚風蛋糕", "千層蛋糕", "巴斯克", "生乳捲", "鬆餅", "舒芙蕾", "可麗餅", "泡芙", "閃電泡芙", "水果塔", "派", "檸檬塔", "甜甜圈", "馬卡龍", "司康", "肉桂捲", "提拉米蘇", "奶酪", "布丁", "烤布蕾", "焦糖布丁", "蛋塔", "葡式蛋塔", "可頌", "烘焙", "麵包", "吐司", "生吐司", "貝果", "和菓子", "大福", "草莓大福", "糰子", "蕨餅", "鯛魚燒", "車輪餅", "紅豆餅", "雞蛋糕", "吉拿棒",
     // 酒類與酒吧
-    "酒", "啤酒", "生啤", "精釀啤酒", "調酒", "雞尾酒", "威士忌", "白蘭地", "琴酒", "伏特加", "蘭姆酒", "龍舌蘭", "清酒", "燒酎", "梅酒", "柚子酒", "葡萄酒", "紅酒", "白酒", "香檳", "氣泡酒", "沙瓦", "角嗨", "highball", "酒吧", "餐酒館", "夜店", "pub", "bar",
-    // 品牌與日文
-    "星巴克", "路易莎", "cama", "伯朗", "麻古", "迷客夏", "50嵐", "五十嵐", "可不可", "清心", "歇腳亭", "一芳", "珍煮丹", "龜記", "萬波", "得正", "先喝道", "五桐號", "再睡5分鐘", "春水堂", "カフェ", "コーヒー", "珈琲", "ラテ", "お茶", "まっちゃ", "スイーツ", "デザート", "ケーキ", "パフェ", "プリン", "クレープ", "パンケーキ", "ドーナツ", "ソフトクリーム", "アイス", "かき氷", "和菓子", "大福", "団子", "ビール", "生ビール", "ハイボール", "サワー", "チューハイ", "日本酒", "焼酎", "ワイン", "シャンパン", "カクテル", "ウィスキー", "バー", "starbucks", "blue bottle", "ドトール", "dottor", "コメダ", "komeda", "タリーズ", "tully", "サンマルク", "猿田彦",
-    // 英文與國際
-    "cafe", "coffee", "espresso", "latte", "cappuccino", "macchiato", "mocha", "americano", "cold brew", "pour over", "tea", "chai", "matcha", "boba", "bubble tea", "milk tea", "juice", "smoothie", "beverage", "ice cream", "gelato", "sorbet", "pastry", "cake", "cupcake", "scone", "croissant", "donut", "doughnut", "waffle", "pancake", "pudding", "tiramisu", "macaron", "chocolate", "brewery", "taproom", "beer", "ale", "lager", "ipa", "stout", "wine", "champagne", "cocktail", "liquor", "spirits", "whiskey", "whisky", "gin", "vodka", "rum", "tequila", "sake", "soju", "lounge", "dunkin", "tim hortons"
+    "酒", "啤酒", "生啤", "生啤酒", "精釀啤酒", "黑啤", "白啤", "調酒", "雞尾酒", "威士忌", "白蘭地", "琴酒", "伏特加", "蘭姆酒", "龍舌蘭", "清酒", "純米大吟釀", "大吟釀", "吟釀", "燒酎", "梅酒", "柚子酒", "葡萄酒", "紅酒", "白酒", "香檳", "氣泡酒", "沙瓦", "角嗨", "highball", "酒吧", "餐酒館", "夜店", "lounge", "pub", "bar", "居酒屋", "club",
+    // 品牌與連鎖
+    "星巴克", "starbucks", "路易莎", "louisa", "cama", "伯朗", "blue bottle", "藍瓶咖啡", "komeda", "客美多", "dottor", "羅多倫", "tullys", "麻古", "麻古茶坊", "迷客夏", "50嵐", "五十嵐", "可不可", "清心", "清心福全", "茶湯會", "歇腳亭", "一芳", "珍煮丹", "龜記", "萬波", "得正", "先喝道", "五桐號", "再睡5分鐘", "春水堂", "翰林茶館", "十盛", "八曜和茶", "約翰紅茶", "天仁茗茶",
+    // 日文關鍵字
+    "カフェ", "コーヒー", "珈琲", "ラテ", "お茶", "まっちゃ", "スイーツ", "デザート", "ケーキ", "パフェ", "プリン", "クレープ", "パンケーキ", "ドーナツ", "ソフトクリーム", "アイス", "かき氷", "和菓子", "大福", "団子", "ビール", "生ビール", "ハイボール", "サワー", "チューハイ", "日本酒", "焼酎", "ワイン", "シャンパン", "カクテル", "ウィスキー", "バー", "喫茶店", "ベーカリー", "パン屋",
+    // 英文關鍵字
+    "cafe", "coffee", "espresso", "latte", "cappuccino", "macchiato", "mocha", "americano", "cold brew", "pour over", "tea", "chai", "matcha", "boba", "bubble tea", "milk tea", "juice", "smoothie", "beverage", "ice cream", "gelato", "sorbet", "pastry", "cake", "cupcake", "scone", "croissant", "donut", "doughnut", "waffle", "pancake", "pudding", "tiramisu", "macaron", "chocolate", "bakery", "brewery", "taproom", "beer", "ale", "lager", "ipa", "stout", "wine", "champagne", "cocktail", "liquor", "spirits", "whiskey", "whisky", "gin", "vodka", "rum", "tequila", "sake", "soju", "lounge", "dunkin", "tim hortons", "gong cha"
   ],
 
   // 3. 大眾交通
   transit: [
-    "捷運", "地鐵", "地鐵站", "火車", "鐵路", "台鐵", "臺鐵", "高鐵", "新幹線", "特急", "急行", "快速", "普通車", "電車", "車票", "車資", "票價", "乘車券", "交通卡", "悠遊卡", "一卡通", "ic卡", "儲值", "公車", "巴士", "客運", "渡輪", "輪渡", "船票", "遊船", "纜車", "索道", "輕軌", "路面電車", "港鐵", "mtr", "八達通", "地鐵一日券", "周遊券", "jr pass", "jr", "suica", "西瓜卡", "pasmo", "icoca", "pitapa", "kitaca", "toica", "manaca", "sugoca", "nimoca", "新幹線", "しんかんせん", "地下鉄", "メトロ", "切符", "きっぷ", "運賃", "定期券", "バス", "都バス", "高速バス", "夜行バス", "フェリー", "ロープウェイ", "ケーブルカー", "モノレール", "transit", "transportation", "metro", "subway", "underground", "tube", "train", "railway", "railroad", "amtrak", "eurostar", "tgv", "ice", "thalys", "renfe", "frecciarossa", "sbb", "obb", "sncf", "db", "ticket", "fare", "pass", "travelcard", "oyster", "smartrip", "clipper", "octopus", "ez-link", "t-money", "bus", "coach", "shuttle", "tram", "streetcar", "trolley", "ferry", "boat", "cable car", "ropeway", "gondola", "funicular", "monorail"
+    // 捷運與鐵路
+    "捷運", "地鐵", "地鐵站", "地下鐵", "火車", "鐵路", "台鐵", "臺鐵", "高鐵", "新幹線", "特急", "急行", "快速", "普通車", "電車", "區間車", "自強號", "太魯閣", "普悠瑪", "emu3000", "車票", "車資", "票價", "乘車券", "交通卡", "悠遊卡", "一卡通", "icash", "ic卡", "儲值", "八達通", "港鐵", "mtr", "地鐵一日券", "周遊券", "周遊卡", "jr pass", "jr", "suica", "西瓜卡", "pasmo", "icoca", "pitapa", "kitaca", "toica", "manaca", "sugoca", "nimoca", "t-money", "cashbee", "ez-link", "haruka", "skyliner", "n'ex", "成田特快", "京成電鐵", "南海電鐵", "近鐵", "阪急", "阪神", "西武", "東武", "小田急", "京王", "京阪", "名鐵", "西鐵",
+    // 公車巴士與渡輪纜車
+    "公車", "巴士", "市區公車", "客運", "統聯", "國光", "和欣", "阿羅哈", "觀光巴士", "hop on hop off", "夜行巴士", "高速巴士", "機場巴士", "利木津巴士", "接駁車", "渡輪", "輪渡", "船票", "遊船", "快艇", "水上巴士", "水上計程車", "纜車", "貓纜", "日月潭纜車", "箱根纜車", "昂坪360", "索道", "輕軌", "路面電車", "單軌", "單軌電車", "monorail", "funicular", "gondola", "ropeway", "cable car",
+    // 日文關鍵字
+    "新幹線", "しんかんせん", "地下鉄", "メトロ", "切符", "きっぷ", "運賃", "定期券", "バス", "都バス", "高速バス", "夜行バス", "フェリー", "ロープウェイ", "ケーブルカー", "モノレール", "駅", "電車代", "交通費", "チャージ",
+    // 英文與國際關鍵字
+    "transit", "transportation", "metro", "subway", "underground", "tube", "train", "railway", "railroad", "amtrak", "eurostar", "tgv", "ice", "thalys", "renfe", "frecciarossa", "sbb", "obb", "sncf", "db", "ticket", "fare", "pass", "travelcard", "oyster", "smartrip", "clipper", "octopus", "ez-link", "t-money", "bus", "coach", "shuttle", "tram", "streetcar", "trolley", "ferry", "boat", "cable car", "ropeway", "gondola", "funicular", "monorail"
   ],
 
   // 4. 租車用油 / 計程車
   car: [
-    "租車", "租賃車", "借車", "油錢", "加油", "加油站", "汽油", "柴油", "92", "95", "98", "計程車", "小黃", "的士", "打車", "叫車", "拼車", "專車", "包車", "代駕", "停車", "停車場", "停車費", "車庫", "過路費", "高速公路", "國道", "收費站", "通行費", "罰單", "etc", "e-tag", "洗車", "レンタカー", "カーシェア", "タイムズ", "times", "タクシー", "ガソリン", "給油", "レギュラー", "ハイオク", "軽油", "駐車場", "パーキング", "コインパーキング", "駐車代", "高速代", "有料道路", "rental car", "car rental", "rent a car", "car hire", "car sharing", "taxi", "cab", "rideshare", "uber", "lyft", "grab", "bolt", "didi", "ola", "gojek", "driver", "gas", "gasoline", "petrol", "diesel", "fuel", "gas station", "parking", "parking lot", "garage", "valet", "toll", "highway", "expressway", "ezpass", "hertz", "avis", "enterprise", "budget", "sixt", "europcar", "toyota rent", "nissan rent", "nippon rent", "orix", "times car"
+    // 租車與共享
+    "租車", "租賃車", "借車", "租車費", "甲租乙還", "irent", "goshare", "wemo", "格上", "和運", "中租", "times", "orix", "nippon rent a car", "toyota rent a car", "nissan rent a car", "budget", "avis", "hertz", "enterprise", "sixt", "europcar", "共享汽車", "共享機車", "租機車", "租重機", "租單車", "youbike", "ubike",
+    // 計程車與叫車
+    "計程車", "小黃", "的士", "打車", "叫車", "拼車", "專車", "包車", "包車一日遊", "代駕", "司機", "uber", "lyft", "grab", "bolt", "didi", "滴滴", "kakaotaxi", "gojek", "line taxi", "呼叫小黃", "台灣大車隊", "大都會",
+    // 加油用油與停車過路費
+    "油錢", "加油", "加油站", "汽油", "柴油", "92", "95", "98", "中油", "台塑", "shell", "esso", "bp", "eneos", "idemitsu", "停車", "停車場", "停車費", "路邊停車", "嘟嘟房", "times停車場", "車庫", "代客泊車", "valet", "過路費", "國道通行費", "高速公路", "收費站", "通行費", "etc", "e-tag", "罰單", "拖吊", "拖吊費", "洗車", "打蠟", "汽車保養",
+    // 日文關鍵字
+    "レンタカー", "カーシェア", "タイムズ", "タクシー", "ガソリン", "給油", "レギュラー", "ハイオク", "軽油", "駐車場", "パーキング", "コインパーキング", "駐車代", "高速代", "有料道路", "洗車", "車検",
+    // 英文關鍵字
+    "rental car", "car rental", "rent a car", "car hire", "car sharing", "scooter rental", "bike rental", "taxi", "cab", "rideshare", "uber", "lyft", "grab", "bolt", "didi", "ola", "gojek", "driver", "gas", "gasoline", "petrol", "diesel", "fuel", "gas station", "parking", "parking lot", "garage", "valet", "toll", "highway", "expressway", "ezpass", "hertz", "avis", "enterprise", "budget", "sixt", "europcar", "toyota rent", "nissan rent"
   ],
 
   // 5. 機票航班
   flight: [
-    "機票", "飛機", "航班", "航空", "機場", "航廈", "登機", "機位", "托運", "行李托運", "貴賓室", "長榮", "長榮航空", "華航", "中華航空", "星宇", "星宇航空", "虎航", "台灣虎航", "國泰", "國泰航空", "酷航", "樂桃", "捷星", "亞洲航空", "越捷", "全日空", "日航", "日本航空", "飛行機", "航空券", "フライト", "空港", "成田", "羽田", "関空", "jal", "ana", "peach", "ピーチ", "ジェットスター", "スカイマーク", "flight", "fly", "air", "airplane", "plane", "airline", "airlines", "airport", "airfare", "air ticket", "boarding", "terminal", "baggage", "luggage", "lounge", "eva air", "china airlines", "starlux", "tigerair", "cathay pacific", "singapore airlines", "emirates", "qatar", "delta", "united", "american airlines", "lufthansa", "air france", "klm", "british airways", "airasia", "scoot", "vietjet"
+    // 機票與航空公司
+    "機票", "飛機", "航班", "航空", "機位", "選位", "行李托運", "托運", "行李超重", "改票", "退票", "燃油附加費", "機場稅", "貴賓室", "長榮", "長榮航空", "華航", "中華航空", "星宇", "星宇航空", "虎航", "台灣虎航", "國泰", "國泰航空", "香港航空", "華信", "立榮", "酷航", "樂桃", "捷星", "亞洲航空", "越捷", "全日空", "日航", "日本航空", "大韓航空", "韓亞航空", "德威航空", "真航空", "濟州航空", "新加坡航空", "阿聯酋", "卡達航空", "土耳其航空", "達美航空", "聯合航空", "美國航空", "加拿大航空", "漢莎航空", "法航", "荷航", "英航", "芬航",
+    // 機場與航廈
+    "機場", "航廈", "登機", "登機證", "登機門", "出境", "入境", "海關", "候機室", "機場接送", "行李寄存", "飛行機", "航空券", "フライト", "空港", "成田", "羽田", "關空", "関空", "jal", "ana", "peach", "ピーチ", "ジェットスター", "スカイマーク",
+    // 英文關鍵字
+    "flight", "fly", "air", "airplane", "plane", "airline", "airlines", "airport", "airfare", "air ticket", "boarding", "terminal", "baggage", "luggage", "lounge", "eva air", "china airlines", "starlux", "tigerair", "cathay pacific", "singapore airlines", "emirates", "qatar", "delta", "united", "american airlines", "lufthansa", "air france", "klm", "british airways", "airasia", "scoot", "vietjet", "korean air", "asiana"
   ],
 
   // 6. 住宿溫泉
   hotel: [
-    "飯店", "旅館", "民宿", "青年旅館", "青旅", "渡假村", "渡假酒店", "溫泉", "溫泉旅館", "湯屋", "湯宿", "住宿", "訂房", "房費", "房租", "押金", "露營", "營地", "帳篷", "膠囊旅館", "商務旅館", "汽車旅館", "摩鐵", "客棧", "ホテル", "旅館", "りょかん", "宿", "やど", "温泉", "おんせん", "露天風呂", "銭湯", "民宿", "ペンション", "カプセルホテル", "ゲストハウス", "民泊", "アパホテル", "apa", "東横イン", "toyoko", "ドーミーイン", "dormy", "スーパーホテル", "ルートイン", "東急ステイ", "ダイワロイネット", "リッチモンド", "星野", "hoshino", "界", "リゾナーレ", "三井ガーデン", "プリンスホテル", "hotel", "hostel", "resort", "inn", "motel", "lodge", "lodging", "stay", "accommodation", "booking", "reservation", "room", "suite", "villa", "chalet", "cabin", "airbnb", "vrbo", "agoda", "expedia", "hotels.com", "trip.com", "hilton", "marriott", "hyatt", "ihg", "sheraton", "westin", "ritz carlton", "four seasons", "intercontinental", "novotel", "ibis", "best western", "holiday inn", "radisson", "b&b", "guesthouse", "capsule", "camping", "campsite", "glamping", "ryokan", "onsen"
+    // 住宿品類
+    "飯店", "旅館", "酒店", "商旅", "商務旅館", "精品旅館", "渡假村", "渡假酒店", "resort", "民宿", "b&b", "guesthouse", "青年旅館", "青旅", "hostel", "膠囊旅館", "背包客棧", "帳篷", "露營", "露營車", "豪華露營", "glamping", "湯屋", "溫泉", "溫泉旅館", "湯宿", "風呂", "露天風呂", "日歸溫泉", "錢湯", "汽車旅館", "摩鐵", "客棧", "villa", "包棟",
+    // 訂房與費用
+    "住宿", "訂房", "房費", "房租", "押金", "清潔費", "加床", "加人", "延遲退房", "airbnb", "booking", "agoda", "hotels.com", "expedia", "trip.com", "klook住宿", "kkday住宿",
+    // 集團與品牌
+    "萬豪", "marriott", "希爾頓", "hilton", "洲際", "ihg", "凱悅", "hyatt", "喜來登", "sheraton", "威斯汀", "westin", "麗思卡爾頓", "ritz carlton", "四季", "four seasons", "諾富特", "novotel", "宜必思", "ibis", "apa hotel", "apa", "東橫inn", "toyoko", "dormy inn", "dormy", "super hotel", "route inn", "daiwa roynet", "richmond hotel", "三井花園", "prince hotel", "星野集團", "星野", "hoshino", "虹夕諾雅", "界", "risonare", "omo", "beb",
+    // 日文關鍵字
+    "ホテル", "旅館", "りょかん", "宿", "やど", "温泉", "おんせん", "露天風呂", "銭湯", "民宿", "ペンション", "カプセルホテル", "ゲストハウス", "民泊", "宿泊", "チェックイン", "チェックアウト",
+    // 英文關鍵字
+    "hotel", "hostel", "resort", "inn", "motel", "lodge", "lodging", "stay", "accommodation", "booking", "reservation", "room", "suite", "villa", "chalet", "cabin", "airbnb", "vrbo", "agoda", "expedia", "hotels.com", "trip.com", "hilton", "marriott", "hyatt", "ihg", "sheraton", "westin", "ritz carlton", "four seasons", "intercontinental", "novotel", "ibis", "best western", "holiday inn", "radisson", "b&b", "guesthouse", "capsule", "camping", "campsite", "glamping", "ryokan", "onsen"
   ],
 
   // 7. 門票娛樂景點
   ticket: [
-    "門票", "入場券", "參觀券", "票券", "預約券", "快速通關", "express pass", "fastpass", "環球", "環球影城", "迪士尼", "迪士尼樂園", "迪士尼海洋", "水族館", "動物園", "植物園", "博物館", "美術館", "科學館", "展覽", "特展", "樂園", "遊樂園", "主題樂園", "摩天輪", "觀景台", "展望台", "塔", "晴空塔", "巴黎鐵塔", "劇院", "劇場", "百老匯", "歌劇", "音樂劇", "電影", "影城", "戲院", "演唱會", "音樂會", "live", "祭典", "煙火", "煙火大會", "花火", "體驗", "和服", "浴衣", "滑雪", "滑雪場", "雪票", "纜車票", "租雪具", "潛水", "浮潛", "衝浪", "跳傘", "高空彈跳", "熱氣球", "泛舟", "賽車", "卡丁車", "密室逃脫", "保齡球", "ktv", "唱歌", "溫泉券", "泡湯券", "神社", "寺廟", "御守", "拝觀", "參拜", "klook", "kkday", "tripadvisor", "チケット", "入場券", "拝観料", "ディズニー", "ユニバ", "usj", "ジブリ", "ハリーポッター", "チームラボ", "teamlab", "展望台", "スカイツリー", "東京タワー", "通天閣", "観覧車", "映画", "シネマ", "劇場", "舞台", "ライブ", "コンサート", "祭り", "花火大会", "スキー", "スノーボード", "リフト券", "着物", "浴衣", "神社", "お寺", "御朱印", "ticket", "tickets", "admission", "entry", "entrance", "pass", "tour", "guided tour", "excursion", "sightseeing", "attraction", "universal studios", "universal", "disney", "disneyland", "disneyworld", "disneysea", "ghibli", "museum", "gallery", "louvre", "aquarium", "zoo", "safari", "theme park", "amusement park", "observation deck", "observatory", "tower", "eiffel", "skytree", "show", "broadway", "musical", "opera", "theatre", "theater", "concert", "gig", "festival", "cinema", "movie", "exhibition", "expo", "ski", "skiing", "snowboard", "snowboarding", "lift ticket", "ski pass", "scuba", "dive", "diving", "snorkeling", "surf", "skydiving", "bungee", "kart", "escape room", "bowling", "karaoke", "getyourguide", "viator"
+    // 樂園與熱門景點
+    "門票", "入場券", "參觀券", "票券", "預約券", "快速通關", "express pass", "fastpass", "環球", "環球影城", "usj", "迪士尼", "迪士尼樂園", "迪士尼海洋", "disneyland", "disneysea", "哈利波特影城", "吉卜力公園", "吉卜力美術館", "樂高樂園", "legoland", "六福村", "九族文化村", "麗寶樂園", "劍湖山", "遠雄海洋公園", "義大世界", "水族館", "海遊館", "美麗海水族館", "xpark", "動物園", "木柵動物園", "植物園", "博物館", "美術館", "故宮", "奇美博物館", "羅浮宮", "大英博物館", "科學館", "天文館", "展覽", "特展", "樂園", "遊樂園", "主題樂園", "摩天輪", "觀景台", "展望台", "101觀景台", "晴空塔", "skytree", "東京鐵塔", "shibuya sky", "阿倍野", "梅田藍天大廈", "巴黎鐵塔", "eiffel", "teamlab",
+    // 體驗活動與戶外
+    "體驗", "和服", "和服體驗", "浴衣", "韓服", "泰服", "茶道", "料理教室", "手作", "陶藝", "diy", "採果", "採草莓", "賞鯨", "夜釣", "滑雪", "滑雪場", "雪票", "纜車票", "租雪具", "教練費", "潛水", "水肺潛水", "浮潛", "衝浪", "sup", "立槳", "獨木舟", "溯溪", "泛舟", "跳傘", "高空彈跳", "飛行傘", "熱氣球", "賽車", "卡丁車", "密室逃脫", "桌遊", "vr體驗", "保齡球", "ktv", "唱歌", "錢櫃", "好樂迪", "溫泉券", "泡湯券", "按摩", "spa", "泰式按摩", "指壓", "油壓", "足湯", "岩盤浴", "神社", "寺廟", "御守", "拝觀", "參拜", "御朱印", "劇院", "劇場", "百老匯", "歌劇", "音樂劇", "電影", "影城", "戲院", "威秀", "秀泰", "國賓", "演唱會", "音樂會", "live", "祭典", "花火大會", "煙火", "klook", "kkday", "tripadvisor", "getyourguide",
+    // 日文關鍵字
+    "チケット", "入場券", "拝観料", "ディズニー", "ユニバ", "ジブリ", "ハリーポッター", "チームラボ", "展望台", "スカイツリー", "東京タワー", "通天閣", "観覧車", "映画", "シネマ", "劇場", "舞台", "ライブ", "コンサート", "祭り", "花火大会", "スキー", "スノーボード", "リフト券", "着物", "浴衣", "神社", "お寺", "御朱印", "マッサージ", "エステ", "カラオケ",
+    // 英文關鍵字
+    "ticket", "tickets", "admission", "entry", "entrance", "pass", "tour", "guided tour", "excursion", "sightseeing", "attraction", "universal studios", "universal", "disney", "disneyland", "disneyworld", "disneysea", "ghibli", "museum", "gallery", "louvre", "aquarium", "zoo", "safari", "theme park", "amusement park", "observation deck", "observatory", "tower", "eiffel", "skytree", "show", "broadway", "musical", "opera", "theatre", "theater", "concert", "gig", "festival", "cinema", "movie", "exhibition", "expo", "ski", "skiing", "snowboard", "snowboarding", "lift ticket", "ski pass", "scuba", "dive", "diving", "snorkeling", "surf", "skydiving", "bungee", "kart", "escape room", "bowling", "karaoke", "spa", "massage"
   ],
 
   // 8. 購物藥妝超商伴手禮
   shopping: [
-    "超市", "大賣場", "超商", "便利商店", "雜貨", "藥妝", "藥局", "藥品", "美妝", "保養品", "唐吉", "唐吉訶德", "驚安", "全家", "7-11", "711", "小七", "萊爾富", "ok超商", "伴手禮", "土產", "紀念品", "禮物", "手信", "特產", "名產", "購物", "採購", "買", "百貨", "百貨公司", "商場", "購物中心", "outlet", "逛街", "市集", "夜市", "跳蚤市場", "服飾", "服裝", "衣服", "褲子", "裙子", "外套", "鞋子", "包包", "配件", "飾品", "手錶", "眼鏡", "墨鏡", "電器", "家電", "3c", "相機", "鏡頭", "手機", "平板", "筆電", "吹風機", "保溫杯", "玩具", "模型", "公仔", "動漫", "扭蛋", "盲盒", "漫畫", "書", "文具", "免稅", "退稅", "duty free", "tax free", "屈臣氏", "康是美", "寶雅", "日藥本舖", "松本清", "札幌藥妝", "驚安殿堂", "無印良品", "大創", "宜得利", "家樂福", "大潤發", "愛買", "全聯", "美廉社", "好市多", "costco", "昇恆昌", "ショッピング", "買い物", "お土産", "おみやげ", "土產", "名物", "銘菓", "薬局", "ドラッグストア", "マツモトキヨシ", "マツキヨ", "サンドラッグ", "スギ薬局", "ツルハ", "ココカラファイン", "ドンキ", "ドンキホーテ", "ビックカメラ", "ヨドバシカメラ", "ヤマダ電機", "エディオン", "ソフマップ", "アニメイト", "まんだらけ", "ユニクロ", "ジーユー", "gu", "無印良品", "muji", "ロフト", "loft", "東急ハンズ", "ハンズ", "ダイソー", "セリア", "キャンドゥ", "イオン", "aeon", "イトーヨーカドー", "ライフ", "西友", "成城石井", "デパ地下", "百貨店", "高島屋", "三越", "伊勢丹", "松坂屋", "大丸", "そごう", "西武", "阪急", "阪神", "近鉄", "マルイ", "パルコ", "parco", "ルミネ", "lumine", "アトレ", "ららぽーと", "アウトレット", "免税", "shop", "shopping", "store", "boutique", "mall", "outlet", "market", "bazaar", "supermarket", "grocery", "groceries", "bodega", "convenience store", "souvenir", "souvenirs", "gift", "gifts", "duty free", "target", "walmart", "costco", "carrefour", "whole foods", "trader joe", "trader joes", "woolworths", "coles", "sainsbury", "tesco", "aldi", "lidl", "coop", "boots", "watsons", "sephora", "apple store", "best buy", "zara", "h&m", "uniqlo", "gu", "gap", "mango", "asos", "nike", "adidas", "puma", "lululemon", "decathlon", "ikea", "nitori", "daiso", "muji", "big c", "emart", "lotte mart"
+    // 超市與大賣場超商
+    "超市", "大賣場", "量販店", "超商", "便利商店", "雜貨", "全聯", "家樂福", "大潤發", "愛買", "好市多", "costco", "美廉社", "7-11", "711", "小七", "全家", "familymart", "萊爾富", "ok超商", "lawson", "羅森", "唐吉", "唐吉訶德", "驚安", "驚安殿堂", "donki", "loft", "東急hands", "hands", "無印良品", "muji", "大創", "daiso", "seria", "cando", "宜得利", "nitori", "ikea", "aeon", "永旺", "ito yokado", "life超市", "西友", "成城石井", "big c", "lotte mart", "emart",
+    // 藥妝與美妝保養
+    "藥妝", "藥局", "藥品", "美妝", "保養品", "化妝品", "面膜", "防曬", "精華液", "口紅", "香水", "屈臣氏", "watsons", "康是美", "cosmed", "寶雅", "poya", "日藥本舖", "松本清", "matsukiyo", "sundrug", "札幌藥妝", "大國藥妝", "鶴羽藥妝", "tsuruha", "杉藥局", "sugi", "cocokara fine", "tomod's", "sephora",
+    // 百貨商場與家電服飾
+    "百貨", "百貨公司", "新光三越", "sogo", "遠東百貨", "微風", "台北101", "時代百貨", "三井outlet", "mitsui", "華泰名品城", "lalaport", "parco", "lumine", "丸井", "大丸", "高島屋", "伊勢丹", "阪急", "商場", "購物中心", "outlet", "逛街", "市集", "夜市", "跳蚤市場", "電器", "家電", "3c", "bic camera", "yodobashi", "山田電機", "edion", "sofmap", "燦坤", "全國電子", "apple store", "sony store", "相機", "鏡頭", "手機", "平板", "筆電", "吹風機", "保溫杯", "玩具", "模型", "公仔", "動漫", "animate", "扭蛋", "盲盒", "漫畫", "書", "書店", "誠品", "紀伊國屋", "蔦屋", "文具", "服飾", "服裝", "衣服", "外套", "毛衣", "襯衫", "t恤", "褲子", "牛仔褲", "裙子", "洋裝", "內衣", "發熱衣", "涼感衣", "鞋子", "球鞋", "靴子", "拖鞋", "包包", "背包", "皮夾", "配件", "飾品", "手錶", "眼鏡", "墨鏡", "jins", "owndays", "zoff", "uniqlo", "gu", "zara", "h&m", "gap", "mango", "nike", "adidas", "puma", "new balance", "lululemon", "decathlon",
+    // 伴手禮與免稅
+    "伴手禮", "土產", "紀念品", "禮物", "手信", "特產", "名產", "鳳梨酥", "太陽餅", "蛋黃酥", "芋頭酥", "牛軋糖", "茶葉", "東京芭娜娜", "白色戀人", "royce", "薯條三兄弟", "kitkat", "免稅", "退稅", "duty free", "tax free", "昇恆昌", "采盟",
+    // 日文關鍵字
+    "ショッピング", "買い物", "お土産", "おみやげ", "土產", "名物", "銘菓", "薬局", "ドラッグストア", "マツモトキヨシ", "マツキヨ", "サンドラッグ", "スギ薬局", "ツルハ", "ココカラファイン", "ドンキ", "ドンキホーテ", "ビックカメラ", "ヨドバシカメラ", "ヤマダ電機", "エディオン", "ソフマップ", "アニメイト", "まんだらけ", "ユニクロ", "ジーユー", "無印良品", "ロフト", "東急ハンズ", "ハンズ", "ダイソー", "セリア", "キャンドゥ", "イオン", "イトーヨーカドー", "ライフ", "西友", "成城石井", "デパ地下", "百貨店", "高島屋", "三越", "伊勢丹", "松坂屋", "大丸", "そごう", "西武", "阪急", "阪神", "近鉄", "マルイ", "パルコ", "ルミネ", "アトレ", "ららぽーと", "アウトレット", "免税",
+    // 英文關鍵字
+    "shop", "shopping", "store", "boutique", "mall", "outlet", "market", "bazaar", "supermarket", "grocery", "groceries", "bodega", "convenience store", "souvenir", "souvenirs", "gift", "gifts", "duty free", "target", "walmart", "costco", "carrefour", "whole foods", "trader joe", "trader joes", "woolworths", "coles", "sainsbury", "tesco", "aldi", "lidl", "coop", "boots", "watsons", "sephora", "apple store", "best buy", "zara", "h&m", "uniqlo", "gu", "gap", "mango", "asos", "nike", "adidas", "puma", "lululemon", "decathlon", "ikea", "nitori", "daiso", "muji", "big c", "emart", "lotte mart"
   ],
 
   // 9. 醫療藥品
   medical: [
-    "藥", "醫", "診所", "醫院", "急診", "看診", "門診", "醫生", "牙醫", "眼科", "健保", "醫療", "醫療費", "醫藥費", "藥品", "感冒藥", "胃藥", "止痛藥", "腸胃藥", "頭痛藥", "暈車藥", "貼布", "痠痛貼布", "眼藥水", "繃帶", "紗布", "酒精", "體溫計", "口罩", "處方", "健檢", "疫苗", "保險", "旅遊平安險", "旅平險", "醫療險", "海外突發", "病院", "クリニック", "医院", "診療所", "救急", "歯医者", "薬", "くすり", "処方箋", "風邪薬", "胃腸薬", "痛み止め", "頭痛薬", "酔い止め", "目薬", "湿布", "バンドエイド", "保険", "海外旅行保険", "hospital", "clinic", "urgent care", "emergency", "er", "doctor", "physician", "dentist", "pharmacy", "drugstore", "chemist", "medicine", "medication", "pill", "pills", "prescription", "rx", "painkiller", "aspirin", "ibuprofen", "tylenol", "bandaid", "bandage", "insurance", "travel insurance", "medical expense"
+    "藥", "西藥", "中藥", "成藥", "醫", "診所", "醫院", "急診", "看診", "門診", "醫生", "牙醫", "拔牙", "洗牙", "眼科", "皮膚科", "骨科", "復健", "掛號費", "健保", "醫療", "醫療費", "醫藥費", "藥品", "處方箋", "感冒藥", "退燒藥", "胃藥", "止痛藥", "普拿疼", "eve", "大正微粒", "太田胃散", "正露丸", "腸胃藥", "止瀉藥", "便秘藥", "過敏藥", "頭痛藥", "暈車藥", "眼藥水", "fx眼藥水", "樂敦", "小花眼藥水", "貼布", "痠痛貼布", "撒隆巴斯", "roihi", "液體ok繃", "ok繃", "繃帶", "紗布", "棉花棒", "消毒水", "優碘", "酒精", "體溫計", "口罩", "維他命", "保健食品", "b群", "益生菌", "魚油", "葉黃素", "膠原蛋白", "健檢", "疫苗", "pcr", "快篩", "保險", "旅遊平安險", "旅平險", "旅遊不便險", "海外突發", "意外險", "醫療險", "病院", "クリニック", "医院", "診療所", "救急", "歯医者", "薬", "くすり", "処方箋", "風邪薬", "胃腸薬", "痛み止め", "頭痛薬", "酔い止め", "目薬", "湿布", "バンドエイド", "保険", "海外旅行保険", "hospital", "clinic", "urgent care", "emergency", "er", "doctor", "physician", "dentist", "pharmacy", "drugstore", "chemist", "medicine", "medication", "pill", "pills", "prescription", "rx", "painkiller", "aspirin", "ibuprofen", "tylenol", "bandaid", "bandage", "insurance", "travel insurance", "medical expense"
   ],
 
   // 10. 網卡通訊
   network: [
-    "網卡", "網路", "通訊", "漫遊", "電信", "esim", "sim", "sim卡", "實體卡", "流量", "流量包", "吃到飽", "上網", "上網卡", "wifi", "wi-fi", "wifi機", "路由器", "租wifi", "中華電信", "遠傳", "台灣大哥大", "台哥大", "simカード", "ネット", "通信", "ローミング", "ポケットwifi", "wi-fiレンタル", "docomo", "ドコモ", "softbank", "ソフトバンク", "au", "楽天モバイル", "rakuten", "uqモバイル", "ymobile", "ahamo", "povo", "linemo", "sim", "esim", "sim card", "wifi", "wi-fi", "mobile wifi", "pocket wifi", "data", "mobile data", "roaming", "data roaming", "gigabyte", "gb", "unlimited data", "telecom", "network", "broadband", "ais", "true", "dtac", "singtel", "starhub", "m1", "kt", "skt", "lgu+", "docomo", "softbank", "vodafone", "o2", "ee", "three", "orange", "t-mobile", "verizon", "at&t", "mint", "airalo", "holafly", "nomad"
+    "網卡", "上網卡", "網路", "通訊", "漫遊", "國際漫遊", "數據漫遊", "原號漫遊", "電信", "esim", "sim", "sim卡", "實體卡", "虛擬卡", "流量", "流量包", "吃到飽", "上網", "wifi", "wi-fi", "wifi機", "隨身wifi", "wifi分享器", "路由器", "租wifi", "中華電信", "遠傳", "台灣大哥大", "台哥大", "airalo", "holafly", "nomad", "djb", "joytel", "飛買家", "wi-ho", "simカード", "ネット", "通信", "ローミング", "ポケットwifi", "wi-fiレンタル", "docomo", "ドコモ", "softbank", "ソフトバンク", "au", "楽天モバイル", "rakuten", "uqモバイル", "ymobile", "ahamo", "povo", "linemo", "sim", "esim", "sim card", "wifi", "wi-fi", "mobile wifi", "pocket wifi", "data", "mobile data", "roaming", "data roaming", "gigabyte", "gb", "unlimited data", "telecom", "network", "broadband", "ais", "true", "dtac", "singtel", "starhub", "m1", "kt", "skt", "lgu+", "docomo", "softbank", "vodafone", "o2", "ee", "three", "orange", "t-mobile", "verizon", "at&t", "mint"
+  ],
+
+  // 11. 跨幣轉移與手續費
+  xcur: [
+    "換匯", "結匯", "買匯", "賣匯", "外幣兌換", "換外幣", "外幣提款", "海外提款", "跨國提款", "海外刷卡手續費", "國外交易手續費", "跨國交易手續費", "手續費", "匯差", "換錢", "盤谷銀行", "兆豐", "玉山", "台銀", "superrich", "money exchange", "currency exchange", "fx fee", "foreign exchange", "atm withdrawal", "atm fee", "exchange fee"
   ]
 };
 

@@ -2477,16 +2477,22 @@ button.dd-btn {
   font-weight:600;
 }
 .my-mini-balance.all-settled-card{
-  padding:16px 20px;
-  background:var(--paper);
-  border:1.5px solid var(--card-nested-border);
-  box-shadow:var(--card-nested-shadow);
+  padding: 16px 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, #2ecc71 14%, var(--paper)) 0%, color-mix(in srgb, #27ae60 7%, var(--card)) 100%);
+  border: 1.5px solid color-mix(in srgb, #2ecc71 45%, var(--card-nested-border));
+  box-shadow: 0 4px 18px rgba(46, 204, 113, 0.14);
+  animation: sbSettledPulse 4s infinite ease-in-out;
 }
 
-:root[data-theme="dark"] .my-mini-balance.pos{
-  background:linear-gradient(135deg, #27AE60 0%, #1E8449 100%);
-  border-color:rgba(255,255,255,.1);
-  box-shadow:0 3px 12px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.2);
+@keyframes sbSettledPulse {
+  0%, 100% { box-shadow: 0 4px 18px rgba(46, 204, 113, 0.14); border-color: color-mix(in srgb, #2ecc71 45%, var(--card-nested-border)); }
+  50% { box-shadow: 0 8px 26px rgba(46, 204, 113, 0.28); border-color: color-mix(in srgb, #2ecc71 70%, var(--card-nested-border)); }
+}
+
+:root[data-theme="dark"] .my-mini-balance.all-settled-card{
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.22) 0%, rgba(30, 132, 73, 0.12) 100%);
+  border-color: rgba(46, 204, 113, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
 }
 :root[data-theme="dark"] .my-mini-balance.pos:hover{
   box-shadow:0 5px 18px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
@@ -6268,15 +6274,15 @@ input#aiExpenseTime {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 16px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1.5px solid color-mix(in srgb, var(--btn-primary) 35%, var(--card-border));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(114, 97, 150, 0.18);
-  font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(114, 97, 150, 0.18);
+  font-size: 13.5px;
   color: var(--ink);
   animation: sbToastSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   max-width: 100%;
@@ -6287,26 +6293,32 @@ input#aiExpenseTime {
 }
 .sb-toast-text{
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  overflow: hidden;
+  flex-direction: column;
+  gap: 2px;
   flex: 1 1 auto;
   min-width: 0;
+  line-height: 1.45;
 }
 .sb-toast-text b {
-  display: inline;
-  flex-shrink: 0;
+  display: inline-block;
   margin: 0;
   color: var(--btn-primary);
   font-weight: 800;
-  white-space: nowrap;
+  font-size: 13.5px;
+  line-height: 1.35;
+  word-break: break-word;
 }
 .sb-toast-text span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  font-weight: 600;
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.45;
+}
+:root[data-theme="dark"] .sb-toast-text span {
+  color: rgba(255, 255, 255, 0.85);
 }
 .sb-toast-action{
   flex-shrink:0;
@@ -6817,16 +6829,23 @@ input#aiExpenseTime {
 .cat-exp-card{
   background: color-mix(in srgb, var(--paper) 60%, var(--card));
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: all 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: sbCatCardIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes sbCatCardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .cat-exp-card:hover{
-  border-color: color-mix(in srgb, var(--btn-primary) 30%, var(--line));
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--btn-primary) 35%, var(--line));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 }
 .cat-exp-card-top{
   display: flex;
@@ -6853,15 +6872,12 @@ input#aiExpenseTime {
   color: var(--ink);
   word-break: break-word;
 }
-.cat-exp-note{
-  font-size: 12px;
-  color: var(--ink-soft);
-  margin-top: 2px;
-  white-space: pre-line;
-}
 .cat-exp-amt-col{
   text-align: right;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .cat-exp-total-amt{
   font-family: "JetBrains Mono", monospace;
@@ -6870,13 +6886,21 @@ input#aiExpenseTime {
   color: var(--ink);
 }
 .cat-exp-my-share{
-  font-size: 11.5px;
-  font-weight: 600;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
   color: #2b8a3e;
-  margin-top: 2px;
+  background: color-mix(in srgb, #2b8a3e 12%, var(--card));
+  border: 1px solid color-mix(in srgb, #2b8a3e 25%, transparent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-top: 3px;
+  letter-spacing: 0.2px;
 }
 :root[data-theme="dark"] .cat-exp-my-share{
   color: #51cf66;
+  background: color-mix(in srgb, #51cf66 14%, var(--card));
+  border-color: color-mix(in srgb, #51cf66 30%, transparent);
 }
 .cat-exp-card-bottom{
   border-top: 1px dashed var(--line);
@@ -6889,12 +6913,16 @@ input#aiExpenseTime {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 .cat-exp-row-label{
   color: var(--ink-soft);
   font-weight: 600;
   font-size: 11.5px;
-  width: 44px;
+  min-width: 52px;
+  width: auto;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 .cat-exp-avatar-stack{
@@ -6902,6 +6930,7 @@ input#aiExpenseTime {
   align-items: center;
   gap: 5px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 .cat-exp-avatar-bubble{
   display: inline-flex;
@@ -7092,35 +7121,41 @@ input#aiExpenseTime {
   z-index: 9999999;
   display: none;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   background: rgba(22, 20, 28, 0.96);
   color: #ffffff;
-  padding: 8px 16px 8px 10px;
-  border-radius: 36px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  padding: 10px 18px 10px 10px;
+  border-radius: 40px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 4px 14px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.14);
   transform: translate(-50%, 0) scale(0.85);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 .sb-avatar-floating-card.show{
   opacity: 1;
   transform: translate(-50%, 0) scale(1);
+  animation: sbAfcPop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes sbAfcPop {
+  0% { opacity: 0; transform: translate(-50%, 4px) scale(0.85); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 .sb-afc-avatar-wrap{
-  width: 46px;
-  height: 46px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 12px rgba(255, 255, 255, 0.25);
+  border: 2.5px solid rgba(255, 255, 255, 0.95);
+  transition: transform 0.2s ease;
 }
 .sb-afc-avatar-img{
   width: 100%;
@@ -7135,49 +7170,56 @@ input#aiExpenseTime {
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 19px;
+  font-size: 24px;
   font-weight: 800;
   text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .sb-afc-info{
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 .sb-afc-name-row{
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 .sb-afc-name{
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
 }
 .sb-afc-role{
-  font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 500;
 }
 .sb-afc-badges{
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 3px;
+  gap: 5px;
+  margin-top: 4px;
   flex-wrap: wrap;
 }
 .sb-afc-badge-chip{
-  font-size: 10.5px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.10) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
   border-radius: 12px;
-  padding: 1px 6px;
+  padding: 2px 7px;
   color: #ffffff;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.sb-afc-badge-chip:hover{
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.15) 100%);
 }
 .sb-afc-arrow{
   position: absolute;
@@ -7241,23 +7283,36 @@ input#aiExpenseTime {
   border-radius: 14px;
   background: color-mix(in srgb, var(--paper) 60%, var(--card));
   border: 1px solid var(--line);
-  transition: all 0.15s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.achievement-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }
 .achievement-card.unlocked{
-  border-color: color-mix(in srgb, var(--btn-primary) 40%, var(--line));
-  background: color-mix(in srgb, var(--btn-primary) 8%, var(--card));
+  border-color: color-mix(in srgb, var(--btn-primary) 45%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--btn-primary) 10%, var(--card)) 0%, color-mix(in srgb, var(--paper) 60%, var(--card)) 100%);
+  box-shadow: 0 2px 10px rgba(122, 107, 158, 0.08);
 }
 .achievement-icon-wrap{
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--btn-primary) 15%, var(--card));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 22px;
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: transform 0.2s ease;
+}
+.achievement-card:hover .achievement-icon-wrap{
+  transform: scale(1.08) rotate(3deg);
+}
+.achievement-card.unlocked .achievement-icon-wrap{
+  background: linear-gradient(135deg, color-mix(in srgb, var(--btn-primary) 28%, var(--card)), color-mix(in srgb, var(--btn-primary) 14%, var(--card)));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--btn-primary) 36%, transparent);
 }
 .achievement-info-col{
   flex: 1;
@@ -7278,21 +7333,85 @@ input#aiExpenseTime {
 .achievement-holders{
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 5px;
+  margin-top: 5px;
   flex-wrap: wrap;
 }
 .achievement-holder-chip{
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  padding: 2px 6px 2px 3px;
-  border-radius: 12px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 999px;
   background: var(--card);
   border: 1px solid var(--line);
   color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.achievement-holder-chip:hover{
+  transform: translateY(-1px);
+  border-color: var(--btn-primary);
+}
+
+/* ============================================================
+   UI Polish: Global Micro-Interactions, Floating Breathing & Smooth Transitions
+   ============================================================ */
+.debt-empty-state-icon,
+.debt-empty-state b:first-child,
+.empty-state-icon {
+  display: inline-block;
+  animation: sbFloat 3.8s ease-in-out infinite;
+}
+
+@keyframes sbFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Button & Pill Spring Press Feedback */
+.btn:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-wide:active,
+.nav-dropdown-btn:active,
+.check-pill:active {
+  transform: scale(0.96) translateY(1px);
+}
+
+/* Donut Slice Smooth Focus */
+.donut-slice {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, filter 0.2s ease;
+  transform-origin: center;
+}
+.donut-slice:hover {
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.18));
+  opacity: 0.95;
+}
+
+/* Calculator Breakdown Toggle Arrow Smooth Rotation */
+.exp-calc-toggle-icon {
+  display: inline-block;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.is-expanded .exp-calc-toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* Smooth Progress & Comparison Bar Fills */
+.bal-cmp-bar-fill,
+.summary-bar-fill,
+.debt-progress-bar {
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Floating Elevation on Interactive Cards */
+.my-mini-balance,
+.cat-exp-card,
+.achievement-card {
+  will-change: transform, box-shadow;
 }
 
 

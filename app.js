@@ -3305,11 +3305,9 @@
           }).join("");
 
           let myShareBadge = "";
-          if(isMyScope){
-            const myShare = shares.find(s => s.member_id === myId);
-            if(myShare){
-              myShareBadge = `<div class="cat-exp-my-share">我分攤 ${SYM}${formatAmt(myShare.amount)}</div>`;
-            }
+          const myShare = shares.find(s => s.member_id === myId);
+          if(myShare && Number(myShare.amount) > 0){
+            myShareBadge = `<div class="cat-exp-my-share">我分攤 ${SYM}${formatAmt(myShare.amount)}</div>`;
           }
 
           return `
@@ -3318,7 +3316,6 @@
                 <div class="cat-exp-info-col">
                   <div class="cat-exp-date"><span class="cat-exp-date-icon">📅</span> ${dateStr}</div>
                   <div class="cat-exp-title">${escapeHtml(title)}</div>
-                  ${note ? `<div class="cat-exp-note">${escapeHtml(note)}</div>` : ''}
                 </div>
                 <div class="cat-exp-amt-col">
                   <div class="cat-exp-total-amt">${SYM}${formatAmt(e.amount)}</div>
@@ -4391,10 +4388,47 @@ if(exportSettlementImgBtn){
       const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
       const filename = `Splitbill結算_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
       const file = new File([blob], filename, { type: "image/png" });
+      const isCapacitor = typeof window.Capacitor !== "undefined" && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform();
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isMobile = isIOS || /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
+      const isMobile = isCapacitor || isIOS || /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
 
       async function handleMobileShareOrSave(){
+        // 1. Capacitor 原生 Share / Filesystem 外掛支援
+        if(isCapacitor && window.Capacitor && window.Capacitor.Plugins){
+          try {
+            if(window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share){
+              const base64Data = (dataUrl || "").split(",")[1];
+              if(base64Data){
+                const saved = await window.Capacitor.Plugins.Filesystem.writeFile({
+                  path: filename,
+                  data: base64Data,
+                  directory: "CACHE"
+                });
+                if(saved && saved.uri){
+                  await window.Capacitor.Plugins.Share.share({
+                    title: `Splitbill 帳務結算 - ${groupName}`,
+                    text: `這是 ${groupName} 的帳務結算圖`,
+                    url: saved.uri,
+                    dialogTitle: "分享結算圖片"
+                  });
+                  return true;
+                }
+              }
+            } else if(window.Capacitor.Plugins.Share){
+              await window.Capacitor.Plugins.Share.share({
+                title: `Splitbill 帳務結算 - ${groupName}`,
+                text: `這是 ${groupName} 的帳務結算圖`,
+                url: dataUrl || currentSettlementImgUrl,
+                dialogTitle: "分享結算圖片"
+              });
+              return true;
+            }
+          } catch(e){
+            console.warn("Capacitor Share Plugin error:", e);
+          }
+        }
+
+        // 2. 現代瀏覽器 Web Share API
         if(navigator.share){
           try {
             if(navigator.canShare && navigator.canShare({ files: [file] })){
@@ -4402,6 +4436,13 @@ if(exportSettlementImgBtn){
                 files: [file],
                 title: `Splitbill 帳務結算 - ${groupName}`,
                 text: `這是 ${groupName} 的帳務結算圖`
+              });
+              return true;
+            } else {
+              await navigator.share({
+                title: `Splitbill 帳務結算 - ${groupName}`,
+                text: `這是 ${groupName} 的帳務結算圖`,
+                url: location.href
               });
               return true;
             }
@@ -4433,12 +4474,41 @@ if(exportSettlementImgBtn){
         return false;
       }
 
-      function handleDirectDownload(){
-        if(isIOS){
-          // iOS Safari / In-App 瀏覽器封鎖 data/blob 標籤下載，引導長按儲存
-          sbAlert("📱 iPhone / iPad 儲存相簿教學：\n\n1. 請直接「長按」上方預覽圖片\n2. 選擇「儲存影像」或「加入照片」\n即可立即存入手機相簿！", "💡 儲存至相簿");
+      async function handleDirectDownload(){
+        // 1. Capacitor 原生儲存檔案
+        if(isCapacitor && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem){
+          try {
+            const base64Data = (dataUrl || "").split(",")[1];
+            if(base64Data){
+              await window.Capacitor.Plugins.Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: "DOCUMENTS"
+              });
+              showToast("💾 圖片已儲存", `已儲存至裝置「文件 / ${filename}」`);
+              return;
+            }
+          } catch(e){
+            console.warn("Capacitor Filesystem write error:", e);
+          }
+        }
+
+        if(isMobile){
+          try {
+            const a = document.createElement("a");
+            a.href = currentSettlementImgUrl || dataUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 250);
+          } catch(e){}
+
+          // 提示手機長按儲存相簿
+          sbAlert("📱 手機儲存相簿教學：\n\n1. 請直接「長按」上方預覽圖片\n2. 選擇「下載圖片 / 儲存影像」或「分享到 LINE」\n即可存入手機相簿或傳送給朋友！", "💡 儲存至相簿");
           return;
         }
+
+        // 電腦版 Web 直接觸發下載
         try {
           const a = document.createElement("a");
           a.href = currentSettlementImgUrl || dataUrl;
@@ -4456,7 +4526,7 @@ if(exportSettlementImgBtn){
         copyBtn.onclick = async () => {
           const ok = await handleCopyImage();
           if(!ok){
-            await sbAlert("您的瀏覽器暫不支援直接複製圖片，請直接「長按上方圖片」選擇「拷貝」或「儲存影像」。", "💡 複製提示");
+            await sbAlert("您的裝置暫不支援剪貼簿直接拷貝圖片，請直接「長按上方圖片」選擇「拷貝」或「儲存影像」。", "💡 複製提示");
           }
         };
       }
@@ -4464,11 +4534,7 @@ if(exportSettlementImgBtn){
       const dlBtn = document.getElementById("settlementImgDownloadBtn");
       if(dlBtn){
         dlBtn.onclick = async () => {
-          if(isMobile && isIOS){
-            const shared = await handleMobileShareOrSave();
-            if(shared) return;
-          }
-          handleDirectDownload();
+          await handleDirectDownload();
         };
       }
 
@@ -4479,7 +4545,7 @@ if(exportSettlementImgBtn){
           if(!shared){
             const copied = await handleCopyImage();
             if(!copied){
-              handleDirectDownload();
+              await handleDirectDownload();
             }
           }
         };
