@@ -2699,8 +2699,23 @@ button.dd-btn {
 .debt-advance-card{
   border-left:4px solid var(--btn-primary);
 }
+/* 超額還款形成的虛擬欠款卡片，跟一般由支出形成的欠款卡片（左邊框用
+   --accent 主題色）區分開來，改用跟 AI 收據「未認領」同一組琥珀色，
+   代表這筆欠款不是來自支出。 */
+.debt-expense-card.virtual-debt-card{
+  border-left:4px solid #FFA726;
+}
+.badge-virtual-debt{
+  font-size:10.5px;
+  padding:1px 6px;
+  border-radius:6px;
+  background:rgba(255,167,38,0.15);
+  color:#FFA726;
+  font-weight:700;
+  margin-left:6px;
+}
 .debt-expense-card:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.06); }
-.debt-expense-card:not(.overpayment-card){ cursor:pointer; }
+.debt-expense-card{ cursor:pointer; }
 .debt-expense-top{
   display:flex;
   justify-content:space-between;
@@ -2966,20 +2981,6 @@ button.dd-btn {
   font-weight: 700;
   margin-left: 6px;
 }
-.badge-overpay {
-  font-size: 10.5px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: rgba(255, 165, 2, 0.15);
-  color: #ffa502;
-  font-weight: 700;
-  margin-left: 6px;
-}
-.debt-expense-card.overpayment-card {
-  border-left: 4px solid #ffa502;
-  background: color-mix(in srgb, #ffa502 4%, var(--paper));
-}
-
 .debt-cleared{
   display:flex;
   align-items:center;
@@ -4932,30 +4933,34 @@ button.dd-btn {
   color: #FFFFFF;
 }
 .ai-header-total-right{
-  display: flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
 }
 .ai-total-price-wrap{
-  width: 100%;
-  height: 36px;
-  border: 1.5px solid var(--btn-primary);
-  background: var(--input-bg);
-  box-sizing: border-box;
-  border-radius: 8px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: 1;
+  width: 100% !important;
+  max-width: none !important;
+  height: 38px !important;
+  border: 1.5px solid var(--btn-primary) !important;
+  background: var(--input-bg) !important;
+  box-sizing: border-box !important;
+  border-radius: 8px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
 }
 .ai-total-price-input{
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--btn-primary);
-  width: 100%;
-  min-width: 0;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: var(--btn-primary) !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0 !important;
 }
 
 .ai-receipt-bar-divider{
@@ -5060,6 +5065,8 @@ button.dd-btn {
   background: transparent !important;
   box-shadow: none !important;
   text-align: right !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  color: var(--ink) !important;
 }
 .ai-tax-type-toggle{
   display: flex;
@@ -5219,8 +5226,9 @@ button.dd-btn {
   box-shadow: 0 3px 10px rgba(114, 97, 150, 0.12);
 }
 
-/* 頂部列：序號 + 品名 (flex-1) + [金額 + 刪除] (金額優先完整顯示) */
-.ai-item-main-row{
+/* 第一列：序號 + 品名，獨立一整列、不跟金額/數量/刪除搶空間，品名才有
+   足夠寬度完整顯示（手機版尤其重要，塞在同一列常常只剩一小條看不清楚）。 */
+.ai-item-name-row{
   display: flex;
   align-items: center;
   gap: 6px;
@@ -5263,25 +5271,43 @@ button.dd-btn {
   border-color: var(--btn-primary);
   box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.15);
 }
+/* 第二列：「單價」金額／×數量／「個」／＝總計，一整列完全置中且手機版絕不跳行 */
 .ai-item-price-col{
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  gap: 5px;
+  width: 100%;
+  margin: 4px auto 6px auto;
+  box-sizing: border-box;
+}
+.ai-price-label,
+.ai-qty-unit-label{
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  font-weight: 600;
   flex-shrink: 0;
+  white-space: nowrap;
+  user-select: none;
+}
+.ai-item-price-col .ai-receipt-price-wrap{
+  width: 82px !important;
+  min-width: 70px !important;
+  max-width: 90px !important;
+  height: 34px !important;
+  flex-shrink: 0 !important;
 }
 .ai-receipt-price-wrap{
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: var(--input-bg);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 0 8px;
-  width: 106px;
-  min-width: 106px;
-  height: 38px;
+  padding: 0 7px;
   box-sizing: border-box;
-  flex-shrink: 0;
   transition: all .15s ease;
 }
 .ai-receipt-price-wrap:focus-within{
@@ -5290,7 +5316,7 @@ button.dd-btn {
   box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.15);
 }
 .ai-receipt-cur-prefix{
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--btn-primary);
   font-weight: 700;
   white-space: nowrap;
@@ -5336,25 +5362,201 @@ button.dd-btn {
   -webkit-appearance: none;
   margin: 0;
 }
+/* 刪除鈕現在放在卡片右上角，跟狀態徽章放同一個小角落（見 .ai-card-top-right），
+   嚴格保持正圓形與獨立安全距離。 */
 .ai-receipt-item-del{
-  background: transparent;
-  border: none;
+  background: var(--paper);
+  border: 1px solid var(--line);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
-  width: 24px;
-  height: 38px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  line-height: 1;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: 0 1.5px 4px rgba(0,0,0,0.15);
   transition: all .15s ease;
+  box-sizing: border-box !important;
 }
 .ai-receipt-item-del:hover{
   color: var(--negative-text);
+  border-color: var(--negative-text, #E57373);
   background: rgba(235,87,87,.14);
+}
+
+/* 品項數量：「×」文字 + 輸入框 + 「個」 + 「＝」 + 「總價」 */
+.ai-qty-x-prefix{
+  font-size: 12px;
+  color: var(--btn-primary);
+  font-weight: 700;
+  flex-shrink: 0;
+  user-select: none;
+}
+.ai-receipt-item-qty{
+  width: 38px !important;
+  min-width: 34px !important;
+  max-width: 44px !important;
+  height: 34px !important;
+  flex-shrink: 0;
+  box-sizing: border-box !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  background: var(--input-bg) !important;
+  color: var(--ink) !important;
+  text-align: center !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 2px !important;
+  -moz-appearance: textfield;
+  transition: all .15s ease;
+}
+:root[data-theme="dark"] .ai-receipt-item-qty{
+  color: #FFFFFF !important;
+}
+.ai-receipt-item-qty:focus{
+  background: var(--paper) !important;
+  border-color: var(--btn-primary) !important;
+  box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.15) !important;
+}
+.ai-receipt-item-qty::-webkit-inner-spin-button,
+.ai-receipt-item-qty::-webkit-outer-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ai-item-equal-sign{
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+  margin: 0 1px;
+  user-select: none;
+}
+.ai-item-total-wrap{
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 22%, var(--line));
+  border-radius: 8px;
+  padding: 0 7px;
+  height: 34px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.ai-item-line-total{
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* 「平分 ↔ 依數量分配」切換按鈕，沿用平分按鈕的虛線藥丸樣式 */
+.ai-qty-mode-toggle{
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 0 10px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  line-height: 26px !important;
+  border-radius: 999px !important;
+  border: 1px dashed var(--line) !important;
+  background: var(--paper) !important;
+  color: var(--ink-soft) !important;
+  cursor: pointer !important;
+  transition: all .15s ease !important;
+  white-space: nowrap !important;
+  flex: 1 1 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+.ai-qty-mode-toggle:hover{
+  border-color: var(--btn-primary) !important;
+  color: var(--btn-primary) !important;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper)) !important;
+}
+
+/* 依數量分配：每個人一列「頭像＋姓名 + 買了幾個」的輸入框 */
+.ai-qty-alloc-wrap{
+  flex: 1;
+  min-width: 0;
+}
+.ai-qty-member-rows{
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ai-qty-member-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ai-qty-member-label{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.ai-qty-member-label .ai-bubble-name{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-receipt-member-qty{
+  width: 52px !important;
+  min-width: 52px;
+  flex: 0 0 52px;
+  height: 30px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--ink);
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  outline: none;
+  flex-shrink: 0;
+  transition: all .15s ease;
+}
+.ai-receipt-member-qty:focus{
+  background: var(--paper);
+  border-color: var(--btn-primary);
+  box-shadow: 0 0 0 2px rgba(114, 97, 150, 0.15);
+}
+.ai-qty-allocated-hint{
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.ai-qty-allocated-hint.complete{
+  color: #4EAE7B;
+}
+.ai-qty-allocated-hint.over{
+  color: var(--negative-text, #E57373);
 }
 
 /* 下方列：左邊大頭貼氣泡流，右邊是所有人平分按鈕 (正位於金額下方) */
@@ -5362,7 +5564,7 @@ button.dd-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   padding-left: 28px;
   box-sizing: border-box;
@@ -5372,14 +5574,18 @@ button.dd-btn {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .ai-all-btn-col{
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  flex-shrink: 0;
-  width: 120px;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  box-sizing: border-box;
 }
 .ai-avatar-bubble{
   display: inline-flex;
@@ -5453,32 +5659,38 @@ button.dd-btn {
   font-weight: 700;
 }
 .ai-bubble-all-btn{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 9px;
-  border-radius: 999px;
-  border: 1px dashed var(--line);
-  background: var(--paper);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: all .15s ease;
-  white-space: nowrap;
-  width: 100%;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 0 12px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  line-height: 26px !important;
+  border-radius: 999px !important;
+  border: 1px dashed var(--line) !important;
+  background: var(--paper) !important;
+  color: var(--ink-soft) !important;
+  cursor: pointer !important;
+  transition: all .15s ease !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
 }
 .ai-bubble-all-btn:hover{
-  border-color: var(--btn-primary);
-  color: var(--btn-primary);
-  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper));
+  border-color: var(--btn-primary) !important;
+  color: var(--btn-primary) !important;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper)) !important;
 }
 .ai-bubble-all-btn.active{
-  border: 1px solid rgba(235, 87, 87, 0.4);
-  background: rgba(235, 87, 87, 0.12);
-  color: var(--negative-text, #E57373);
-  font-weight: 700;
+  border: 1px solid rgba(235, 87, 87, 0.4) !important;
+  background: rgba(235, 87, 87, 0.12) !important;
+  color: var(--negative-text, #E57373) !important;
+  font-weight: 700 !important;
 }
 
 /* 停用的儲存按鈕狀態 (未認領完成不可儲存) */
@@ -5496,7 +5708,7 @@ button.dd-btn {
     padding: 13px 10px 8px 10px !important;
     gap: 6px;
   }
-  .ai-item-main-row {
+  .ai-item-name-row {
     gap: 5px;
   }
   .ai-receipt-item-name {
@@ -5506,22 +5718,20 @@ button.dd-btn {
     flex: 1 1 0;
     min-width: 0;
   }
-  .ai-item-main-row .ai-receipt-price-wrap {
-    width: 96px;
-    min-width: 96px;
-    height: 36px;
-    padding: 0 6px;
-    flex-shrink: 0;
+  .ai-item-price-col {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+    gap: 4px !important;
+    margin: 4px auto 6px auto !important;
   }
   .ai-tax-price-wrap,
   .ai-total-price-wrap {
     width: auto !important;
     min-width: 0 !important;
     flex: 1 1 0 !important;
-  }
-  .ai-receipt-item-del {
-    height: 36px;
-    width: 20px;
   }
   .ai-receipt-item-price {
     font-size: 13.5px !important;
@@ -5536,14 +5746,23 @@ button.dd-btn {
     padding-left: 0;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
   .ai-all-btn-col {
-    width: 100%;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin-top: 4px !important;
   }
-  .ai-bubble-all-btn {
-    width: 100%;
-    justify-content: center;
+  .ai-bubble-all-btn,
+  .ai-qty-mode-toggle {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    margin: 0 !important;
   }
 }
 
@@ -5664,22 +5883,30 @@ button.dd-btn {
   transition: opacity 0.2s ease, filter 0.2s ease;
 }
 
-/* 卡片頂部浮動標籤 (不推擠輸入框與按鈕排版) */
-.ai-card-float-badge {
+/* 卡片右上角：狀態徽章（待認領／每人¥X／已分配X/Y）+ 刪除鈕放在同一個
+   角落，用 flex 排在一起、中間留適當間距，整組用 position:absolute
+   浮在卡片右上角（不推擠輸入框與按鈕排版）。徽章本身不再各自
+   position:absolute，改成這個外層容器裡的普通 flex 子項目。 */
+.ai-card-top-right {
   position: absolute;
-  top: -9px;
-  right: 14px;
+  top: -10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 3;
+}
+.ai-card-float-badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 0 7px;
-  height: 19px;
+  padding: 0 8px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   white-space: nowrap;
   pointer-events: none;
-  z-index: 2;
   box-shadow: 0 1.5px 4px rgba(0,0,0,0.15);
   transition: all 0.2s ease;
   box-sizing: border-box;

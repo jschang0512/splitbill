@@ -1587,7 +1587,8 @@
         if(currentItem && currentItem.name){
           items.push(currentItem);
         }
-        const rawContent = numMatch[2].trim();
+        let rawContent = numMatch[2].trim();
+        rawContent = rawContent.replace(/^品項\s*[:：]\s*/, '').trim();
         const arrowIdx = rawContent.indexOf("➔");
         if(arrowIdx !== -1){
           const left = rawContent.slice(0, arrowIdx).trim();
@@ -1638,21 +1639,32 @@
       }
 
       if(currentItem){
-        const priceMatch = l.match(/([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
-        if(priceMatch && currentItem.price === 0 && !l.includes("➔")){
-          const p = Number(priceMatch[1].replace(/[^\d.]/g, "")) || 0;
-          if(p > 0) currentItem.price = p;
-          if(l.startsWith("(") && l.includes(")")){
-            const origMatch = l.match(/^\(([\s\S]*?)\)/);
-            if(origMatch && origMatch[1]){
-              currentItem.name += " (" + origMatch[1] + ")";
-            }
+        if(l.includes("原文:") || l.includes("原文：")){
+          const origText = l.replace(/^.*?原文\s*[:：]\s*/, '').trim();
+          if(origText){
+            currentItem.name += " (" + origText + ")";
           }
           return;
         }
 
-        if(l.includes("➔")){
-          let claimPart = l.slice(l.indexOf("➔") + 1).trim();
+        if(l.includes("價格:") || l.includes("價格：")){
+          const pMatch = l.match(/價格\s*[:：]\s*[^\d]*([\d,]+(?:\.\d+)?)/);
+          if(pMatch){
+            currentItem.price = Number(pMatch[1].replace(/,/g, "")) || 0;
+          }
+          const unitMatch = l.match(/單價\s*[^\d]*([\d,]+(?:\.\d+)?)/);
+          if(unitMatch){
+            currentItem.price = Number(unitMatch[1].replace(/,/g, "")) || currentItem.price;
+          }
+          const qtyMatch = l.match(/×\s*(\d+)/);
+          if(qtyMatch){
+            currentItem.qty = Number(qtyMatch[1]) || 1;
+          }
+          return;
+        }
+
+        if(l.includes("分攤:") || l.includes("分攤：") || l.includes("➔")){
+          let claimPart = l.includes("➔") ? l.slice(l.indexOf("➔") + 1).trim() : l.replace(/^.*?分攤\s*[:：]\s*/, '').trim();
           claimPart = claimPart.replace(/\s*\(每人[^\)]*\)/g, "").trim();
           let claimedMemberIds = [];
           if(claimPart.includes("全員") || claimPart.includes("所有人") || claimPart.includes("全體")){
@@ -1666,6 +1678,20 @@
           currentItem.claimedMemberIds = claimedMemberIds;
           items.push(currentItem);
           currentItem = null;
+          return;
+        }
+
+        const priceMatch = l.match(/([^0-9\s]*\s*[\d,]+(?:\.\d+)?)$/);
+        if(priceMatch && currentItem.price === 0){
+          const p = Number(priceMatch[1].replace(/[^\d.]/g, "")) || 0;
+          if(p > 0) currentItem.price = p;
+          if(l.startsWith("(") && l.includes(")")){
+            const origMatch = l.match(/^\(([\s\S]*?)\)/);
+            if(origMatch && origMatch[1]){
+              currentItem.name += " (" + origMatch[1] + ")";
+            }
+          }
+          return;
         }
       }
     });
@@ -3045,7 +3071,44 @@ function buildDebtMatrix(expenses, repayments){
   // 的 A 欠 C 金額上面，不會拿去互相抵銷）。
   // ==========================================================
 
+  // 「一鍵抵銷」會同時新增兩筆方向相反、金額相同、同一個 offset_group 的
+  // 還款，本意是互相取消金額，不是要製造新欠款。如果照下面逐筆處理的
+  // 邏輯（多還的部分反過來變成新欠款），這兩筆抵銷紀錄剛好都發生在同一
+  // 秒、陣列裡誰先誰後又沒有穩定保證時，其中一筆可能會在另一筆還沒
+  // 處理、對方餘額還是 0 的情況下被誤判成「整筆都是多還」，憑空生出一筆
+  // 不存在的欠款（跟 showPairDetail() 的 offset_pair 是同一個 bug，這裡
+  // 也要用一樣的方式先配對處理掉）。
+  const offsetGroups = {};
   repayments.forEach(r=>{
+    if(!r.offset_group) return;
+    (offsetGroups[r.offset_group] = offsetGroups[r.offset_group] || []).push(r);
+  });
+  const matchedOffsetIds = new Set();
+  Object.values(offsetGroups).forEach(group=>{
+    if(group.length !== 2) return; // 不是乾淨的一對，當一般還款處理
+    const [a, b] = group;
+    if(a.from_member !== b.to_member || a.to_member !== b.from_member) return;
+    matchedOffsetIds.add(a.id);
+    matchedOffsetIds.add(b.id);
+    [a, b].forEach(r=>{
+      const payerId = r.from_member, receiverId = r.to_member;
+      const amount = Number(r.amount) || 0;
+      if(!payerId || !receiverId || payerId === receiverId || amount <= 0.01) return;
+      const receiverDebts = owed[receiverId] || (owed[receiverId] = {});
+      const current = receiverDebts[payerId] || 0;
+      const paid = Math.min(current, amount);
+      if(paid > 0){
+        receiverDebts[payerId] = current - paid;
+        if(receiverDebts[payerId] <= 0.01) delete receiverDebts[payerId];
+      }
+      // 刻意不處理「多還」的部分——抵銷各自只扣自己既有的欠款，不會、
+      // 也不應該讓超出的部分溢出變成新欠款。
+    });
+  });
+
+  repayments.forEach(r=>{
+
+    if(matchedOffsetIds.has(r.id)) return; // 已經用上面的配對邏輯處理過了
 
     const payerId =
       r.from_member;
@@ -3890,9 +3953,21 @@ if(exportSettlementImgBtn){
       if(img) img.src = currentSettlementImgUrl;
       if(settlementImgModal) settlementImgModal.classList.add("show");
 
+      // iOS Safari（含 iPadOS，navigator.platform 回報跟桌機一樣是 MacIntel，
+      // 要另外用 touch 支援去判斷）不支援 blob URL 搭配 <a download> 直接下載，
+      // 點下去要嘛沒反應要嘛直接原地開圖，這是 WebKit 已知限制，不是我們的
+      // bug 能修好的；這種情況改成開新分頁顯示原始大小的圖片，使用者可以長按
+      // 「儲存圖片」，跟上面提示文字「長按圖片可直接儲存」一致。
+      const isIOS = /iP(hone|ad|od)/.test(navigator.platform) ||
+        (navigator.userAgent.includes("Mac") && navigator.maxTouchPoints > 1);
+
       const dlBtn = document.getElementById("settlementImgDownloadBtn");
       if(dlBtn){
         dlBtn.onclick = () => {
+          if(isIOS){
+            window.open(currentSettlementImgUrl, "_blank");
+            return;
+          }
           const a = document.createElement("a");
           a.href = currentSettlementImgUrl;
           const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
@@ -3903,16 +3978,30 @@ if(exportSettlementImgBtn){
         };
       }
 
+      // 分享按鈕的顯示與否只看 navigator.share 存不存在就好，不要卡在
+      // navigator.canShare({files})——這個判斷式在部分行動瀏覽器（尤其 iOS
+      // Safari）於非同步流程（這裡前面已經 await 過 canvas.toBlob）之後，
+      // 使用者互動狀態可能已經失效，導致 canShare 誤判成 false，讓分享
+      // 按鈕整個消失不見。改成按鈕一律先顯示，實際分享時才判斷要不要帶
+      // 檔案、分享失敗（含裝置真的不支援）才降級成分享純文字，一樣讓使用者
+      // 有辦法把結算結果傳出去。
       const shareBtn = document.getElementById("settlementImgShareBtn");
       if(shareBtn){
         const file = new File([blob], "splitbill-settlement.png", { type: "image/png" });
-        const canShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
-        shareBtn.classList.toggle("hidden", !canShare);
-        if(canShare){
+        const canShareFile = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+        shareBtn.classList.toggle("hidden", !navigator.share);
+        if(navigator.share){
           shareBtn.onclick = async () => {
             try {
-              await navigator.share({ files: [file], title: "Splitbill 帳務結算" });
-            } catch(e){ /* 使用者取消分享，不用特別處理 */ }
+              if(canShareFile){
+                await navigator.share({ files: [file], title: "Splitbill 帳務結算" });
+              } else {
+                await navigator.share({ title: "Splitbill 帳務結算", text: "長按圖片可另存，或用「下載圖片」取得結算圖片。" });
+              }
+            } catch(e){
+              if(e && e.name === "AbortError") return; // 使用者自己取消分享，不用特別處理
+              window.open(currentSettlementImgUrl, "_blank");
+            }
           };
         }
       }
@@ -4402,7 +4491,45 @@ function showPairDetail(
     }
   });
 
+  // 「一鍵抵銷」會同時新增兩筆方向相反、金額相同、同一個 offset_group 的
+  // 還款（見下面 5xxx 行附近產生抵銷的地方）。這兩筆本來就是同一個動作、
+  // 目的是互相取消金額，不是各自獨立的還款。如果照時間軸逐筆處理，兩筆
+  // 抵銷紀錄的日期/建立時間常常完全相同，排序沒有穩定的先後順序——先處理
+  // 到的那筆正常沖掉既有欠款，後處理到的那筆卻誤判成「當下對方沒欠這麼
+  // 多」而被當成超額轉帳，形成一筆莫名其妙的反向新欠款（明明用戶是要兩筆
+  // 互相抵銷，不是要製造新欠款）。這裡先把同一組 offset_group、剛好落在
+  // debtorId／creditorId 這一對之間的兩筆抵銷紀錄配對起來，當成同一個
+  // 動作一次處理：兩個方向各自扣自己既有的欠款（各自最多扣到 0 為止），
+  // 兩邊都不會因為抵銷而溢出變成新欠款。
+  const offsetPairsByGroup = {};
   repayments.forEach(r => {
+    if(!r.offset_group) return;
+    const amount = Number(r.amount) || 0;
+    if(amount <= 0.005) return;
+    if(r.from_member === debtorId && r.to_member === creditorId){
+      (offsetPairsByGroup[r.offset_group] = offsetPairsByGroup[r.offset_group] || {}).toCreditor = r;
+    } else if(r.from_member === creditorId && r.to_member === debtorId){
+      (offsetPairsByGroup[r.offset_group] = offsetPairsByGroup[r.offset_group] || {}).toDebtor = r;
+    }
+  });
+  const matchedOffsetIds = new Set();
+  Object.values(offsetPairsByGroup).forEach(pair => {
+    if(!pair.toCreditor || !pair.toDebtor) return; // 只有單邊、不是完整一對，當一般還款處理
+    matchedOffsetIds.add(pair.toCreditor.id);
+    matchedOffsetIds.add(pair.toDebtor.id);
+    const earlier = (pair.toCreditor.created_at || "") <= (pair.toDebtor.created_at || "") ? pair.toCreditor : pair.toDebtor;
+    allPairEvents.push({
+      type: "offset_pair",
+      date: earlier.payment_date || "",
+      createdAt: earlier.created_at || "",
+      toCreditor: pair.toCreditor,
+      toDebtor: pair.toDebtor,
+      id: earlier.id
+    });
+  });
+
+  repayments.forEach(r => {
+    if(matchedOffsetIds.has(r.id)) return; // 已經用 offset_pair 一次處理過，不要再重複收集
     const from = r.from_member;
     const to = r.to_member;
     const amount = Number(r.amount) || 0;
@@ -4443,33 +4570,19 @@ function showPairDetail(
   let creditorOwesDebtor = 0;
   const pairEventsForDebtor = [];
 
-  // 兩個方向的餘額要持續互相抵銷，不能只在「還款」發生的那一刻才抵銷。
-  // 例如：B 多還 A 一筆錢（當下 B 還沒欠 A 任何錢，全部變成「A 欠 B」的
-  // 找零），後來才發生新支出讓 B 欠 A 一筆——這兩筆金額如果沒有互相抵銷，
-  // 這裡顯示的「A 欠 B」金額會跟債務關係表（buildDebtMatrix）算出來的
-  // 實際總額對不起來，變成「明細加起來的錢」比「真正結欠的錢」還多。
-  // 抵銷時要從最新（最後）那幾筆還沒抵銷完的「A 欠 B」項目開始扣，不能從
-  // 最舊的開始扣——因為比較舊的項目如果已經被同方向的還款直接付清過，
-  // 「還了多少」只會反映在 debtorOwesCreditor 這個總額變數上，不會回頭
-  // 改到當時已經記錄下來的那筆金額；這裡如果從最舊的開始扣，會誤扣到
-  // 早就付清、其實跟這次抵銷無關的舊帳，讓歷史紀錄的金額變得不精確。
-  // 從最新的開始扣，才會扣到真正造成「目前還沒抵銷完」這個餘額的那幾筆。
-  function reconcileBalances(){
-    if(debtorOwesCreditor <= 0.005 || creditorOwesDebtor <= 0.005) return;
-    const net = Math.min(debtorOwesCreditor, creditorOwesDebtor);
-    debtorOwesCreditor -= net;
-    creditorOwesDebtor -= net;
-    let toDeduct = net;
-    for(let k = pairEventsForDebtor.length - 1; k >= 0 && toDeduct > 0.005; k--){
-      const item = pairEventsForDebtor[k];
-      if((item.type === "expense" || item.type === "overpayment") && item.d1 > 0.005){
-        const cut = Math.min(item.d1, toDeduct);
-        item.d1 -= cut;
-        if(item.amount !== undefined) item.amount -= cut;
-        toDeduct -= cut;
-      }
-    }
-  }
+  // 這兩個方向的餘額刻意不互相抵銷（之前版本這裡有一個 reconcileBalances()，
+  // 一有機會就把兩個方向的餘額互相沖掉，結果反而是這裡的 bug 來源）。
+  // 債務關係表（buildDebtMatrix）本身也沒有任何自動把兩個方向互相抵銷的
+  // 機制——owed[A][D] 跟 owed[D][A] 是完全獨立的兩格，支出各自累加，
+  // 還款只會減少「自己這個方向」的欠款，多還的部分才會溢出變成另一個
+  // 方向的新欠款；兩個方向真的要互相抵銷，只能靠使用者自己按「一鍵
+  // 抵銷」（這也是抵銷這個按鈕存在的意義：如果系統會自動抵銷，這顆按鈕
+  // 就沒有用了）。這裡如果自己另外加一套「兩個方向一有機會就自動抵銷」
+  // 的邏輯，算出來的金額就會跟債務關係表對不起來——這正是这次修正的
+  // bug（明細彈窗跟矩陣格子數字不一致）。所以這裡直接比照 buildDebtMatrix
+  // 的邏輯：兩個方向各自累加，只有「還款」跟「一鍵抵銷」才會讓餘額變動，
+  // 而且都比照 buildDebtMatrix 的規則（同方向還款減少自己、多還的部分
+  // 溢出到另一個方向；抵銷則是兩邊各自 clamp、不溢出）。
 
   for(let i = 0; i < allPairEvents.length; i++){
     const ev = allPairEvents[i];
@@ -4481,9 +4594,9 @@ function showPairDetail(
         createdAt: ev.createdAt,
         expense: ev.expense,
         d1: ev.d1,
+        originalD1: ev.d1,
         id: ev.id
       });
-      reconcileBalances();
     } else if(ev.type === "repayment_debt"){
       const paid = Math.min(debtorOwesCreditor, ev.amount);
       debtorOwesCreditor -= paid;
@@ -4498,27 +4611,54 @@ function showPairDetail(
       if(ev.amount > paid){
         creditorOwesDebtor += (ev.amount - paid);
       }
-      reconcileBalances();
+    } else if(ev.type === "offset_pair"){
+      // 一鍵抵銷產生的一對還款，當成同一個動作一次處理：兩個方向各自只扣
+      // 自己既有的欠款（各自 clamp 到 0 為止），刻意不像一般還款那樣讓
+      // 超出的部分溢出變成另一個方向的新欠款——因為抵銷的本意就是互相
+      // 取消金額，不會、也不應該憑空造出新欠款。
+      // 畫面只呈現「debtorId 還 creditorId」這一筆（對這個方向的欠款組成
+      // 有意義），另一筆反方向（creditorId 還 debtorId）純粹是抵銷機制的
+      // 內部bookkeeping，只影響餘額計算，不再重複顯示成兩張卡片。
+      const cutDebtor = Math.min(debtorOwesCreditor, Number(ev.toCreditor.amount) || 0);
+      debtorOwesCreditor -= cutDebtor;
+      const cutCreditor = Math.min(creditorOwesDebtor, Number(ev.toDebtor.amount) || 0);
+      creditorOwesDebtor -= cutCreditor;
+      pairEventsForDebtor.push({
+        type: "repayment",
+        date: ev.toCreditor.payment_date || "",
+        createdAt: ev.toCreditor.created_at || "",
+        repayment: ev.toCreditor,
+        amount: Number(ev.toCreditor.amount) || 0,
+        id: ev.toCreditor.id
+      });
     } else if(ev.type === "expense_credit"){
       creditorOwesDebtor += ev.d2;
-      reconcileBalances();
     } else if(ev.type === "repayment_credit"){
       const paid = Math.min(creditorOwesDebtor, ev.amount);
       creditorOwesDebtor -= paid;
       const overpaid = ev.amount - paid;
       if(overpaid > 0.005){
         debtorOwesCreditor += overpaid;
+        // 這個面板規定只能出現「debtorId 欠 creditorId」跟「debtorId 還
+        // creditorId」這兩種方向的資訊，不能直接把這筆真實還款（方向是
+        // creditorId 還 debtorId，反方向）秀出來，不然使用者看不懂為什麼
+        // 反方向的還款卻讓 debtorId 欠錢。改成在「債務組成」補一張虛擬的
+        // 欠款卡片，一樣是「debtorId 欠 creditorId」的方向，純粹讓金額有
+        // 地方顯示、對得起來。
         pairEventsForDebtor.push({
-          type: "overpayment",
+          type: "repayment",
           date: ev.date,
           createdAt: ev.createdAt,
           repayment: ev.repayment,
           d1: overpaid,
+          originalD1: overpaid,
           amount: overpaid,
+          isReverseRepayment: true,
+          originalOwed: paid, // 這筆還款發生當下，creditorId 原本欠 debtorId 多少
+          repaidAmount: ev.amount, // creditorId 實際還了多少（= originalOwed + overpaid）
           id: ev.id
         });
       }
-      reconcileBalances();
     }
   }
 
@@ -4528,7 +4668,7 @@ function showPairDetail(
 
   for(let i = 0; i < pairEventsForDebtor.length; i++){
     const ev = pairEventsForDebtor[i];
-    if(ev.type === "expense" || ev.type === "overpayment"){
+    if(ev.type === "expense" || (ev.type === "repayment" && ev.isReverseRepayment)){
       runDebt += ev.d1;
     } else if(ev.type === "repayment"){
       runDebt -= ev.amount;
@@ -4542,15 +4682,23 @@ function showPairDetail(
   const activeEvents = pairEventsForDebtor.slice(lastZeroIndex);
   const settledHistory = pairEventsForDebtor.slice(0, lastZeroIndex);
 
+  // 這個彈窗是「debtorId 欠 creditorId」的單一方向視角，只允許出現兩種
+  // 資訊：「debtorId 欠 creditorId」（債務組成）跟「debtorId 還 creditorId」
+  // （已還款紀錄）。isReverseRepayment 那筆本質上是「creditorId 還
+  // debtorId」——方向反過來，不能直接以還款紀錄的樣子出現在「已還款
+  // 紀錄」，不然使用者會看到一筆方向相反的還款卡片，搞不懂為什麼
+  // 「明明是 creditorId 還錢給 debtorId，畫面卻說 debtorId 欠
+  // creditorId」；改成歸進「債務組成」，用虛擬欠款卡片、以
+  // 「debtorId 欠 creditorId」這個唯一允許的方向呈現金額。
   const detailExpenses = activeEvents
-    .filter(ev => ev.type === "expense" || ev.type === "overpayment")
+    .filter(ev => ev.type === "expense" || (ev.type === "repayment" && ev.isReverseRepayment))
     .sort((a, b) => {
       if(b.date !== a.date) return b.date.localeCompare(a.date);
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
 
   const detailRepayments = activeEvents
-    .filter(ev => ev.type === "repayment")
+    .filter(ev => ev.type === "repayment" && !ev.isReverseRepayment)
     .map(ev => ev.repayment)
     .sort((a, b) => {
       if(b.payment_date !== a.payment_date) return b.payment_date.localeCompare(a.payment_date);
@@ -4558,14 +4706,14 @@ function showPairDetail(
     });
 
   const settledExpenses = settledHistory
-    .filter(ev => ev.type === "expense" || ev.type === "overpayment")
+    .filter(ev => ev.type === "expense" || (ev.type === "repayment" && ev.isReverseRepayment))
     .sort((a, b) => {
       if(b.date !== a.date) return b.date.localeCompare(a.date);
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
 
   const settledRepayments = settledHistory
-    .filter(ev => ev.type === "repayment")
+    .filter(ev => ev.type === "repayment" && !ev.isReverseRepayment)
     .map(ev => ev.repayment)
     .sort((a, b) => {
       if(b.payment_date !== a.payment_date) return b.payment_date.localeCompare(a.payment_date);
@@ -4623,46 +4771,34 @@ function showPairDetail(
   `;
 
   // ==========================================================
-  // 支出紀錄與溢付找零
+  // 支出紀錄（債務組成只放真正的支出，還款一律歸下面「已還款紀錄」）
   // ==========================================================
   if(detailExpenses.length){
     detailExpenses.forEach(item => {
-      if(item.type === "overpayment"){
-        const r = item.repayment;
-        const canEditRepay = r.offset_group
-          ? isRepaymentParty(r, myMember.id)
-          : (isRepaymentParty(r, myMember.id) || r.created_by === myMember.id);
+      if(item.type === "repayment" && item.isReverseRepayment){
+        // 對方還款超出當時實際欠款所形成的欠款——這筆錢沒有對應的支出，
+        // 也不能用還款卡片呈現（方向相反，這個面板只允許「debtorId 欠／
+        // 還 creditorId」兩種），所以用一張很單純的虛擬欠款卡片：只有
+        // 「debtorId 欠 creditorId 多少錢」，不附任何編輯/刪除功能（沒有
+        // 單一一筆可以編輯的紀錄可以對應），純粹讓這筆金額有地方顯示、
+        // 跟畫面下方「記錄還款」按鈕的總額對得起來。備註寫清楚原本欠多少、
+        // 還了多少、才會導致這筆欠款，讓人一看就懂算式，不用另外點進去查。
         html += `
-          <div class="debt-expense-card overpayment-card">
+          <div class="debt-expense-card virtual-debt-card">
             <div class="debt-expense-top">
               <div class="debt-expense-info">
-                <div class="debt-expense-name">
-                  💸 還款溢付找零 <span class="badge-overpay">找零款</span>
-                </div>
+                <div class="debt-expense-name">${escapeHtml(memberById[creditorId] || "?")} 超額還款 <span class="badge-virtual-debt">非支出</span></div>
                 <div class="debt-expense-date">
-                  ${escapeHtml(item.date || "")}${formatTime(item.createdAt, item.date) ? " " + formatTime(item.createdAt, item.date) : ""}（來自 ${escapeHtml(memberById[creditorId] || "?")} 轉帳 ${SYM}${formatAmt(r.amount)} 之溢付款項）
+                  ${escapeHtml(item.date || "")}（原本${escapeHtml(memberById[creditorId] || "?")}欠${escapeHtml(memberById[debtorId] || "?")} ${SYM}${formatAmt(item.originalOwed)}，${escapeHtml(memberById[creditorId] || "?")}還了 ${SYM}${formatAmt(item.repaidAmount)}，所以導致${escapeHtml(memberById[debtorId] || "?")}欠款 ${SYM}${formatAmt(item.originalD1)}）
                 </div>
               </div>
-              ${canEditRepay ? `
-                <div class="debt-expense-actions">
-                  ${!r.offset_group ? `<button type="button" class="exp-edit debt-repay-edit" data-id="${r.id}" title="編輯" aria-label="編輯">✎</button>` : ""}
-                  <button type="button" class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="刪除" aria-label="刪除">✕</button>
-                </div>
-              ` : ""}
             </div>
-            <div class="debt-expense-divider"></div>
-            <div class="debt-expense-detail">
-              <div class="debt-info-row">
-                <span class="debt-info-label">來源</span>
-                <span class="debt-info-value">${escapeHtml(memberById[creditorId] || "?")} 先前償還欠款時多付之溢收款</span>
+            <div class="debt-formed-row">
+              <div class="debt-formed-route">
+                <b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>
               </div>
-              <div class="debt-formed-row">
-                <div class="debt-formed-route">
-                  <b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>
-                </div>
-                <div class="debt-formed-amount">
-                  ${SYM}${formatAmt(item.amount)}
-                </div>
+              <div class="debt-formed-amount">
+                ${SYM}${formatAmt(item.d1)}
               </div>
             </div>
           </div>
@@ -4731,13 +4867,34 @@ function showPairDetail(
                 ${isD1 ? `<b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b>` : `<b>${escapeHtml(memberById[creditorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[debtorId] || "?")} (抵銷)</b>`}
               </div>
               <div class="debt-formed-amount"${!isD1 ? ' style="color:var(--positive-text);"' : ""}>
-                ${!isD1 ? "- " : ""}${SYM}${formatAmt(formedAmount)}
+                ${SYM}${formatAmt(formedAmount)}
               </div>
             </div>
           </div>
         </div>
       `;
     });
+  }else if(remainingDebt > 0.01){
+    // 沒有支出組成，但實際上還是欠著錢——這種情況是對方還款超出當時實際
+    // 欠款所形成的（方向是 creditorId 還 debtorId，不屬於這個面板只顯示
+    // 「debtorId 欠/還 creditorId」的規則，所以不會列在下面的清單裡）。
+    // 不是真的沒有欠款，不能用打勾／「找不到未結清支出」這種暗示「沒事、
+    // 結清了」的呈現方式，不然會跟下面「記錄還款」按鈕顯示的金額互相
+    // 矛盾，讓人搞不懂到底欠不欠錢；但也不指向「已還款紀錄」，因為那裡
+    // 同樣不會有相關紀錄可看。
+    html += `
+      <div class="debt-empty-state">
+        <div class="debt-empty-icon">
+          📋
+        </div>
+        <div class="debt-empty-title">
+          這筆欠款不是來自支出
+        </div>
+        <div class="debt-empty-text">
+          目前 ${escapeHtml(memberById[debtorId] || "?")} 仍欠 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}，可於下方直接記錄還款。
+        </div>
+      </div>
+    `;
   }else{
     html += `
       <div class="debt-empty-state">
@@ -4805,7 +4962,7 @@ function showPairDetail(
           </div>
           <div class="debt-repayment-right">
             <div class="debt-repayment-amount">
-              - ${SYM}${formatAmt(amount)}
+              ${SYM}${formatAmt(amount)}
             </div>
             ${canEditRepay ? `<div class="exp-actions">
               ${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? `
@@ -4838,30 +4995,35 @@ function showPairDetail(
         </button>
         <div class="debt-settled-history-list hidden" id="matrixSettledHistoryList">
           ${settledExpenses.map(item => {
-            if(item.type === "overpayment"){
+            if(item.type === "repayment" && item.isReverseRepayment){
               return `
-                <div class="debt-expense-card is-settled-card">
+                <div class="debt-expense-card virtual-debt-card is-settled-card">
                   <div class="debt-expense-top">
                     <div class="debt-expense-info">
                       <div class="debt-expense-name">
-                        💸 還款溢付找零 <span class="settled-tag">已結清</span>
+                        ${escapeHtml(memberById[creditorId] || "?")} 超額還款 <span class="badge-virtual-debt">非支出</span> <span class="settled-tag">已結清</span>
                       </div>
-                      <div class="debt-expense-date">${escapeHtml(item.date || "")}（來自 ${escapeHtml(memberById[creditorId] || "?")} 溢付）</div>
+                      <div class="debt-expense-date">
+                        ${escapeHtml(item.date || "")}（原本${escapeHtml(memberById[creditorId] || "?")}欠${escapeHtml(memberById[debtorId] || "?")} ${SYM}${formatAmt(item.originalOwed)}，${escapeHtml(memberById[creditorId] || "?")}還了 ${SYM}${formatAmt(item.repaidAmount)}，所以導致${escapeHtml(memberById[debtorId] || "?")}欠款 ${SYM}${formatAmt(item.originalD1)}）
+                      </div>
                     </div>
                   </div>
                   <div class="debt-formed-row">
                     <div class="debt-formed-route"><b>${escapeHtml(memberById[debtorId] || "?")}</b> <span>欠</span> <b>${escapeHtml(memberById[creditorId] || "?")}</b></div>
-                    <div class="debt-formed-amount">${SYM}${formatAmt(item.amount)}</div>
+                    <div class="debt-formed-amount">${SYM}${formatAmt(item.originalD1 != null ? item.originalD1 : item.d1)}</div>
                   </div>
                 </div>
               `;
             }
             const e = item.expense;
-            const isD1 = item.d1 > 0.005;
-            const formedAmount = isD1 ? item.d1 : (item.d2 || item.amount);
+            // originalD1 跟 d1 現在其實永遠相等（沒有任何地方會事後改動
+            // d1 了），這裡保留 originalD1 只是讓「已結清歷史該顯示原始
+            // 形成金額」這件事在程式碼裡讀起來意圖清楚，不用另外去確認
+            // d1 有沒有被動過。
+            const formedAmount = item.originalD1 != null ? item.originalD1 : item.d1;
             const firstLine = getFirstLineDesc(e.description || "未命名支出");
             return `
-              <div class="debt-expense-card is-settled-card">
+              <div class="debt-expense-card is-settled-card" data-id="${e.id}">
                 <div class="debt-expense-top">
                   <div class="debt-expense-info">
                     <div class="debt-expense-name">
@@ -4890,7 +5052,7 @@ function showPairDetail(
                   <div class="debt-repayment-meta">${escapeHtml(r.payment_date || "")}${r.note ? ` ・ ${escapeHtml(cleanXcurText(r.note))}` : ""}</div>
                 </div>
                 <div class="debt-repayment-right">
-                  <div class="debt-repayment-amount">- ${SYM}${formatAmt(amount)}</div>
+                  <div class="debt-repayment-amount">${SYM}${formatAmt(amount)}</div>
                 </div>
               </div>
             `;
@@ -5532,15 +5694,19 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
    - '餃子' -> '煎餃'
    - 'デザート' -> '甜點'
 4. FORMAT: Always use '通俗自然中文名稱 (原文)' for foreign items. If the receipt is already in Chinese, just output the Chinese name directly.
-5. NUMBERS: 'price' must be total line price (unit price * qty). 'totalAmount', 'subtotal', 'serviceCharge', 'tax', 'discount' must be clean numbers without symbols.`;
+5. NUMBERS: 'price' must be the UNIT price for a single item (NOT the line total). If the receipt only shows a line total and a quantity, divide: price = printed_line_total / qty. 'totalAmount', 'subtotal', 'serviceCharge', 'tax', 'discount' must be clean numbers without symbols.
+6. QUANTITY: Read the actual quantity printed on the receipt for each line (look for patterns like 'x3', '×3', '3個', '3個入', a standalone number column, etc.) and put it in 'qty'. Default to 1 only if no quantity is shown or the line is clearly a single unit. Do NOT guess a quantity that wasn't printed.`;
 
     // 1. 支援 OpenRouter (sk-or-...)
     if(activeKey.startsWith("sk-or-")){
+      // 優先試免費模型（:free 後綴，OpenRouter 保證不收費），openrouter/auto
+      // 是會依實際路由到的模型正常計費的付費選項，只留在最後當保底
+      // fallback（前面免費的都失敗、例如當天免費額度用完時才會用到）。
       const orModels = [
-        "openrouter/auto",
-        "openrouter/free",
+        "google/gemma-4-31b-it:free",
         "google/gemma-4-26b-a4b-it:free",
-        "google/gemma-4-31b-it:free"
+        "openrouter/free",
+        "openrouter/auto"
       ];
       let lastOrErr = null;
       for(const om of orModels){
@@ -5784,7 +5950,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           name: it.name || `品項 ${idx + 1}`,
           price: Number(it.price) || 0,
           qty: Number(it.qty) || 1,
-          claimedMemberIds: Array.isArray(it.claimedMemberIds) ? [...it.claimedMemberIds] : []
+          claimedMemberIds: Array.isArray(it.claimedMemberIds) ? [...it.claimedMemberIds] : [],
+          memberQty: (it.memberQty && typeof it.memberQty === "object") ? { ...it.memberQty } : {},
+          qtyMode: !!it.qtyMode
         }));
 
         if(!receiptClaimItems.length){
@@ -5793,7 +5961,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             name: currentReceiptData.storeName || "消費總額",
             price: Number(expense && expense.amount) || 0,
             qty: 1,
-            claimedMemberIds: (expense && expense.shares) ? expense.shares.map(s => s.member_id) : []
+            claimedMemberIds: (expense && expense.shares) ? expense.shares.map(s => s.member_id) : [],
+            memberQty: {},
+            qtyMode: false
           });
         }
 
@@ -6400,7 +6570,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           if(aiReceiptCurrencySelect) aiReceiptCurrencySelect.value = selectedReceiptCurrency;
 
           // 智慧偵測內含稅 vs 外加稅費：若品項加總已等於總金額，預設切換為內含稅
-          const itemsSum = (parsed.items || []).reduce((acc, it) => acc + (Number(it.price || it.amount || it.total || 0)), 0);
+          // （price 是單價，要乘上數量才是這一行真正的小計，不能直接加總單價）
+          const itemsSum = (parsed.items || []).reduce((acc, it) => acc + (Number(it.price || it.amount || it.total || 0) * Number(it.qty || 1)), 0);
           const parsedTotal = Number(parsed.totalAmount) || 0;
           if(parsedTotal > 0 && Math.abs(itemsSum - parsedTotal) <= 1){
             taxType = "inclusive";
@@ -6438,7 +6609,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               name: rawName || `品項 ${idx + 1}`,
               price: Number(it.price || it.amount || it.total || 0),
               qty: Number(it.qty || 1),
-              claimedMemberIds: []
+              claimedMemberIds: [],
+              memberQty: {},
+              qtyMode: false
             };
           });
 
@@ -6448,7 +6621,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               name: "消費總額",
               price: Number(parsed.totalAmount) || 0,
               qty: 1,
-              claimedMemberIds: []
+              claimedMemberIds: [],
+              memberQty: {},
+              qtyMode: false
             });
           }
 
@@ -6590,7 +6765,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       // 6. 渲染品項清單（高度一致、平分按鈕置於金額下方、大頭貼不顯示幾分之幾）
       if(itemsListEl){
         itemsListEl.innerHTML = receiptClaimItems.map((item, idx) => {
-          const isClaimed = item.claimedMemberIds.length > 0;
+          const isClaimed = item.qtyMode
+            ? Object.values(item.memberQty || {}).some(v => (Number(v) || 0) > 0)
+            : item.claimedMemberIds.length > 0;
           const isAllClaimed = activeMembers.length > 0 && activeMembers.every(m => item.claimedMemberIds.includes(m.id));
 
           // 成員大頭貼氣泡流 (選中後不顯示幾分之幾)
@@ -6607,41 +6784,91 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             `;
           }).join("");
 
+          // 依數量分配：每個人一格「買了幾個」的輸入框，取代平分用的大頭貼氣泡
+          const allocatedQty = Object.values(item.memberQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+          const qtyRowsHTML = activeMembers.map(m => `
+            <div class="ai-qty-member-row">
+              <span class="ai-qty-member-label">
+                ${renderAvatarHTML(m, "avatar-xs")}
+                <span class="ai-bubble-name">${escapeHtml(m.name || emailToName(m.email))}</span>
+              </span>
+              <input type="number" class="ai-receipt-member-qty" min="0" step="1" placeholder="0"
+                value="${item.memberQty && item.memberQty[m.id] ? item.memberQty[m.id] : ''}"
+                data-item-id="${item.id}" data-member-id="${m.id}">
+            </div>
+          `).join("");
+          const allocState = allocatedQty === item.qty ? "complete" : allocatedQty > item.qty ? "over" : "under";
+          const allocHintText = allocState === "over"
+            ? `已分配 ${allocatedQty} / ${item.qty}（超過總數量了）`
+            : `已分配 ${allocatedQty} / ${item.qty}`;
+
           const count = item.claimedMemberIds.length;
-          const perPersonPrice = count > 1 ? roundAmt(item.price / count) : 0;
-          let floatBadgeHTML = "";
-          if(count === 0){
-            floatBadgeHTML = `<span class="ai-card-float-badge unclaimed">⚠️ 待認領</span>`;
+          const lineTotal = (Number(item.price) || 0) * (Number(item.qty) || 1);
+          const perPersonPrice = count > 1 ? roundAmt(lineTotal / count) : 0;
+          let statusBadgeHTML = "";
+          if(!isClaimed){
+            statusBadgeHTML = `<span class="ai-card-float-badge unclaimed">⚠️ 待認領</span>`;
+          } else if(item.qtyMode){
+            statusBadgeHTML = `<span class="ai-card-float-badge per-person">已分配 ${allocatedQty} / ${item.qty}</span>`;
           } else if(count > 1){
-            floatBadgeHTML = `<span class="ai-card-float-badge per-person" title="${count} 人分攤，每人約 ${curSym}${formatAmt(perPersonPrice)}">每人 ${curSym}${formatAmt(perPersonPrice)}</span>`;
+            statusBadgeHTML = `<span class="ai-card-float-badge per-person" title="${count} 人分攤，每人約 ${curSym}${formatAmt(perPersonPrice)}">每人 ${curSym}${formatAmt(perPersonPrice)}</span>`;
           }
 
           return `
             <div class="ai-receipt-item-card ${isClaimed ? 'is-claimed' : 'is-unclaimed'}" data-id="${item.id}">
-              ${floatBadgeHTML}
-              <!-- 頂部列：序號 + 品名 (flex-1 撐滿) + [金額 + 刪除] (標準單行排版不推擠) -->
-              <div class="ai-item-main-row">
+              <!-- 右上角：狀態徽章（待認領／每人¥X／已分配X/Y）+ 刪除鈕，兩者放在
+                   同一個角落、保持適當間距，刪除鈕不再跟金額/數量擠同一列。 -->
+              <div class="ai-card-top-right">
+                ${statusBadgeHTML}
+                <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="刪除此品項" aria-label="刪除">✕</button>
+              </div>
+              <!-- 品名獨立一整列，不跟金額/數量搶空間——手機版寬度有限，擠在
+                   同一列時品名常常只剩窄窄一條，看不清楚買了什麼。 -->
+              <div class="ai-item-name-row">
                 <span class="ai-item-tag-num">${idx + 1}</span>
                 <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品名 中文翻譯(原文)" data-id="${item.id}">
-                <div class="ai-item-price-col">
-                  <div class="ai-receipt-price-wrap">
-                    <span class="ai-receipt-cur-prefix">${curSym}</span>
-                    <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="0" data-id="${item.id}">
-                  </div>
-                  <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="刪除此品項" aria-label="刪除">✕</button>
+              </div>
+              <!-- 「單價」「個」文字標籤讓 price 欄位的意思很明確是單價，不是
+                   這一行的小計，跟前面「279 x3 會被誤會成一共279」的疑慮
+                   徹底切開；整列靠右對齊。 -->
+              <!-- 「單價」「個」「總計」計算列：單價 × 數量 ＝ 總價，手機版禁止跳行並居中對齊 -->
+              <div class="ai-item-price-col">
+                <span class="ai-price-label">${taxType === 'inclusive' ? '單價' : '未稅單價'}</span>
+                <div class="ai-receipt-price-wrap">
+                  <span class="ai-receipt-cur-prefix">${curSym}</span>
+                  <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="0" data-id="${item.id}">
+                </div>
+                <span class="ai-qty-x-prefix" title="數量">×</span>
+                <input type="number" class="ai-receipt-item-qty" value="${item.qty}" min="1" step="1" placeholder="1" title="數量" data-id="${item.id}">
+                <span class="ai-qty-unit-label">個</span>
+                <span class="ai-item-equal-sign">=</span>
+                <div class="ai-item-total-wrap" title="此品項總價">
+                  <span class="ai-receipt-cur-prefix">${curSym}</span>
+                  <span class="ai-item-line-total" data-id="${item.id}">${formatAmt(lineTotal)}</span>
                 </div>
               </div>
 
-              <!-- 下方認領區：左邊是大頭貼氣泡流，右邊是所有人平分按鈕 (正位於金額下方) -->
+              <!-- 下方認領區：平分模式=左邊大頭貼氣泡流／右邊平分按鈕；依數量模式=每人一格輸入買了幾個 -->
               <div class="ai-receipt-claims-row-wrap">
-                <div class="ai-avatar-bubbles-row">
-                  ${memberBubblesHTML}
-                </div>
-                <div class="ai-all-btn-col">
-                  <button type="button" class="ai-bubble-all-btn ${isAllClaimed ? 'active' : ''}" data-id="${item.id}">
-                    ${isAllClaimed ? '✕ 取消全員' : '⚡ 所有人平分'}
-                  </button>
-                </div>
+                ${item.qtyMode ? `
+                  <div class="ai-qty-alloc-wrap">
+                    <div class="ai-qty-member-rows">${qtyRowsHTML}</div>
+                    <div class="ai-qty-allocated-hint ${allocState}">${allocHintText}</div>
+                  </div>
+                  <div class="ai-all-btn-col">
+                    <button type="button" class="ai-qty-mode-toggle" data-id="${item.id}">⚡ 改為平分</button>
+                  </div>
+                ` : `
+                  <div class="ai-avatar-bubbles-row">
+                    ${memberBubblesHTML}
+                  </div>
+                  <div class="ai-all-btn-col">
+                    <button type="button" class="ai-bubble-all-btn ${isAllClaimed ? 'active' : ''}" data-id="${item.id}">
+                      ${isAllClaimed ? '✕ 取消全員' : '⚡ 所有人平分'}
+                    </button>
+                    ${item.qty > 1 ? `<button type="button" class="ai-qty-mode-toggle" data-id="${item.id}">🔢 依數量分配</button>` : ""}
+                  </div>
+                `}
               </div>
             </div>
           `;
@@ -6659,7 +6886,70 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         itemsListEl.querySelectorAll(".ai-receipt-item-price").forEach(inp => {
           inp.addEventListener("input", (e)=>{
             const it = receiptClaimItems.find(x => x.id === e.target.dataset.id);
-            if(it) it.price = Number(e.target.value) || 0;
+            if(!it) return;
+            it.price = Number(e.target.value) || 0;
+            const lineTotal = (Number(it.price) || 0) * (Number(it.qty) || 1);
+            const card = e.target.closest(".ai-receipt-item-card");
+            if(card){
+              const totalEl = card.querySelector(`.ai-item-line-total[data-id="${it.id}"]`);
+              if(totalEl) totalEl.textContent = formatAmt(lineTotal);
+              
+              const count = (it.claimedMemberIds || []).length;
+              const perPersonPrice = count > 1 ? roundAmt(lineTotal / count) : 0;
+              const badgeEl = card.querySelector(".ai-card-float-badge.per-person");
+              if(badgeEl && !it.qtyMode){
+                const curSym = getReceiptSymbol();
+                badgeEl.textContent = `每人 ${curSym}${formatAmt(perPersonPrice)}`;
+              }
+            }
+            updateCalculationsAndBadges();
+          });
+        });
+
+        itemsListEl.querySelectorAll(".ai-receipt-item-qty").forEach(inp => {
+          inp.addEventListener("input", (e)=>{
+            const it = receiptClaimItems.find(x => x.id === e.target.dataset.id);
+            if(!it) return;
+            const newQty = Math.max(1, Number(e.target.value) || 1);
+            it.qty = newQty;
+            const lineTotal = (Number(it.price) || 0) * (Number(it.qty) || 1);
+            const card = e.target.closest(".ai-receipt-item-card");
+            if(card){
+              const totalEl = card.querySelector(`.ai-item-line-total[data-id="${it.id}"]`);
+              if(totalEl) totalEl.textContent = formatAmt(lineTotal);
+
+              const count = (it.claimedMemberIds || []).length;
+              const perPersonPrice = count > 1 ? roundAmt(lineTotal / count) : 0;
+              const badgeEl = card.querySelector(".ai-card-float-badge.per-person");
+              if(badgeEl && !it.qtyMode){
+                const curSym = getReceiptSymbol();
+                badgeEl.textContent = `每人 ${curSym}${formatAmt(perPersonPrice)}`;
+              }
+
+              // 即時更新「🔢 依數量分配」按鈕：輸入 > 1 立即動態出現第二個按鈕，不用點擊人才跳出
+              const btnCol = card.querySelector(".ai-all-btn-col");
+              if(btnCol && !it.qtyMode){
+                let toggleBtn = btnCol.querySelector(".ai-qty-mode-toggle");
+                if(it.qty > 1){
+                  if(!toggleBtn){
+                    toggleBtn = document.createElement("button");
+                    toggleBtn.type = "button";
+                    toggleBtn.className = "ai-qty-mode-toggle";
+                    toggleBtn.dataset.id = it.id;
+                    toggleBtn.textContent = "🔢 依數量分配";
+                    toggleBtn.addEventListener("click", ()=>{
+                      it.qtyMode = true;
+                      renderClaimBoard();
+                    });
+                    btnCol.appendChild(toggleBtn);
+                  }
+                } else {
+                  if(toggleBtn){
+                    toggleBtn.remove();
+                  }
+                }
+              }
+            }
             updateCalculationsAndBadges();
           });
         });
@@ -6687,6 +6977,51 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           });
         });
 
+        // 依數量分配：切換模式的按鈕（平分 ↔ 依數量分配同一顆按鈕，文字依目前模式變化）
+        itemsListEl.querySelectorAll(".ai-qty-mode-toggle").forEach(btn => {
+          btn.addEventListener("click", ()=>{
+            const it = receiptClaimItems.find(x => x.id === btn.dataset.id);
+            if(!it) return;
+            it.qtyMode = !it.qtyMode;
+            renderClaimBoard();
+          });
+        });
+
+        // 依數量分配：每人輸入買了幾個。這裡故意不整個 renderClaimBoard()
+        // 重繪（那樣正在輸入的那個框會失焦、體驗很差），只直接更新這張卡片
+        // 裡「已分配 X / 總數量」那行文字跟顏色，其餘（各成員應付總額等）
+        // 才透過 updateCalculationsAndBadges() 更新。
+        itemsListEl.querySelectorAll(".ai-receipt-member-qty").forEach(inp => {
+          inp.addEventListener("input", (e)=>{
+            const it = receiptClaimItems.find(x => x.id === e.target.dataset.itemId);
+            if(!it) return;
+            if(!it.memberQty) it.memberQty = {};
+            const memberId = e.target.dataset.memberId;
+            const val = Math.max(0, Number(e.target.value) || 0);
+            if(val > 0){
+              it.memberQty[memberId] = val;
+            } else {
+              delete it.memberQty[memberId];
+            }
+
+            const card = e.target.closest(".ai-receipt-item-card");
+            const hintEl = card && card.querySelector(".ai-qty-allocated-hint");
+            if(hintEl){
+              const allocatedQty = Object.values(it.memberQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+              const allocState = allocatedQty === it.qty ? "complete" : allocatedQty > it.qty ? "over" : "under";
+              hintEl.className = `ai-qty-allocated-hint ${allocState}`;
+              hintEl.textContent = allocState === "over"
+                ? `已分配 ${allocatedQty} / ${it.qty}（超過總數量了）`
+                : `已分配 ${allocatedQty} / ${it.qty}`;
+            }
+            const isClaimed = Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0);
+            if(card) card.classList.toggle("is-claimed", isClaimed);
+            if(card) card.classList.toggle("is-unclaimed", !isClaimed);
+
+            updateCalculationsAndBadges();
+          });
+        });
+
         itemsListEl.querySelectorAll(".ai-bubble-all-btn").forEach(btn => {
           btn.addEventListener("click", ()=>{
             const it = receiptClaimItems.find(x => x.id === btn.dataset.id);
@@ -6708,7 +7043,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     }
 
     function calculateMemberTotals(){
-      const subtotal = receiptClaimItems.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
+      // price 是單價，要乘上 qty 才是這一行的實際小計金額
+      const subtotal = receiptClaimItems.reduce((acc, it) => acc + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
       const service = Number(currentReceiptData && currentReceiptData.serviceCharge) || 0;
       const tax = Number(currentReceiptData && currentReceiptData.tax) || 0;
       const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
@@ -6716,7 +7052,13 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       const activeMembers = (MEMBERS || []).filter(m => showLeftMembers || !m.left_at);
       const claimedMemberIdSet = new Set();
-      receiptClaimItems.forEach(it => it.claimedMemberIds.forEach(id => claimedMemberIdSet.add(id)));
+      receiptClaimItems.forEach(it => {
+        if(it.qtyMode){
+          Object.keys(it.memberQty || {}).forEach(id => { if((Number(it.memberQty[id]) || 0) > 0) claimedMemberIdSet.add(id); });
+        } else {
+          it.claimedMemberIds.forEach(id => claimedMemberIdSet.add(id));
+        }
+      });
 
       const memberCalcMap = {};
       activeMembers.forEach(m => {
@@ -6730,15 +7072,29 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       });
 
       receiptClaimItems.forEach(it => {
-        const count = it.claimedMemberIds.length;
-        if(count > 0){
-          const sharePrice = (Number(it.price) || 0) / count;
-          it.claimedMemberIds.forEach(mId => {
-            if(memberCalcMap[mId]){
-              memberCalcMap[mId].itemSum += sharePrice;
-              memberCalcMap[mId].formulas.push(count > 1 ? `${roundAmt(it.price)}/${count}` : `${roundAmt(it.price)}`);
+        const unitPrice = Number(it.price) || 0;
+        if(it.qtyMode){
+          // 依數量分配：price 本身就是單價，每個人按自己買的數量直接算錢，不用再除
+          Object.keys(it.memberQty || {}).forEach(mId => {
+            const myQty = Number(it.memberQty[mId]) || 0;
+            if(myQty > 0 && memberCalcMap[mId]){
+              memberCalcMap[mId].itemSum += unitPrice * myQty;
+              memberCalcMap[mId].formulas.push(`${roundAmt(unitPrice)}×${myQty}`);
             }
           });
+        } else {
+          // 平分模式：這一行的小計 = 單價 × 數量，再由認領的人平分
+          const lineTotal = unitPrice * (Number(it.qty) || 1);
+          const count = it.claimedMemberIds.length;
+          if(count > 0){
+            const sharePrice = lineTotal / count;
+            it.claimedMemberIds.forEach(mId => {
+              if(memberCalcMap[mId]){
+                memberCalcMap[mId].itemSum += sharePrice;
+                memberCalcMap[mId].formulas.push(count > 1 ? `${roundAmt(lineTotal)}/${count}` : `${roundAmt(lineTotal)}`);
+              }
+            });
+          }
         }
       });
 
@@ -6775,19 +7131,37 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       }
       lines.push(`\n📋 品項明細：`);
       receiptClaimItems.forEach((it, idx) => {
-        const claimNames = it.claimedMemberIds.map(id => memberById[id] || id).join("、");
-        const count = it.claimedMemberIds.length;
-        const perPerson = count > 1 ? ` (每人 ${curSym}${formatAmt(roundAmt(it.price / count))})` : "";
-        const claimText = claimNames ? `➔ ${claimNames}${perPerson}` : `➔ 無人認領`;
+        const unitPrice = Number(it.price) || 0;
+        const qty = Number(it.qty) || 1;
+        const lineTotal = unitPrice * qty;
+        let claimMembersText;
+        if(it.qtyMode){
+          const parts = Object.keys(it.memberQty || {})
+            .filter(id => (Number(it.memberQty[id]) || 0) > 0)
+            .map(id => `${memberById[id] || id}×${it.memberQty[id]} (${curSym}${formatAmt(roundAmt(unitPrice * it.memberQty[id]))})`);
+          claimMembersText = parts.length ? parts.join("、") : "無人認領";
+        } else {
+          const claimNames = it.claimedMemberIds.map(id => memberById[id] || id).join("、");
+          const count = it.claimedMemberIds.length;
+          const perPerson = count > 1 ? ` (每人 ${curSym}${formatAmt(roundAmt(lineTotal / count))})` : "";
+          claimMembersText = claimNames ? `${claimNames}${perPerson}` : "無人認領";
+        }
+
+        // 品項金額顯示這一行的小計（單價 × 數量），同時標註單價與數量方便核對（內含稅顯示「單價」，外加稅顯示「未稅單價」）
+        const unitPriceLabel = (taxType === "inclusive") ? "單價" : "未稅單價";
+        const amountText = `${curSym}${formatAmt(lineTotal)}（${unitPriceLabel} ${curSym}${formatAmt(unitPrice)} × ${qty}）`;
+
+        const numStr = `  ${idx + 1}. `;
+        const indent = " ".repeat(numStr.length);
 
         const rawName = (it.name || "品項").trim();
         const parenMatch = rawName.match(/^(.*?)\s*\(([\s\S]*?)\)$/);
         if(parenMatch && parenMatch[1].trim() && parenMatch[2].trim()){
           const zhName = parenMatch[1].trim();
           const origName = parenMatch[2].trim();
-          lines.push(`  ${idx + 1}. ${zhName}\n     (${origName}) ${curSym}${formatAmt(it.price)}\n     ${claimText}`);
+          lines.push(`${numStr}品項: ${zhName}\n${indent}原文: ${origName}\n${indent}價格: ${amountText}\n${indent}分攤: ${claimMembersText}`);
         } else {
-          lines.push(`  ${idx + 1}. ${rawName} ${curSym}${formatAmt(it.price)}\n     ${claimText}`);
+          lines.push(`${numStr}品項: ${rawName}\n${indent}價格: ${amountText}\n${indent}分攤: ${claimMembersText}`);
         }
       });
       lines.push(`\n👥 各成員應付金額：`);
@@ -6893,7 +7267,10 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       // 更新頂部防漏單進度條
       const totalItemsCount = receiptClaimItems.length;
-      const unclaimedCount = receiptClaimItems.filter(it => it.claimedMemberIds.length === 0).length;
+      const isItemClaimed = it => it.qtyMode
+        ? Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0)
+        : it.claimedMemberIds.length > 0;
+      const unclaimedCount = receiptClaimItems.filter(it => !isItemClaimed(it)).length;
       const claimedItemsCount = totalItemsCount - unclaimedCount;
       const claimPercent = totalItemsCount > 0 ? Math.round((claimedItemsCount / totalItemsCount) * 100) : 0;
 
@@ -6925,6 +7302,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       }
       const serviceCol = document.getElementById("aiReceiptServiceCol");
       if(serviceCol) serviceCol.classList.toggle("hidden", taxType === "inclusive");
+
+      // 更新品項卡片上的「單價」/「未稅單價」文字標籤
+      if(itemsListEl){
+        const labelText = (taxType === "inclusive") ? "單價" : "未稅單價";
+        itemsListEl.querySelectorAll(".ai-price-label").forEach(el => {
+          el.textContent = labelText;
+        });
+      }
 
       // 檢查 小計 (+ 服務費/稅) 是否等於 總計
       const isTotalMatching = Math.abs(calculatedTotal - finalTotal) < 0.5;
@@ -7104,7 +7489,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const curSym = getReceiptSymbol();
         const curLabel = getReceiptCurrencyLabel();
 
-        const unclaimedItems = receiptClaimItems.filter(it => it.claimedMemberIds.length === 0);
+        const unclaimedItems = receiptClaimItems.filter(it => it.qtyMode
+          ? !Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0)
+          : it.claimedMemberIds.length === 0);
         if(unclaimedItems.length > 0){
           await sbAlert(`還有 ${unclaimedItems.length} 個品項尚未認領，請點擊成員頭像完成所有品項的分攤認領後，再進行儲存記帳！`, "⚠️ 請先完成所有品項認領");
           return;
@@ -7205,7 +7592,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             name: it.name,
             price: it.price,
             qty: it.qty || 1,
-            claimedMemberIds: [...it.claimedMemberIds]
+            claimedMemberIds: [...it.claimedMemberIds],
+            memberQty: { ...(it.memberQty || {}) },
+            qtyMode: !!it.qtyMode
           }))
         };
         const metaComment = `\n<!--AI_RECEIPT_DATA:${encodeURIComponent(JSON.stringify(aiReceiptMeta))}-->`;
