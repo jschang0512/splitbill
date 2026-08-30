@@ -3772,7 +3772,7 @@ button.dd-btn {
   min-width:0;
 }
 .topbar .whoami.whoami-wrap{
-  overflow:visible;
+  overflow:visible !important;
 }
 #whoamiText{
   display:inline-flex;
