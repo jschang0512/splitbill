@@ -620,12 +620,28 @@ textarea{ resize:vertical; min-height:70px; }
 }
 .calc-header-name{ font-weight:700; color:var(--ink); }
 .calc-close{
-  border:none;
-  background:none;
-  font-size:16px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  flex-shrink:0;
+  border-radius:50%;
+  border:1px solid var(--line);
+  background:color-mix(in srgb, var(--ink) 6%, var(--card));
+  font-size:15px;
   color:var(--ink-soft);
   cursor:pointer;
-  padding:4px;
+  padding:0;
+  transition:all 0.15s ease;
+}
+.calc-close:hover{
+  background:color-mix(in srgb, var(--negative-text) 14%, var(--card));
+  border-color:color-mix(in srgb, var(--negative-text) 40%, var(--line));
+  color:var(--negative-text);
+}
+.calc-close:active{
+  transform:scale(0.92);
 }
 .calc-display{
   background:var(--paper);
@@ -1334,6 +1350,36 @@ button.dd-btn {
 .exp-edit:active{ transform:scale(.92); }
 .exp-del:hover{ background:var(--negative-text); color:#FFFFFF; border-color:var(--negative-text); transform:scale(1.06); }
 .exp-del:active{ transform:scale(.92); }
+.exp-xcur-editrate{
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--card);
+  border:1px solid var(--line);
+  color:var(--ink-soft);
+  font-size:13.5px;
+  line-height:1;
+  padding:0;
+  cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.04);
+  transition:all .15s ease;
+}
+.exp-xcur-editrate:hover{ background:var(--btn-primary); color:#FFFFFF; border-color:var(--btn-primary); transform:scale(1.06); }
+.exp-xcur-editrate:active{ transform:scale(.92); }
+.debt-expense-actions .exp-xcur-editrate,
+.debt-repayment-right .exp-xcur-editrate{
+  width:28px;
+  height:28px;
+  padding:0;
+  border-radius:8px;
+  font-size:12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
 
 .pagination{
   display:flex;
@@ -1846,8 +1892,19 @@ button.dd-btn {
 .filter-date-row input{ flex:1; min-width:0; }
 .filter-date-sep{ flex:0 0 auto; color:var(--ink-soft); font-size:12px; }
 .filter-hint{ font-size:11px; color:var(--ink-soft); margin:4px 0 0; }
-.chart-title-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 var(--sp-4); }
+.chart-title-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:0 0 var(--sp-4); }
 .chart-title-row h2{ margin:0; }
+.donut-controls-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.donut-custom-range{
+  margin:-6px 0 var(--sp-4);
+  justify-content:flex-end;
+}
 .chart-gran-select{ position:relative; flex:0 0 auto; }
 .chart-gran-btn{
   display:flex;
@@ -2691,16 +2748,6 @@ button.dd-btn {
 .debt-section-icon{ font-size:15px; }
 .debt-section-count{ margin-left:auto; font-size:11px; font-weight:400; color:var(--ink-soft); }
 
-.debt-expense-card{
-  padding:16px;
-  margin-bottom:10px;
-  border-radius:14px;
-  background:var(--paper);
-  border:1px solid var(--card-nested-border);
-  box-shadow:var(--card-nested-shadow);
-  border-left:4px solid var(--accent);
-  transition:transform .15s ease, box-shadow .15s ease;
-}
 .debt-advance-card{
   border-left:4px solid var(--btn-primary);
 }
@@ -2719,42 +2766,101 @@ button.dd-btn {
   font-weight:700;
   margin-left:6px;
 }
-.debt-expense-card:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.06); }
-.debt-expense-card{ cursor:pointer; }
-.debt-expense-top{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:12px;
+.ledger-sort-toggle-btn{
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:600;
+  background:var(--paper);
+  border:1px solid var(--line);
+  color:var(--ink-soft);
+  white-space:nowrap;
+  cursor:pointer;
 }
-.debt-expense-info{
-  flex:1;
+.ledger-sort-toggle-btn:hover{
+  border-color:var(--accent-text);
+  color:var(--accent-text);
+}
+.ledger-sort-toggle-btn:active{
+  transform:scale(.95);
+}
+.ledger-row-wrap{
+  border:1.5px solid transparent;
+  border-bottom-color:var(--line);
+  margin-bottom:6px;
+  border-radius:10px;
+}
+.ledger-row-wrap:last-child{
+  border-bottom-color:transparent;
+  margin-bottom:0;
+}
+.ledger-row-wrap.is-neutral-row{
+  opacity:0.45;
+}
+.ledger-row-wrap.is-neutral-row.is-expanded{
+  opacity:1;
+}
+.ledger-row-wrap.is-debit-row{
+  border-color:var(--negative-text);
+}
+.ledger-row-wrap.is-repay-row{
+  border-color:var(--positive-text);
+}
+.ledger-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-rows:auto auto;
+  column-gap:10px;
+  padding:11px 8px;
+  cursor:pointer;
+}
+.ledger-row-main{
   min-width:0;
+  grid-column:1;
+  grid-row:1;
 }
-.debt-expense-name{
-  font-size:15px;
-  font-weight:700;
+.ledger-row-name{
+  font-size:13.5px;
+  font-weight:600;
   color:var(--ink);
-  line-height:1.35;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
-.debt-expense-date{
-  margin-top:3px;
-  font-size:12px;
+.ledger-row-date{
+  margin-top:2px;
+  font-size:11px;
   color:var(--ink-soft);
 }
-.debt-expense-actions{
+.ledger-row-amount{
+  grid-column:2;
+  grid-row:1;
+  font-family:"JetBrains Mono",monospace;
+  font-size:13px;
+  font-weight:700;
+  white-space:nowrap;
+  align-self:start;
+  justify-self:end;
+}
+.ledger-row-amount.is-debit{ color:var(--negative-text); }
+.ledger-row-amount.is-credit{ color:var(--ink-soft); }
+.ledger-row-amount.is-repay{ color:var(--positive-text); }
+.ledger-row-quick-actions{
+  grid-column:2;
+  grid-row:2;
+  justify-self:end;
+  align-self:center;
   display:flex;
   align-items:center;
   gap:6px;
-  flex:0 0 auto;
+  margin-top:4px;
 }
-.debt-expense-actions .exp-edit,
-.debt-expense-actions .exp-del{
-  width:28px;
-  height:28px;
+.ledger-row-quick-actions button{
+  width:24px;
+  height:24px;
   padding:0;
-  border-radius:8px;
-  font-size:12px;
+  border-radius:7px;
+  font-size:11px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -2764,20 +2870,80 @@ button.dd-btn {
   cursor:pointer;
   transition:all .15s ease;
 }
-.debt-expense-actions .exp-edit:hover{
+.ledger-row-quick-actions .exp-edit:hover,
+.ledger-row-quick-actions .exp-xcur-editrate:hover{
   border-color:var(--accent-text);
   color:var(--accent-text);
-  transform:scale(1.06);
 }
-.debt-expense-actions .exp-del:hover{
+.ledger-row-quick-actions .exp-del:hover{
   border-color:var(--negative-text);
   color:var(--negative-text);
-  transform:scale(1.06);
 }
-.debt-expense-divider{
-  height:1px;
-  margin:10px 0;
+.ledger-row-balance{
+  grid-column:1;
+  grid-row:2;
+  align-self:center;
+  margin-top:4px;
+  min-width:0;
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+.balance-chip{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.balance-chip.is-owe{
+  background:color-mix(in srgb, var(--negative-text) 15%, transparent);
+  color:var(--negative-text);
+}
+.balance-chip.is-owed{
+  font-weight:500;
   background:var(--line);
+  color:var(--ink-soft);
+}
+.balance-chip.is-clear{
+  background:var(--paper);
+  color:var(--ink-soft);
+}
+.ledger-row-detail{
+  display:none;
+  padding:2px 8px 14px;
+}
+.ledger-row-wrap.is-expanded .ledger-row-detail{
+  display:block;
+}
+.ledger-row-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+.ledger-row-actions button{
+  font-size:11.5px;
+  padding:6px 10px;
+  border-radius:8px;
+  background:var(--paper);
+  border:1px solid var(--line);
+  color:var(--ink-soft);
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.ledger-row-actions button:hover{
+  border-color:var(--accent-text);
+  color:var(--accent-text);
+}
+.ledger-row-actions .debt-exp-del:hover,
+.ledger-row-actions .debt-repay-del:hover,
+.ledger-row-actions .debt-repay-del-group:hover{
+  border-color:var(--negative-text);
+  color:var(--negative-text);
 }
 
 .debt-info-row{
@@ -2833,102 +2999,7 @@ button.dd-btn {
   font-weight:700;
 }
 
-.debt-formed-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-top:10px;
-  padding:10px 14px;
-  border-radius:12px;
-  background:color-mix(in srgb, var(--accent) 8%, var(--card));
-  border:1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
-}
-.debt-formed-route{
-  font-size:13.5px;
-  font-weight:700;
-  color:var(--ink);
-}
-.debt-formed-route span{
-  margin:0 5px;
-  color:var(--ink-soft);
-  font-weight:500;
-  font-size:12px;
-}
-.debt-formed-amount{
-  font-family:"JetBrains Mono",monospace;
-  font-size:16px;
-  font-weight:700;
-  color:var(--accent-text);
-  white-space:nowrap;
-}
-:root[data-theme="dark"] .debt-formed-row{
-  background:rgba(232, 90, 126, 0.14);
-  border-color:rgba(232, 90, 126, 0.28);
-}
-:root[data-theme="dark"] .debt-formed-amount{
-  color:#FF85A0;
-}
-
 .repayment-section{ padding-top:4px; }
-.debt-overpayment-notice{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-top:10px;
-  padding:9px 14px;
-  border-radius:10px;
-  background:color-mix(in srgb, #f59e0b 10%, var(--card));
-  border:1px solid color-mix(in srgb, #f59e0b 28%, var(--line));
-  font-size:13px;
-  color:var(--ink);
-  line-height:1.4;
-}
-.debt-overpayment-notice b{ color:#b45309; }
-.debt-overpayment-icon{ font-size:15px; flex-shrink:0; }
-:root[data-theme="dark"] .debt-overpayment-notice{
-  background:rgba(245,158,11,0.12);
-  border-color:rgba(245,158,11,0.3);
-}
-:root[data-theme="dark"] .debt-overpayment-notice b{ color:#fbbf24; }
-
-.debt-repayment-card{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:14px 16px;
-  margin-bottom:10px;
-  border-radius:14px;
-  background:color-mix(in srgb, #2F8F4E 6%, var(--card));
-  border:1px solid color-mix(in srgb, #2F8F4E 18%, var(--line));
-  border-left:4px solid #2F8F4E;
-  transition:transform .15s ease, box-shadow .15s ease;
-}
-.debt-repayment-card:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.06); }
-.debt-repayment-icon{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  width:28px;
-  height:28px;
-  border-radius:50%;
-  background:color-mix(in srgb, #2F8F4E 15%, var(--card));
-  font-size:13px;
-  flex-shrink:0;
-}
-.debt-repayment-main{ flex:1; min-width:0; }
-.debt-repayment-route{ font-size:13.5px; font-weight:700; color:var(--ink); }
-.debt-repayment-route span{ margin:0 4px; color:var(--ink-soft); }
-.debt-repayment-meta{ margin-top:3px; font-size:11.5px; color:var(--ink-soft); }
-.debt-repayment-right{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:0 0 auto; }
-.debt-repayment-right .exp-actions{ justify-content:flex-end; }
-.debt-repayment-amount{
-  font-family:"JetBrains Mono",monospace;
-  font-size:15px;
-  font-weight:700;
-  color:var(--positive-text);
-  white-space:nowrap;
-}
 
 .debt-empty-state{ text-align:center; padding:25px 15px; border-radius:13px; background:var(--paper); }
 .debt-empty-icon{
@@ -2953,9 +3024,13 @@ button.dd-btn {
 
 /* 債務明細：折疊展開歷史已結清紀錄與溢付找零 */
 .debt-settled-history-section {
-  margin-top: 14px;
-  border-top: 1px dashed var(--line);
-  padding-top: 12px;
+  margin-top: 22px;
+  border-top: 2px dashed var(--card-nested-border);
+  padding-top: 18px;
+}
+.debt-settled-history-section .pagination{
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 .btn-toggle-settled-history {
   width: 100%;
@@ -2997,15 +3072,6 @@ button.dd-btn {
 .debt-expense-card.is-settled-card:hover,
 .debt-repayment-card.is-settled-card:hover {
   opacity: 1;
-}
-.settled-tag {
-  font-size: 10.5px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: rgba(46, 213, 115, 0.15);
-  color: #2ed573;
-  font-weight: 700;
-  margin-left: 6px;
 }
 .debt-cleared{
   display:flex;
@@ -3082,9 +3148,7 @@ button.dd-btn {
 @media(max-width:600px){
   .debt-detail-panel{ padding:15px; border-radius:15px; }
   .debt-detail-title{ font-size:16px; }
-  .debt-expense-top{ gap:8px; }
   .debt-expense-amount{ font-size:14px; }
-  .debt-formed-row{ align-items:flex-end; }
   .btn-repay-direct{ font-size:13px; padding:11px 14px; }
 }
 
@@ -3410,6 +3474,53 @@ button.dd-btn {
   margin-top:14px;
   margin-bottom:10px;
 }
+/* 輕量收合入口：服務費/稅、個人自付/額外消費——大部分時候都用不到，
+   平常只是一行小連結，不像 .exp-addons-toggle 那樣常駐佔一整塊版面。 */
+.exp-lightweight-container{
+  margin-top:10px;
+  margin-bottom:14px;
+}
+.exp-lightweight-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:none;
+  border:none;
+  padding:2px 0;
+  color:var(--btn-primary);
+  font-size:12.5px;
+  font-weight:700;
+  font-family:inherit;
+  cursor:pointer;
+}
+.exp-lightweight-toggle:hover{
+  text-decoration:underline;
+}
+.exp-lightweight-toggle-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:17px;
+  height:17px;
+  border-radius:50%;
+  background:color-mix(in srgb, var(--btn-primary) 16%, var(--card));
+  font-size:11px;
+  font-weight:700;
+  flex-shrink:0;
+  transition:transform .2s ease;
+}
+.exp-lightweight-toggle.open .exp-lightweight-toggle-icon,
+.exp-lightweight-toggle-icon.open{
+  transform:rotate(45deg);
+}
+.exp-lightweight-toggle.open{
+  color:var(--ink);
+}
+.exp-lightweight-clear{
+  display:block;
+  margin-top:8px;
+  color:var(--ink-soft);
+}
 .exp-addons-toggle{
   display:flex;
   align-items:center;
@@ -3505,6 +3616,88 @@ button.dd-btn {
   line-height:1.45;
   margin-bottom:10px;
 }
+.exp-addons-tax-warn{
+  font-size:11.5px;
+  line-height:1.5;
+  font-weight:600;
+  margin-bottom:10px;
+  padding:8px 10px;
+  border-radius:9px;
+  background:color-mix(in srgb, #F59F00 14%, var(--card));
+  border:1px solid color-mix(in srgb, #F59F00 34%, var(--line));
+  color:color-mix(in srgb, #F59F00 65%, var(--ink));
+}
+.exp-shared-addons{
+  margin-top:4px;
+}
+.exp-shared-addon-hint{
+  font-size:11.5px;
+  color:var(--ink-soft);
+  line-height:1.45;
+  margin-bottom:10px;
+}
+.exp-shared-addon-empty{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  padding:10px 2px;
+  text-align:center;
+}
+.exp-shared-addon-item{
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:12px;
+  background:var(--card);
+  border:1px solid var(--card-nested-border);
+}
+.exp-shared-addon-item-top{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+.exp-shared-addon-name{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  width:auto !important;
+}
+.exp-shared-addon-price-wrap{
+  margin-bottom:8px;
+}
+.exp-shared-addon-del{
+  flex:0 0 auto;
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  border:1px solid color-mix(in srgb, var(--negative-text) 34%, var(--line));
+  background:color-mix(in srgb, var(--negative-text) 12%, var(--card));
+  color:var(--negative-text);
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+.exp-shared-addon-del:hover{
+  background:color-mix(in srgb, var(--negative-text) 22%, var(--card));
+}
+.exp-shared-addon-members{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(95px, 1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.exp-shared-addon-item-hint{
+  margin-top:8px;
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--btn-primary);
+}
+.exp-shared-addon-add{
+  font-size:12.5px;
+  font-weight:700;
+}
 .exp-addons-preview{
   margin-top:10px;
   padding:8px 12px;
@@ -3577,6 +3770,54 @@ button.dd-btn {
   align-items:center;
   gap:9px;
   min-width:0;
+}
+.topbar .whoami.whoami-wrap{
+  overflow:visible;
+}
+#whoamiText{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+#whoamiText b{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+.whoami-group-switcher{
+  flex:0 0 auto;
+}
+.whoami-group-switcher .dd-select{
+  width:auto;
+  min-width:0;
+}
+.whoami-group-switcher .dd-btn{
+  width:auto;
+  padding:2px 8px 2px 10px;
+  font-size:11.5px;
+  font-weight:700;
+  border-radius:999px;
+  background:var(--line);
+  border:1px solid transparent;
+  color:var(--ink-soft);
+  gap:4px;
+}
+.whoami-group-switcher .dd-btn:hover{
+  border-color:var(--accent-text);
+  color:var(--accent-text);
+}
+.whoami-group-switcher .dd-btn-text{
+  max-width:100px;
+}
+.whoami-group-switcher .dd-caret{
+  font-size:8px;
+}
+.whoami-group-switcher .dd-menu{
+  min-width:130px;
+  left:0;
+  right:auto;
 }
 .whoami-avatar{
   box-shadow:0 2px 6px rgba(122,107,158,.3);
@@ -5623,15 +5864,16 @@ button.dd-btn {
   min-width: 0;
 }
 .ai-qty-member-rows{
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px 12px;
 }
 .ai-qty-member-row{
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 .ai-qty-member-label{
   display: inline-flex;
@@ -6270,7 +6512,17 @@ input:focus, select:focus, textarea:focus {
 .exp-addon-calc-wrap { margin-bottom: 10px; }
 .exp-tax-label { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; display: block; margin-bottom: 6px; }
 .exp-tax-split-wrap { margin-bottom: 8px; }
-.exp-tax-preview-box { font-size: 12px; padding: 8px 12px; background: var(--card-subtle); border-radius: 8px; color: var(--ink-soft); line-height: 1.6; }
+.exp-tax-preview-box {
+  font-size: 12px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--btn-primary) 10%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 24%, var(--line));
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.6;
+}
 .twd-settle-rate-label { font-weight: 600; font-size: 13px; color: var(--ink); }
 .twd-settle-rate-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 12px; }
 .twd-settle-rate-prefix { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
@@ -7031,10 +7283,10 @@ input#aiExpenseTime {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: var(--card);
+  background: var(--input-bg);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 9px 12px;
+  border-radius: 999px;
+  padding: 9px 14px;
   font-size: 13.5px;
   color: var(--ink);
   cursor: pointer;
@@ -7085,24 +7337,22 @@ input#aiExpenseTime {
 }
 .sb-ms-popover{
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 8px);
   left: 0;
   right: 0;
-  background: #ffffff !important;
+  background: var(--menu-bg);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
   opacity: 1 !important;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--menu-border);
+  border-radius: 14px;
+  box-shadow: var(--menu-shadow);
   z-index: 999999 !important;
   display: none;
   flex-direction: column;
   overflow: hidden;
   max-height: 280px;
-}
-:root[data-theme="dark"] .sb-ms-popover{
-  background: #242428 !important;
-  border-color: rgba(255,255,255,0.18) !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  animation: sbLoginCardIn .18s cubic-bezier(.34,1.56,.64,1);
 }
 .sb-ms-popover.show{
   display: flex;
@@ -7189,11 +7439,12 @@ input#aiExpenseTime {
   display: none;
   align-items: center;
   gap: 14px;
-  background: rgba(22, 20, 28, 0.96);
-  color: #ffffff;
+  background: var(--menu-bg);
+  color: var(--ink);
   padding: 10px 18px 10px 10px;
   border-radius: 40px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 4px 14px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  box-shadow: var(--menu-shadow);
+  border: 1px solid var(--menu-border);
   transform: translate(-50%, 0) scale(0.85);
   opacity: 0;
   pointer-events: none;
@@ -7220,8 +7471,8 @@ input#aiExpenseTime {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 12px rgba(255, 255, 255, 0.25);
-  border: 2.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  border: 2.5px solid var(--menu-bg);
   transition: transform 0.2s ease;
 }
 .sb-afc-avatar-img{
@@ -7255,12 +7506,12 @@ input#aiExpenseTime {
 .sb-afc-name{
   font-size: 16px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--ink);
   line-height: 1.2;
 }
 .sb-afc-role{
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--ink-soft);
   font-weight: 500;
 }
 .sb-afc-badges{
@@ -7272,12 +7523,11 @@ input#aiExpenseTime {
 }
 .sb-afc-badge-chip{
   font-size: 11px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.10) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  background: color-mix(in srgb, var(--btn-primary) 14%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 30%, var(--line));
   border-radius: 12px;
   padding: 2px 7px;
-  color: #ffffff;
+  color: var(--btn-primary);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -7286,7 +7536,7 @@ input#aiExpenseTime {
 }
 .sb-afc-badge-chip:hover{
   transform: translateY(-1px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.15) 100%);
+  background: color-mix(in srgb, var(--btn-primary) 24%, var(--card));
 }
 .sb-afc-arrow{
   position: absolute;
@@ -7297,31 +7547,13 @@ input#aiExpenseTime {
   height: 0;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-top: 7px solid rgba(22, 20, 28, 0.96);
+  border-top: 7px solid var(--menu-bg);
 }
 .sb-avatar-floating-card.flipped .sb-afc-arrow{
   top: auto;
   bottom: 100%;
   border-top: none;
-  border-bottom: 7px solid rgba(22, 20, 28, 0.96);
-}
-
-:root[data-theme="dark"] .sb-avatar-floating-card{
-  background: rgba(36, 36, 44, 0.96);
-  color: #ffffff;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.18);
-}
-:root[data-theme="dark"] .sb-afc-name{
-  color: #ffffff;
-}
-:root[data-theme="dark"] .sb-afc-role{
-  color: rgba(255, 255, 255, 0.7);
-}
-:root[data-theme="dark"] .sb-afc-arrow{
-  border-top-color: rgba(36, 36, 44, 0.96);
-}
-:root[data-theme="dark"] .sb-avatar-floating-card.flipped .sb-afc-arrow{
-  border-bottom-color: rgba(36, 36, 44, 0.96);
+  border-bottom: 7px solid var(--menu-bg);
 }
 
 /* ============================================================
@@ -7427,7 +7659,7 @@ input#aiExpenseTime {
    UI Polish: Global Micro-Interactions, Floating Breathing & Smooth Transitions
    ============================================================ */
 .debt-empty-state-icon,
-.debt-empty-state b:first-child,
+.debt-empty-icon,
 .empty-state-icon {
   display: inline-block;
   animation: sbFloat 3.8s ease-in-out infinite;

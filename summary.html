@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=483">
-<link rel="stylesheet" href="shared.css?v=483">
+<link rel="stylesheet" href="theme.css?v=573">
+<link rel="stylesheet" href="shared.css?v=573">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=483"></script>
-<script src="version.js?v=483"></script>
-<script src="sb-shared.js?v=483"></script>
-<script src="theme.js?v=483" defer></script>
-<script src="app-banner.js?v=483" defer></script>
+<script src="currencies.js?v=573"></script>
+<script src="version.js?v=573"></script>
+<script src="sb-shared.js?v=573"></script>
+<script src="theme.js?v=573" defer></script>
+<script src="app-banner.js?v=573" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -242,13 +242,6 @@ if("serviceWorker" in navigator){
         </select>
       </div>
 
-      <!-- 稅費模式 -->
-      <label>稅費模式</label>
-      <div class="ai-tax-type-toggle exp-tax-type-toggle">
-        <button type="button" class="ai-tax-type-btn active" id="quickTaxTypeInclusive">內含稅 (免外加)</button>
-        <button type="button" class="ai-tax-type-btn" id="quickTaxTypeExclusive">外加稅費 (+)</button>
-      </div>
-
       <!-- 金額 -->
       <label id="quickExpAmountLabel">支出總金額 (已含稅/免稅)</label>
       <div class="input-calc-wrap">
@@ -256,27 +249,27 @@ if("serviceWorker" in navigator){
         <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickExpAmountCalcBtn" title="小計算機">🧮</button>
       </div>
 
-      <!-- 服務費 / 稅（選填折疊） -->
-      <div class="exp-addons-container exp-tax-container-spaced" id="quickTaxContainer">
-        <button type="button" class="exp-addons-toggle" id="quickTaxToggle">
-          <div class="exp-addons-toggle-left">
-            <span class="exp-addons-icon">🏷️</span>
-            <span class="exp-addons-title">服務費 / 稅</span>
-            <span class="exp-addons-badge">選填</span>
-          </div>
-          <span class="exp-addons-caret" id="quickTaxCaret">▾</span>
+      <!-- 服務費 / 稅：預設收合，大部分時候金額已含稅、不用理它。摘要卡片
+           故意放在收合區塊外面，即使收合起來、只要有填資料就看得到組成 -->
+      <div class="exp-lightweight-container" id="quickTaxContainer">
+        <button type="button" class="exp-lightweight-toggle" id="quickTaxToggle">
+          <span class="exp-lightweight-toggle-icon" id="quickTaxCaret">+</span>
+          <span>這筆有另外加服務費或稅嗎？</span>
         </button>
+        <div class="exp-tax-preview hidden exp-tax-preview-box" id="quickTaxPreview"></div>
         <div class="exp-addons-body hidden" id="quickTaxBody">
           <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
           <label class="exp-addon-label">服務費 / 稅額金額</label>
           <div class="input-calc-wrap exp-addon-calc-wrap">
             <input type="number" id="quickTaxAmount" placeholder="例如 85" min="0" step="1">
+            <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickTaxCalcBtn" title="小計算機">🧮</button>
           </div>
           <label class="exp-tax-label">分配方式</label>
           <div class="ai-tax-split-toggle exp-tax-split-wrap">
             <button type="button" class="ai-tax-btn active" data-quick-tax-mode="ratio" id="quickTaxRatioBtn">依消費比例</button>
             <button type="button" class="ai-tax-btn" data-quick-tax-mode="equal" id="quickTaxEqualBtn">全員平分</button>
           </div>
+          <button type="button" class="link-btn exp-lightweight-clear" id="quickTaxClearBtn">清除服務費/稅資料</button>
         </div>
       </div>
 
@@ -303,37 +296,76 @@ if("serviceWorker" in navigator){
       <div class="checks" id="quickExpParticipants"></div>
       <button type="button" class="link-btn" id="quickToggleAllParticipants">取消全選</button>
 
-      <!-- 個人自付（選填折疊） -->
-      <div class="exp-addons-container" id="quickAddonsContainer">
-        <button type="button" class="exp-addons-toggle" id="quickAddonsToggle">
-          <div class="exp-addons-toggle-left">
-            <span class="exp-addons-icon">✨</span>
-            <span class="exp-addons-title">個人自付 / 額外消費</span>
-            <span class="exp-addons-badge">選填</span>
-          </div>
-          <span class="exp-addons-caret" id="quickAddonsCaret">▾</span>
+      <!-- 個人自付/額外消費：跟上面「怎麼分攤」的勾選名單是分開的，
+           不會因為那邊勾選誰而跟著變動或消失 -->
+      <div class="exp-lightweight-container" id="quickAddonsContainer">
+        <button type="button" class="exp-lightweight-toggle" id="quickAddonsToggle">
+          <span class="exp-lightweight-toggle-icon" id="quickAddonsCaret">+</span>
+          <span>有人另外加點或自己買了什麼嗎？</span>
         </button>
+        <div class="exp-addons-preview hidden" id="quickAddonsPreview"></div>
         <div class="exp-addons-body hidden" id="quickAddonsBody">
-          <div class="exp-addons-hint">💡 若有人有個人專屬消費（如個人加點、自購用品、私人支出等），填入金額後系統會自動先扣除該總額，將共同費用平分，再把個人自付費用計入各自應付帳目。</div>
+          <div class="exp-addons-hint">💡 先設定誰有個人專屬消費（如個人加點、自購用品、私人支出等），系統會自動先扣除這些金額，剩下的部分才由其餘人平分。</div>
+          <div class="exp-addons-tax-warn hidden" id="quickAddonsTaxWarn">⚠️ 這筆有加服務費/稅，下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動加算進去，不然會被多收一次。</div>
+          <div class="filter-type-toggle" id="quickAddonModeToggle">
+            <button type="button" class="split-mode-btn exp-addon-mode-btn active" data-addon-mode="custom">每人自訂金額</button>
+            <button type="button" class="split-mode-btn exp-addon-mode-btn" data-addon-mode="shared">新增共同品項</button>
+          </div>
           <div class="amt-grid" id="quickAddonsList"></div>
-          <div class="exp-addons-preview hidden" id="quickAddonsPreview"></div>
+          <div class="exp-shared-addons hidden" id="quickSharedAddonsWrap">
+            <div class="exp-shared-addon-hint">💡 適合「大家一起買、但不是每個人都有份」的情況（例如點了一輪酒，有一兩位不喝）：填入品項總價，再勾選要分攤的人，系統會平分給勾到的人。</div>
+            <div id="quickSharedAddonsList"></div>
+            <button type="button" class="link-btn exp-shared-addon-add" id="quickSharedAddonAddBtn">+ 新增共同品項</button>
+          </div>
+          <button type="button" class="link-btn exp-lightweight-clear" id="quickAddonsClearBtn">清除個人自付資料</button>
         </div>
       </div>
 
       <div class="amt-grid hidden" id="quickSharesCustom"></div>
       <div class="sum-check" id="quickShareSumCheck"></div>
 
-      <!-- 備註 -->
       <label>備註（選填）</label>
       <textarea id="quickExpNote" placeholder="例如 金額+匯率、備註說明" rows="2" style="resize:vertical;"></textarea>
 
-      <!-- 日期 -->
       <label>日期</label>
       <input type="date" id="quickExpDate" lang="en-CA">
 
       <div class="msg" id="quickExpMsg"></div>
 
       <button type="button" class="btn" id="quickExpSubmitBtn">加入這筆支出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🧮 小計算機（快速記帳表單內各金額欄位共用） -->
+<div class="calc-modal" id="calcModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name" id="calcTargetName"></span>
+      <button type="button" class="calc-close" id="calcCloseBtn">✕</button>
+    </div>
+    <div class="calc-display" id="calcDisplay">0</div>
+    <div class="calc-keys">
+      <button type="button" class="calc-key calc-key-op" data-key="C">C</button>
+      <button type="button" class="calc-key calc-key-op" data-key="back">⌫</button>
+      <button type="button" class="calc-key calc-key-paren" data-key="(">(</button>
+      <button type="button" class="calc-key calc-key-paren" data-key=")">)</button>
+      <button type="button" class="calc-key" data-key="7">7</button>
+      <button type="button" class="calc-key" data-key="8">8</button>
+      <button type="button" class="calc-key" data-key="9">9</button>
+      <button type="button" class="calc-key calc-key-op" data-key="/">÷</button>
+      <button type="button" class="calc-key" data-key="4">4</button>
+      <button type="button" class="calc-key" data-key="5">5</button>
+      <button type="button" class="calc-key" data-key="6">6</button>
+      <button type="button" class="calc-key calc-key-op" data-key="*">×</button>
+      <button type="button" class="calc-key" data-key="1">1</button>
+      <button type="button" class="calc-key" data-key="2">2</button>
+      <button type="button" class="calc-key" data-key="3">3</button>
+      <button type="button" class="calc-key calc-key-op" data-key="-">−</button>
+      <button type="button" class="calc-key calc-key-zero" data-key="0">0</button>
+      <button type="button" class="calc-key" data-key=".">.</button>
+      <button type="button" class="calc-key calc-key-op" data-key="+">+</button>
+      <button type="button" class="calc-key calc-key-eq" data-key="=">=</button>
     </div>
   </div>
 </div>
@@ -1148,10 +1180,8 @@ renderNavLinks();
       }
 
       {
-        const whoamiEl = document.getElementById("whoamiName");
         const whoamiAvatarEl = document.getElementById("whoamiAvatar");
-        const groupName = myMember.groups && myMember.groups.name;
-        if(whoamiEl) whoamiEl.textContent = (myMember.name || user.email) + (groupName ? ` (${groupName})` : "");
+        renderWhoamiGroupSwitcher(sb, user, myMember, () => myMember.name || user.email);
         if(whoamiAvatarEl && myMember){
           whoamiAvatarEl.innerHTML = renderAvatarHTML(myMember, "avatar-md whoami-avatar");
         }
@@ -1339,9 +1369,6 @@ renderNavLinks();
 
     if(openBtn) openBtn.addEventListener("click", openModal);
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
-    modal.addEventListener("click", (e)=>{
-      if(e.target === modal) closeModal();
-    });
   }
 
   // ============================================================
@@ -1359,8 +1386,6 @@ renderNavLinks();
     const amtLabel = document.getElementById("quickExpAmountLabel");
     const descInput = document.getElementById("quickExpDesc");
     const catSelect = document.getElementById("quickExpCategorySelect");
-    const taxIncBtn = document.getElementById("quickTaxTypeInclusive");
-    const taxExcBtn = document.getElementById("quickTaxTypeExclusive");
     const taxToggle = document.getElementById("quickTaxToggle");
     const taxBody = document.getElementById("quickTaxBody");
     const taxCaret = document.getElementById("quickTaxCaret");
@@ -1380,11 +1405,79 @@ renderNavLinks();
     const submitBtn = document.getElementById("quickExpSubmitBtn");
     const msgEl = document.getElementById("quickExpMsg");
 
+    // --- 小計算機（金額/稅額/共同品項總價欄位共用）---
+    const calcModal = document.getElementById("calcModal");
+    const calcDisplay = document.getElementById("calcDisplay");
+    const calcTargetNameEl = document.getElementById("calcTargetName");
+    let calcTargetInput = null;
+    let calcExpr = "";
+
+    function openCalc(inp, name){
+      calcTargetInput = inp;
+      calcExpr = inp.dataset.calc || "";
+      calcTargetNameEl.textContent = name;
+      calcDisplay.textContent = calcExpr || "0";
+      calcModal.classList.add("show");
+    }
+    function closeCalc(){
+      calcModal.classList.remove("show");
+      calcTargetInput = null;
+    }
+    function safeEvalCalc(expr){
+      if(!expr || !/^[0-9+\-*/.()]+$/.test(expr)) return null;
+      if(/[+\-*/.]{2,}/.test(expr)) return null;
+      try{
+        const result = Function(`"use strict"; return (${expr});`)();
+        return (typeof result === "number" && isFinite(result)) ? result : null;
+      }catch(e){ return null; }
+    }
+    if(calcModal){
+      calcModal.querySelectorAll(".calc-key").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const key = btn.dataset.key;
+          if(key === "C"){
+            calcExpr = "";
+          } else if(key === "back"){
+            calcExpr = calcExpr.slice(0, -1);
+          } else if(key === "="){
+            const result = safeEvalCalc(calcExpr || "0");
+            if(result === null){ calcDisplay.textContent = "格式錯誤"; return; }
+            const rounded = Math.round(result * 100) / 100;
+            if(calcTargetInput){
+              calcTargetInput.value = rounded;
+              calcTargetInput.dataset.calc = calcExpr;
+              const btnEl = calcTargetInput.closest(".amt-row") ? calcTargetInput.closest(".amt-row").querySelector(".amt-row-calc-btn") : (calcTargetInput.parentElement ? calcTargetInput.parentElement.querySelector(".input-calc-btn") : null);
+              if(btnEl) btnEl.classList.add("has-calc");
+              calcTargetInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            closeCalc();
+            return;
+          } else {
+            calcExpr += key;
+          }
+          calcDisplay.textContent = calcExpr || "0";
+        });
+      });
+      const calcCloseBtn = document.getElementById("calcCloseBtn");
+      if(calcCloseBtn) calcCloseBtn.addEventListener("click", closeCalc);
+    }
+    const quickAmtCalcBtn = document.getElementById("quickExpAmountCalcBtn");
+    if(quickAmtCalcBtn && amtInput){
+      quickAmtCalcBtn.addEventListener("click", ()=> openCalc(amtInput, "支出總金額"));
+    }
+    const quickTaxCalcBtn = document.getElementById("quickTaxCalcBtn");
+    if(quickTaxCalcBtn && taxAmtInput){
+      quickTaxCalcBtn.addEventListener("click", ()=> openCalc(taxAmtInput, "服務費 / 稅額"));
+    }
+
     let userManuallyPickedCat = false;
     let quickTaxMode = "inclusive"; // inclusive | exclusive
     let quickPayerMode = "single";
     let quickSplitMode = "equal";
     let quickTaxSplitMode = "ratio";
+    let quickActiveMembers = []; // populateMembers() 填入，個人自付區共用同一份成員清單
+    let quickAddonMode = "custom"; // "custom" | "shared"
+    let quickSharedAddonItems = []; // [{ id, name, price, memberIds: [] }]
 
     // --- 時區自動偵測幣別 ---
     function detectLocalCurrency(availableList){
@@ -1446,6 +1539,7 @@ renderNavLinks();
       }).join("");
       const detected = detectLocalCurrency(avail);
       curSelect.value = detected.code;
+      enhanceSelect(curSelect);
       if(curAutoBadge){
         curAutoBadge.textContent = detected.isAuto ? `🌍 依時區推薦 (${detected.code})` : `📌 預設 (${detected.code})`;
       }
@@ -1459,32 +1553,77 @@ renderNavLinks();
     // --- 稅費模式切換 ---
     function setTaxMode(mode){
       quickTaxMode = mode;
-      taxIncBtn.classList.toggle("active", mode === "inclusive");
-      taxExcBtn.classList.toggle("active", mode === "exclusive");
       if(amtLabel){
         amtLabel.textContent = mode === "inclusive" ? "支出總金額 (已含稅/免稅)" : "支出小計 (未含服務費/稅)";
       }
     }
-    taxIncBtn && taxIncBtn.addEventListener("click", () => setTaxMode("inclusive"));
-    taxExcBtn && taxExcBtn.addEventListener("click", () => setTaxMode("exclusive"));
+    // 是否算有稅，改成只看「稅額欄位有沒有數字」，跟折疊卡片展開/收合是
+    // 兩件事——收合起來只是暫時看不到欄位，資料跟計算都還在。
+    function recomputeQuickTaxMode(){
+      const v = Number(taxAmtInput && taxAmtInput.value) || 0;
+      setTaxMode(v > 0 ? "exclusive" : "inclusive");
+    }
+    function updateQuickTaxPreview(){
+      const previewEl = document.getElementById("quickTaxPreview");
+      if(!previewEl) return;
+      if(quickTaxMode === "inclusive"){ previewEl.classList.add("hidden"); return; }
+      const subtotal = Number(amtInput.value) || 0;
+      const taxAmt = Number(taxAmtInput ? taxAmtInput.value : 0) || 0;
+      if(taxAmt <= 0){ previewEl.classList.add("hidden"); return; }
+      const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === curSelect.value) : null;
+      const sym = curObj ? curObj.symbol : "$";
+      const total = subtotal + taxAmt;
+      const modeText = quickTaxSplitMode === "ratio" ? "依照個人消費額比例分配" : "全員平分";
+      previewEl.classList.remove("hidden");
+      previewEl.innerHTML = `
+        <div>📊 <b>費用加總</b>：小計 ${sym}${formatAmt(subtotal)} + 服務費/稅 ${sym}${formatAmt(taxAmt)} = <b>總支出 ${sym}${formatAmt(total)}</b></div>
+        <div style="font-size:11.5px;color:var(--ink-soft);margin-top:3px;">分配方式：${modeText}</div>
+      `;
+    }
 
-    // --- 服務費/稅折疊 ---
+    // --- 服務費/稅折疊（純粹展開/收合欄位，不影響是否算有稅） ---
+    function collapseQuickTaxBody(){
+      if(taxBody) taxBody.classList.add("hidden");
+      if(taxToggle) taxToggle.classList.remove("open");
+      if(taxCaret) taxCaret.classList.remove("open");
+    }
+    if(taxAmtInput){
+      taxAmtInput.addEventListener("input", ()=>{
+        recomputeQuickTaxMode();
+        updateQuickTaxPreview();
+        updateQuickAddonsPreview();
+      });
+    }
     taxToggle && taxToggle.addEventListener("click", ()=>{
-      const isOpen = !taxBody.classList.contains("hidden");
-      taxBody.classList.toggle("hidden", isOpen);
-      if(taxCaret) taxCaret.textContent = isOpen ? "▾" : "▴";
+      const isHidden = taxBody.classList.contains("hidden");
+      taxBody.classList.toggle("hidden", !isHidden);
+      taxToggle.classList.toggle("open", isHidden);
+      if(taxCaret) taxCaret.classList.toggle("open", isHidden);
     });
+    const quickTaxClearBtn = document.getElementById("quickTaxClearBtn");
+    if(quickTaxClearBtn){
+      quickTaxClearBtn.addEventListener("click", ()=>{
+        if(taxAmtInput) taxAmtInput.value = "";
+        quickTaxSplitMode = "ratio";
+        document.getElementById("quickTaxRatioBtn") && document.getElementById("quickTaxRatioBtn").classList.add("active");
+        document.getElementById("quickTaxEqualBtn") && document.getElementById("quickTaxEqualBtn").classList.remove("active");
+        recomputeQuickTaxMode();
+        updateQuickTaxPreview();
+      });
+    }
 
     // --- 服務費分配方式切換 ---
     document.getElementById("quickTaxRatioBtn") && document.getElementById("quickTaxRatioBtn").addEventListener("click", ()=>{
       quickTaxSplitMode = "ratio";
       document.getElementById("quickTaxRatioBtn").classList.add("active");
       document.getElementById("quickTaxEqualBtn").classList.remove("active");
+      updateQuickTaxPreview();
     });
     document.getElementById("quickTaxEqualBtn") && document.getElementById("quickTaxEqualBtn").addEventListener("click", ()=>{
       quickTaxSplitMode = "equal";
       document.getElementById("quickTaxEqualBtn").classList.add("active");
       document.getElementById("quickTaxRatioBtn").classList.remove("active");
+      updateQuickTaxPreview();
     });
 
     // --- 誰付的錢：單人/多人 ---
@@ -1509,6 +1648,8 @@ renderNavLinks();
       });
       participantsWrap.classList.toggle("hidden", mode === "custom");
       if(toggleAllBtn) toggleAllBtn.classList.toggle("hidden", mode === "custom");
+      const quickAddonsContainer = document.getElementById("quickAddonsContainer");
+      if(quickAddonsContainer) quickAddonsContainer.classList.toggle("hidden", mode !== "equal");
       if(quickSharesCustom) quickSharesCustom.classList.toggle("hidden", mode === "equal");
     }
     modal.querySelectorAll("[data-quick-mode]").forEach(btn =>{
@@ -1524,19 +1665,31 @@ renderNavLinks();
         inp.closest(".check-pill").classList.toggle("checked", allSelected);
       });
       toggleAllBtn.textContent = allSelected ? "取消全選" : "全選";
+      updateQuickAddonsPreview();
     });
 
     // --- 個人自付折疊 ---
     addonsToggle && addonsToggle.addEventListener("click", ()=>{
-      const isOpen = !addonsBody.classList.contains("hidden");
-      addonsBody.classList.toggle("hidden", isOpen);
-      if(addonsCaret) addonsCaret.textContent = isOpen ? "▾" : "▴";
+      const isHidden = addonsBody.classList.contains("hidden");
+      addonsBody.classList.toggle("hidden", !isHidden);
+      addonsToggle.classList.toggle("open", isHidden);
+      if(addonsCaret) addonsCaret.classList.toggle("open", isHidden);
     });
+    const quickAddonsClearBtn = document.getElementById("quickAddonsClearBtn");
+    if(quickAddonsClearBtn){
+      quickAddonsClearBtn.addEventListener("click", ()=>{
+        addonsList.querySelectorAll(".quick-addon-inp").forEach(i=>{ i.value=""; });
+        quickSharedAddonItems = [];
+        setQuickAddonMode("custom");
+        renderQuickAddonsList();
+      });
+    }
 
     // --- 成員渲染 ---
     function populateMembers(){
       const list = (memberRows && memberRows.length) ? memberRows : (MEMBERS || []);
       const activeList = list.filter(m => !m.left_at && !m.account_deleted_at);
+      quickActiveMembers = activeList;
 
       // 代付人
       paidBySelect.innerHTML = activeList.map(m => {
@@ -1557,7 +1710,10 @@ renderNavLinks();
         `<label class="check-pill checked"><input type="checkbox" value="${m.id}" checked><span>${escapeHtml(m.name || "成員")}</span></label>`
       ).join("");
       participantsWrap.querySelectorAll("input").forEach(inp =>{
-        inp.addEventListener("change", ()=>{ inp.closest(".check-pill").classList.toggle("checked", inp.checked); });
+        inp.addEventListener("change", ()=>{
+          inp.closest(".check-pill").classList.toggle("checked", inp.checked);
+          updateQuickAddonsPreview();
+        });
       });
 
       // 自訂分攤列
@@ -1567,22 +1723,231 @@ renderNavLinks();
         ).join("");
       }
 
-      // 個人自付列
-      if(addonsList){
-        addonsList.innerHTML = activeList.map(m =>
-          `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input quick-addon-inp" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
-        ).join("");
-      }
+      renderQuickAddonsList();
 
       allSelected = true;
       if(toggleAllBtn) toggleAllBtn.textContent = "取消全選";
     }
 
+    function quickMemberName(id){
+      const m = quickActiveMembers.find(x => x.id === id);
+      return m ? (m.name || "成員") : "?";
+    }
+
+    // ---------- 個人自付 / 額外消費（跟 currency.html 完整表單同一套邏輯，
+    // 兩種模式：custom 每人自己填多付多少；shared 大家一起買、但不是全員
+    // 分攤，填總價後勾選要分攤的人，系統平分給勾到的人）----------
+    function renderQuickAddonsList(){
+      if(!addonsList) return;
+      // 個人自付要獨立於「怎麼分攤」勾選狀態之外，用全體在團成員
+      const checked = quickActiveMembers.map(m => m.id);
+
+      const existingValues = {};
+      addonsList.querySelectorAll(".quick-addon-inp").forEach(inp => { existingValues[inp.dataset.member] = inp.value; });
+
+      addonsList.innerHTML = checked.map(mId => `
+        <div class="amt-row"><span class="amt-row-name">${escapeHtml(quickMemberName(mId))}</span><input type="number" class="amt-row-input quick-addon-inp" data-member="${mId}" placeholder="0" min="0" step="1" value="${existingValues[mId] || ''}"><button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button></div>
+      `).join("");
+
+      addonsList.querySelectorAll(".quick-addon-inp").forEach(inp => {
+        inp.addEventListener("input", updateQuickAddonsPreview);
+      });
+      addonsList.querySelectorAll(".amt-row-calc-btn").forEach(btn => {
+        btn.addEventListener("click", ()=>{
+          const row = btn.closest(".amt-row");
+          openCalc(row.querySelector(".quick-addon-inp"), row.querySelector(".amt-row-name").textContent);
+        });
+      });
+
+      renderQuickSharedAddonsList();
+      updateQuickAddonsPreview();
+    }
+
+    function updateQuickSharedAddonItemHint(rowEl, item){
+      const hintEl = rowEl.querySelector(".exp-shared-addon-item-hint");
+      if(!hintEl) return;
+      const n = item.memberIds.length;
+      const perPerson = n > 0 ? Math.floor((Number(item.price) || 0) / n) : 0;
+      const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === curSelect.value) : null;
+      const sym = curObj ? curObj.symbol : "$";
+      hintEl.textContent = n > 0 ? `每人 ${sym}${formatAmt(perPerson)}（共 ${n} 人分攤）` : "尚未勾選分攤的人";
+    }
+
+    function renderQuickSharedAddonsList(){
+      const listEl = document.getElementById("quickSharedAddonsList");
+      if(!listEl) return;
+      // 跟 renderQuickAddonsList() 一樣，用全體在團成員，不受「怎麼分攤」勾選影響
+      const checked = quickActiveMembers.map(m => m.id);
+      const checkedSet = new Set(checked);
+      quickSharedAddonItems.forEach(item => { item.memberIds = item.memberIds.filter(id => checkedSet.has(id)); });
+
+      const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === curSelect.value) : null;
+      const sym = curObj ? curObj.symbol : "$";
+
+      if(!quickSharedAddonItems.length){
+        listEl.innerHTML = `<div class="exp-shared-addon-empty">還沒有新增任何共同品項</div>`;
+      } else {
+        listEl.innerHTML = quickSharedAddonItems.map(item => {
+          const n = item.memberIds.length;
+          const perPerson = n > 0 ? Math.floor((Number(item.price) || 0) / n) : 0;
+          const hintText = n > 0 ? `每人 ${sym}${formatAmt(perPerson)}（共 ${n} 人分攤）` : "尚未勾選分攤的人";
+          return `
+            <div class="exp-shared-addon-item" data-id="${item.id}">
+              <div class="exp-shared-addon-item-top">
+                <input type="text" class="exp-shared-addon-name" placeholder="品項名稱（例如：酒）" value="${escapeHtml(item.name || "")}">
+                <button type="button" class="exp-shared-addon-del" title="刪除">✕</button>
+              </div>
+              <div class="input-calc-wrap exp-shared-addon-price-wrap">
+                <input type="number" class="exp-shared-addon-price" placeholder="總價" min="0" step="1" value="${item.price || ""}">
+                <button type="button" class="amt-row-calc-btn input-calc-btn exp-shared-addon-calc-btn" title="小計算機">🧮</button>
+              </div>
+              <div class="exp-shared-addon-members">
+                ${checked.map(pid => `
+                  <label class="check-pill exp-shared-addon-member${item.memberIds.includes(pid) ? ' checked' : ''}">
+                    <input type="checkbox" value="${pid}"${item.memberIds.includes(pid) ? " checked" : ""}>
+                    <span class="check-pill-name">${escapeHtml(quickMemberName(pid))}</span>
+                  </label>
+                `).join("")}
+              </div>
+              <div class="exp-shared-addon-item-hint">${hintText}</div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      listEl.querySelectorAll(".exp-shared-addon-item").forEach(rowEl => {
+        const itemId = rowEl.dataset.id;
+        const item = quickSharedAddonItems.find(x => x.id === itemId);
+        if(!item) return;
+        const nameInp = rowEl.querySelector(".exp-shared-addon-name");
+        if(nameInp) nameInp.addEventListener("input", () => { item.name = nameInp.value; });
+        const priceInp = rowEl.querySelector(".exp-shared-addon-price");
+        if(priceInp) priceInp.addEventListener("input", () => {
+          item.price = Number(priceInp.value) || 0;
+          updateQuickSharedAddonItemHint(rowEl, item);
+          updateQuickAddonsPreview();
+        });
+        const calcBtn = rowEl.querySelector(".exp-shared-addon-calc-btn");
+        if(calcBtn && priceInp){
+          calcBtn.addEventListener("click", () => openCalc(priceInp, item.name || "共同品項總價"));
+        }
+        const delBtn = rowEl.querySelector(".exp-shared-addon-del");
+        if(delBtn) delBtn.addEventListener("click", () => {
+          quickSharedAddonItems = quickSharedAddonItems.filter(x => x.id !== itemId);
+          renderQuickSharedAddonsList();
+          updateQuickAddonsPreview();
+        });
+        rowEl.querySelectorAll(".exp-shared-addon-member input").forEach(chk => {
+          chk.addEventListener("change", () => {
+            const pid = chk.value;
+            chk.closest(".check-pill").classList.toggle("checked", chk.checked);
+            if(chk.checked){
+              if(!item.memberIds.includes(pid)) item.memberIds.push(pid);
+            } else {
+              item.memberIds = item.memberIds.filter(id => id !== pid);
+            }
+            updateQuickSharedAddonItemHint(rowEl, item);
+            updateQuickAddonsPreview();
+          });
+        });
+      });
+    }
+
+    function getQuickAddonsData(){
+      if(quickAddonMode === "shared"){
+        const items = {};
+        let totalAddon = 0;
+        quickSharedAddonItems.forEach(item => {
+          const n = item.memberIds.length;
+          const price = Number(item.price) || 0;
+          if(n === 0 || price <= 0) return;
+          const base = Math.floor(price / n);
+          const remainder = Math.round(price - base * n);
+          item.memberIds.forEach((mId, idx) => {
+            const amt = base + (idx < remainder ? 1 : 0);
+            if(amt <= 0) return;
+            if(!items[mId]) items[mId] = 0;
+            items[mId] += amt;
+            totalAddon += amt;
+          });
+        });
+        return { totalAddon, items };
+      }
+      const items = {};
+      let totalAddon = 0;
+      if(addonsList){
+        addonsList.querySelectorAll(".quick-addon-inp").forEach(inp => {
+          const mId = inp.dataset.member;
+          const amt = Number(inp.value) || 0;
+          if(amt > 0){ items[mId] = amt; totalAddon += amt; }
+        });
+      }
+      return { totalAddon, items };
+    }
+
+    function setQuickAddonMode(mode){
+      quickAddonMode = mode;
+      const toggleEl = document.getElementById("quickAddonModeToggle");
+      if(toggleEl){
+        toggleEl.querySelectorAll(".exp-addon-mode-btn").forEach(b => b.classList.toggle("active", b.dataset.addonMode === mode));
+      }
+      if(addonsList) addonsList.classList.toggle("hidden", mode !== "custom");
+      const sharedWrapEl = document.getElementById("quickSharedAddonsWrap");
+      if(sharedWrapEl) sharedWrapEl.classList.toggle("hidden", mode !== "shared");
+      updateQuickAddonsPreview();
+    }
+
+    const quickAddonModeToggle = document.getElementById("quickAddonModeToggle");
+    if(quickAddonModeToggle){
+      quickAddonModeToggle.querySelectorAll(".exp-addon-mode-btn").forEach(btn => {
+        btn.addEventListener("click", () => setQuickAddonMode(btn.dataset.addonMode));
+      });
+    }
+    const quickSharedAddonAddBtn = document.getElementById("quickSharedAddonAddBtn");
+    if(quickSharedAddonAddBtn){
+      quickSharedAddonAddBtn.addEventListener("click", () => {
+        quickSharedAddonItems.push({ id: "qsadd_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), name: "", price: 0, memberIds: [] });
+        renderQuickSharedAddonsList();
+      });
+    }
+
+    function updateQuickAddonsPreview(){
+      const previewEl = document.getElementById("quickAddonsPreview");
+      if(!previewEl) return;
+      const subtotal = Number(amtInput.value) || 0;
+      const { totalAddon } = getQuickAddonsData();
+      const checked = Array.from(participantsWrap.querySelectorAll("input:checked")).map(i => i.value);
+
+      const taxWarnEl = document.getElementById("quickAddonsTaxWarn");
+      const taxAmt = Number(taxAmtInput ? taxAmtInput.value : 0) || 0;
+      if(taxWarnEl) taxWarnEl.classList.toggle("hidden", taxAmt <= 0);
+
+      if(totalAddon <= 0 || checked.length === 0){
+        previewEl.classList.add("hidden");
+        return;
+      }
+      const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === curSelect.value) : null;
+      const sym = curObj ? curObj.symbol : "$";
+      const baseAmount = Math.max(0, subtotal - totalAddon);
+      const baseShare = Math.floor(baseAmount / checked.length);
+      previewEl.classList.remove("hidden");
+      previewEl.innerHTML = `
+        <div style="font-size:11.5px;color:var(--ink-soft);">
+          扣除個人自付合計 ${sym}${formatAmt(totalAddon)} ➔ 共同平分基本額 ${sym}${formatAmt(baseAmount)}（每人約 ${sym}${formatAmt(baseShare)}）
+        </div>
+      `;
+    }
+    if(amtInput) amtInput.addEventListener("input", ()=>{ updateQuickAddonsPreview(); updateQuickTaxPreview(); });
+
     // --- 類別自動預測 ---
+    if(catSelect) enhanceSelect(catSelect);
     descInput && descInput.addEventListener("input", ()=>{
       if(!userManuallyPickedCat || !descInput.value.trim()){
         const meta = window.getCategoryMeta ? window.getCategoryMeta(descInput.value) : { type: "general" };
-        if(catSelect && meta.type) catSelect.value = meta.type;
+        if(catSelect && meta.type){
+          catSelect.value = meta.type;
+          enhanceSelect(catSelect);
+        }
         if(!descInput.value.trim()) userManuallyPickedCat = false;
       }
     });
@@ -1597,14 +1962,17 @@ renderNavLinks();
       if(noteInput) noteInput.value = "";
       if(taxAmtInput) taxAmtInput.value = "";
       userManuallyPickedCat = false;
-      if(catSelect) catSelect.value = "food";
+      if(catSelect){ catSelect.value = "food"; enhanceSelect(catSelect); }
       setTaxMode("inclusive");
       setPayerMode("single");
       setSplitMode("equal");
-      if(taxBody) taxBody.classList.add("hidden");
-      if(taxCaret) taxCaret.textContent = "▾";
+      collapseQuickTaxBody();
+      updateQuickTaxPreview();
       if(addonsBody) addonsBody.classList.add("hidden");
-      if(addonsCaret) addonsCaret.textContent = "▾";
+      if(addonsToggle) addonsToggle.classList.remove("open");
+      if(addonsCaret) addonsCaret.classList.remove("open");
+      quickSharedAddonItems = [];
+      setQuickAddonMode("custom");
       dateInput.value = new Date().toISOString().split("T")[0];
       if(msgEl){ msgEl.textContent = ""; msgEl.className = "msg"; }
       modal.classList.remove("hidden");
@@ -1615,7 +1983,7 @@ renderNavLinks();
         if(!result || !result.code) return;
         const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
         const code = avail.includes(result.code) ? result.code : avail[0];
-        if(curSelect) curSelect.value = code;
+        if(curSelect){ curSelect.value = code; enhanceSelect(curSelect); }
         if(curAutoBadge) curAutoBadge.textContent = `🛰️ GPS 精準 (${code})`;
       }).catch(() => {});
     }
@@ -1642,7 +2010,7 @@ renderNavLinks();
 
       const itemTitle = descInput.value.trim() || "未命名支出";
       const cat = catSelect ? catSelect.value : "general";
-      let fullDesc = (cat && cat !== "general") ? `${itemTitle} <!--CAT:${cat}-->` : itemTitle;
+      let fullDesc = itemTitle;
       const currency = curSelect.value;
       const expense_date = dateInput.value || new Date().toISOString().split("T")[0];
       const noteVal = noteInput ? noteInput.value.trim() : "";
@@ -1664,16 +2032,116 @@ renderNavLinks();
       if(quickSplitMode === "equal"){
         const checked = Array.from(participantsWrap.querySelectorAll("input:checked")).map(i => i.value);
         if(!checked.length){ msgEl.textContent = "至少需要選取一位分攤人"; msgEl.className = "msg error"; return; }
-        const perShare = totalAmount / checked.length;
-        shares = checked.map(id => ({ member_id: id, amount: perShare }));
+
+        // 扣除個人自付／共同品項後，剩餘款項才由全員平分（跟完整記帳表單同一套邏輯）
+        const { totalAddon, items: addonItems } = getQuickAddonsData();
+        if(totalAddon > subtotal){
+          msgEl.textContent = `個人自付／共同品項總額 (${totalAddon}) 超過不含稅金額 (${subtotal})`;
+          msgEl.className = "msg error";
+          return;
+        }
+        const baseAmount = Math.max(0, subtotal - totalAddon);
+        const n = checked.length;
+        const base = Math.floor(baseAmount / n);
+        const remainder = Math.round(baseAmount - base * n);
+
+        const payerIds = new Set(payers.map(p => p.member_id));
+        const shuffle = arr => {
+          const a = arr.slice();
+          for(let i = a.length - 1; i > 0; i--){
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+          }
+          return a;
+        };
+        const priority = [
+          ...shuffle(checked.filter(id => !payerIds.has(id))),
+          ...shuffle(checked.filter(id => payerIds.has(id)))
+        ];
+
+        const shareAmt = {};
+        const memberPreTax = {};
+        checked.forEach(id => { shareAmt[id] = base; memberPreTax[id] = base; });
+        priority.slice(0, remainder).forEach(id => { shareAmt[id] += 1; memberPreTax[id] += 1; });
+        checked.forEach(id => {
+          const add = addonItems[id];
+          if(add > 0){ shareAmt[id] += add; memberPreTax[id] += add; }
+        });
+
+        // 分配服務費 / 稅額
+        const memberTax = {};
+        if(taxAmt > 0){
+          if(quickTaxSplitMode === "ratio" && subtotal > 0){
+            let taxSum = 0;
+            checked.forEach(id => {
+              const rawTax = Math.round((memberPreTax[id] / subtotal) * taxAmt);
+              memberTax[id] = rawTax;
+              taxSum += rawTax;
+            });
+            const taxDiff = taxAmt - taxSum;
+            if(taxDiff !== 0 && checked.length > 0) memberTax[checked[0]] += taxDiff;
+          } else {
+            const baseTax = Math.floor(taxAmt / n);
+            const taxRem = taxAmt - (baseTax * n);
+            checked.forEach((id, idx) => { memberTax[id] = baseTax + (idx < taxRem ? 1 : 0); });
+          }
+        }
+
+        shares = checked.map(id => {
+          const baseVal = shareAmt[id];
+          const taxVal = memberTax[id] || 0;
+          const finalVal = baseVal + taxVal;
+          const add = addonItems[id] || 0;
+          let calc = "";
+          if(add > 0 && taxVal > 0) calc = `平分${baseVal - add}+自付${add}+稅額${taxVal}`;
+          else if(add > 0) calc = `平分${baseVal - add}+自付${add}`;
+          else if(taxVal > 0) calc = `平分${baseVal}+稅額${taxVal}`;
+          const obj = { member_id: id, amount: finalVal };
+          if(calc) obj.calc = calc;
+          return obj;
+        });
+
+        // 個人自付名單跟「怎麼分攤」勾選名單是分開的：有人只掛了個人加點卻
+        // 沒被勾進共同分攤時，他的加點金額還是要記進帳，不能無聲消失。
+        Object.keys(addonItems).forEach(id => {
+          if(checked.includes(id)) return;
+          const add = addonItems[id];
+          if(add > 0) shares.push({ member_id: id, amount: add, calc: `自付${add}` });
+        });
       } else {
+        const customRows = [];
         if(quickSharesCustom){
           quickSharesCustom.querySelectorAll(".quick-share-inp").forEach(inp => {
             const v = Number(inp.value);
-            if(v > 0) shares.push({ member_id: inp.dataset.member, amount: v });
+            if(v > 0) customRows.push({ member_id: inp.dataset.member, amount: v });
           });
         }
-        if(!shares.length){ msgEl.textContent = "至少需要輸入一位分攤金額"; msgEl.className = "msg error"; return; }
+        if(!customRows.length){ msgEl.textContent = "至少需要輸入一位分攤金額"; msgEl.className = "msg error"; return; }
+        const customBaseSum = customRows.reduce((s,r)=>s+r.amount, 0);
+
+        if(taxAmt > 0){
+          const memberTax = {};
+          if(quickTaxSplitMode === "ratio" && customBaseSum > 0){
+            let taxSum = 0;
+            customRows.forEach(r => {
+              const rawTax = Math.round((r.amount / customBaseSum) * taxAmt);
+              memberTax[r.member_id] = rawTax;
+              taxSum += rawTax;
+            });
+            const taxDiff = taxAmt - taxSum;
+            if(taxDiff !== 0) memberTax[customRows[0].member_id] += taxDiff;
+          } else {
+            const baseTax = Math.floor(taxAmt / customRows.length);
+            const taxRem = taxAmt - (baseTax * customRows.length);
+            customRows.forEach((r, idx) => { memberTax[r.member_id] = baseTax + (idx < taxRem ? 1 : 0); });
+          }
+          shares = customRows.map(r => {
+            const taxVal = memberTax[r.member_id] || 0;
+            return { member_id: r.member_id, amount: r.amount + taxVal, calc: `自訂${r.amount}+稅額${taxVal}` };
+          });
+        } else {
+          shares = customRows.map(r => ({ member_id: r.member_id, amount: r.amount }));
+        }
       }
 
       submitBtn.disabled = true;
@@ -1683,7 +2151,7 @@ renderNavLinks();
         const { error } = await sb.from("expenses").insert({
           amount: totalAmount, description: fullDesc, note: noteVal || null,
           expense_date, created_by: myMember ? myMember.id : payers[0].member_id,
-          payers, shares, currency
+          payers, shares, currency, category: cat || "general"
         });
         if(error) throw error;
         localStorage.setItem("sb_last_active_currency", currency);

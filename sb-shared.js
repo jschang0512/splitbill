@@ -17,6 +17,71 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+// ---------- Topbar「姓名 (群組)」：如果這個帳號同時在一個以上的群組裡，
+// 把群組名稱換成跟全站其他下拉選單同一套外觀的小圓角選單（用 enhanceSelect
+// 套上去，不是原生 <select> 那種瀏覽器預設樣式），選別的群組就直接呼叫
+// switch_active_group 切換過去並跳到 summary.html，不用特地跑一趟設定頁的
+// 「群組」分頁。只有一個群組時沒有切換的必要，維持原本純文字顯示。----------
+async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayName){
+  const nameEl = document.getElementById("whoamiName");
+  const textWrap = document.getElementById("whoamiText");
+  if(!nameEl || !currentUser) return;
+  const displayName = (typeof getDisplayName === "function" ? getDisplayName() : null) || (myMember && myMember.name) || currentUser.email;
+  const currentGroupName = (myMember && myMember.groups && myMember.groups.name) || "";
+
+  const oldSwitcher = textWrap && textWrap.querySelector(".whoami-group-switcher");
+  if(oldSwitcher) oldSwitcher.remove();
+
+  let groups = [];
+  try {
+    const { data } = await sb.from("members")
+      .select("group_id, groups(name)")
+      .eq("user_id", currentUser.id)
+      .is("left_at", null);
+    groups = data || [];
+  } catch(e){}
+
+  nameEl.textContent = displayName;
+
+  if(!myMember || groups.length <= 1){
+    if(currentGroupName) nameEl.textContent = displayName + ` (${currentGroupName})`;
+    return;
+  }
+
+  const sel = document.createElement("select");
+  sel.title = "切換群組";
+  groups.forEach(g=>{
+    const opt = document.createElement("option");
+    opt.value = g.group_id;
+    opt.textContent = (g.groups && g.groups.name) || "?";
+    if(g.group_id === myMember.group_id) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  const wrap = document.createElement("span");
+  wrap.className = "whoami-group-switcher";
+  wrap.appendChild(sel);
+  (textWrap || nameEl.parentNode).appendChild(wrap);
+  enhanceSelect(sel);
+
+  sel.addEventListener("change", async ()=>{
+    const targetId = sel.value;
+    if(!targetId || targetId === myMember.group_id) return;
+    const prevValue = myMember.group_id;
+    sel.disabled = true;
+    enhanceSelect(sel);
+    const { error } = await sb.rpc("switch_active_group", { p_group_id: targetId });
+    if(error){
+      if(typeof sbAlert === "function") await sbAlert("切換失敗：" + error.message, "🔔 Splitbill 錯誤");
+      sel.disabled = false;
+      sel.value = prevValue;
+      enhanceSelect(sel);
+      return;
+    }
+    location.href = "summary.html";
+  });
+}
+
 // ---------- 滑動式登入過期判斷：只要在 12 小時內有繼續使用（換頁、或這頁
 // 還開著撐過一次 5 分鐘的檢查），時間就往後推，不會單純因為帳號用得久就
 // 被踢出；真的超過 12 小時完全沒有任何動作才會被登出。----------

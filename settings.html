@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=483">
-<link rel="stylesheet" href="shared.css?v=483">
+<link rel="stylesheet" href="theme.css?v=573">
+<link rel="stylesheet" href="shared.css?v=573">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=483"></script>
-<script src="version.js?v=483"></script>
-<script src="sb-shared.js?v=483"></script>
-<script src="theme.js?v=483" defer></script>
-<script src="app-banner.js?v=483" defer></script>
+<script src="currencies.js?v=573"></script>
+<script src="version.js?v=573"></script>
+<script src="sb-shared.js?v=573"></script>
+<script src="theme.js?v=573" defer></script>
+<script src="app-banner.js?v=573" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -654,6 +654,13 @@ if(backBtn){
   window.addEventListener("resize", updateSettingsTabIndicator);
   setTimeout(updateSettingsTabIndicator, 60);
 
+  // 支援 settings.html?tab=group 這種深連結，讓其他頁面的「切換群組」
+  // 按鈕可以直接跳到這裡並打開群組分頁，不用使用者自己再點一次分頁。
+  const requestedTab = new URLSearchParams(location.search).get("tab");
+  if(requestedTab && SETTINGS_TAB_IDS[requestedTab]){
+    switchSettingsTab(requestedTab);
+  }
+
   // ---------- 幣別偏好 ----------
   function updateCurrencyToggleSummary(){
     const summary = document.getElementById("currencyToggleSummary");
@@ -667,9 +674,6 @@ if(backBtn){
   }
   if(currencyModalCloseBtn && currencyModal){
     currencyModalCloseBtn.addEventListener("click", ()=> currencyModal.classList.remove("show"));
-  }
-  if(currencyModal){
-    currencyModal.addEventListener("click", (e)=>{ if(e.target === currencyModal) currencyModal.classList.remove("show"); });
   }
   function renderSettingsCurrencyList(){
     const list = document.getElementById("settingsCurrencyList");
@@ -783,7 +787,7 @@ if(backBtn){
       if(error){ msg.textContent = "切換失敗：" + error.message; msg.className = "msg error"; return; }
       msg.textContent = "已切換！"; msg.className = "msg ok";
       showToast("已切換群組", targetGroupName);
-      setTimeout(()=> location.reload(), 900);
+      setTimeout(()=> location.href = "summary.html", 900);
     });
   }
 
@@ -840,9 +844,6 @@ if(backBtn){
   if(qrModalCloseBtn && qrModal){
     qrModalCloseBtn.addEventListener("click", ()=> qrModal.classList.remove("show"));
   }
-  if(qrModal){
-    qrModal.addEventListener("click", (e)=>{ if(e.target === qrModal) qrModal.classList.remove("show"); });
-  }
 
   const createGroupModal = document.getElementById("createGroupModal");
   const createGroupModalOpenBtn = document.getElementById("createGroupModalOpenBtn");
@@ -852,9 +853,6 @@ if(backBtn){
   }
   if(createGroupModalCloseBtn && createGroupModal){
     createGroupModalCloseBtn.addEventListener("click", ()=> createGroupModal.classList.remove("show"));
-  }
-  if(createGroupModal){
-    createGroupModal.addEventListener("click", (e)=>{ if(e.target === createGroupModal) createGroupModal.classList.remove("show"); });
   }
 
   const settingsJoinGroupBtn = document.getElementById("settingsJoinGroupBtn");
@@ -874,7 +872,7 @@ if(backBtn){
       }
       msg.textContent = "加入成功！正在切換過去…"; msg.className = "msg ok";
       showToast("已加入群組", "正在切換過去…");
-      setTimeout(()=> location.reload(), 900);
+      setTimeout(()=> location.href = "summary.html", 900);
     });
   }
 
@@ -895,7 +893,7 @@ if(backBtn){
       }
       msg.textContent = "建立成功！正在切換過去…"; msg.className = "msg ok";
       showToast("已建立群組", groupName);
-      setTimeout(()=> location.reload(), 900);
+      setTimeout(()=> location.href = "summary.html", 900);
     });
   }
 
@@ -1116,11 +1114,6 @@ if(backBtn){
   if(avatarModalCloseBtn && avatarModal){
     avatarModalCloseBtn.addEventListener("click", ()=> avatarModal.classList.remove("show"));
   }
-  if(avatarModal){
-    avatarModal.addEventListener("click", (e)=>{
-      if(e.target === avatarModal) avatarModal.classList.remove("show");
-    });
-  }
 
   // 把裁切完的正方形 base64 圖片實際上傳、同步到雲端與本地快取（不管是從
   // 裁切彈窗確認的，還是之後有其他來源，都共用這一份邏輯）。
@@ -1263,11 +1256,6 @@ if(backBtn){
   }
 
   if(avatarCropCloseBtn) avatarCropCloseBtn.addEventListener("click", closeAvatarCropModal);
-  if(avatarCropModal){
-    avatarCropModal.addEventListener("click", (e)=>{
-      if(e.target === avatarCropModal) closeAvatarCropModal();
-    });
-  }
   if(avatarCropRetakeBtn){
     avatarCropRetakeBtn.addEventListener("click", ()=>{
       closeAvatarCropModal();
@@ -1490,9 +1478,6 @@ if(backBtn){
   if(pwChangeModalCloseBtn && pwChangeModal){
     pwChangeModalCloseBtn.addEventListener("click", ()=> pwChangeModal.classList.remove("show"));
   }
-  if(pwChangeModal){
-    pwChangeModal.addEventListener("click", (e)=>{ if(e.target === pwChangeModal) pwChangeModal.classList.remove("show"); });
-  }
 
   // ---------- 通知開關（完整訂閱/取消訂閱邏輯，跟總覽頁登入時自動訂閱
   // 是同一套機制，這裡是使用者自己手動開關用的）----------
@@ -1695,6 +1680,9 @@ if(backBtn){
     // 第一時間顯示畫面與關閉 Splash 遮罩，保證 100% 不卡死
     appScreen.style.display = "block";
     hidePwaSplash();
+    // appScreen 顯示出來之前分頁膠囊量到的寬度/位置都是 0，必須等這裡畫面
+    // 真的展開後再重新量一次，不然「帳號」分頁預設看起來會沒有滑動指示條。
+    updateSettingsTabIndicator();
 
     try{
       await loadMembers();

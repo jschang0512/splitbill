@@ -196,13 +196,6 @@ function showSbDialog({ title = "🔔 Splitbill 通知", message = "", confirmTe
       resolve(false);
     };
 
-    modal.onclick = (e) => {
-      if(e.target === modal){
-        modal.classList.remove("show");
-        resolve(false);
-      }
-    };
-
     modal.classList.add("show");
   });
 }
@@ -245,6 +238,8 @@ window.CATEGORY_MAP = CATEGORY_MAP;
 const CATEGORY_KEYWORDS = {
   // 1. 美食餐飲
   food: [
+    // 常見基本食材與主食（越通俗越好抓，寧可寬鬆一點也不要漏掉）
+    "飯", "麵", "米粉", "冬粉", "餅", "魷魚", "花枝", "章魚", "肉", "雞肉", "豬肉", "牛肉", "羊肉", "鴨肉", "魚", "魚肉", "蝦", "蝦子", "螃蟹", "蛤蜊", "蛋", "滷蛋", "茶葉蛋", "豆腐", "臭豆腐乾", "青菜", "蔬菜", "水果", "湯", "羹", "粥", "沙拉", "生菜",
     // 核心動作與餐別
     "吃", "吃飯", "吃肉", "用餐", "料理", "食堂", "餐廳", "小吃", "便當", "早午餐", "早餐", "午餐", "晚餐", "宵夜", "晚飯", "早點", "外送", "外帶", "熱炒", "快炒", "合菜", "桌菜", "辦桌", "美食", "宴席", "合菜", "聚餐", "大餐", "吃到飽", "buffet", "自助餐", "無菜單", "私廚", "omakase", "主廚", "套餐",
     // 料理品類 (台港中日韓東南亞西式)
@@ -258,11 +253,17 @@ const CATEGORY_KEYWORDS = {
     // 日文關鍵字
     "ラーメン", "らーめん", "つけ麺", "うどん", "そば", "蕎麦", "焼肉", "やきにく", "居酒屋", "いざかや", "定食", "ていしょく", "とんかつ", "豚カツ", "天ぷら", "天麩羅", "寿司", "すし", "鮨", "刺身", "さしみ", "しゃぶしゃぶ", "すき焼き", "おでん", "餃子", "お好み焼き", "たこ焼き", "弁当", "おにぎり", "丼", "牛丼", "カツ丼", "親子丼", "海鮮丼", "焼き鳥", "串カツ", "レストラン", "食堂", "屋台",
     // 英文與國際關鍵字
-    "restaurant", "dining", "lunch", "dinner", "breakfast", "brunch", "supper", "meal", "food", "eatery", "bistro", "trattoria", "steakhouse", "diner", "buffet", "takeout", "delivery", "ubereats", "foodpanda", "doordash", "grubhub", "pizza", "pasta", "spaghetti", "lasagna", "risotto", "burger", "steak", "bbq", "barbecue", "grill", "taco", "burrito", "sushi", "sashimi", "poke", "ramen", "noodle", "noodles", "pho", "banh mi", "pad thai", "tom yum", "curry", "satay", "laksa", "dim sum", "dumpling", "gyoza", "paella", "sandwich", "bagel", "salad", "soup", "tapas", "omakase", "mcdonald", "mcdonalds", "kfc", "burger king", "subway", "chipotle", "shake shack", "five guys", "dominos", "pizza hut", "nandos"
+    "restaurant", "dining", "lunch", "dinner", "breakfast", "brunch", "supper", "meal", "food", "eatery", "bistro", "trattoria", "steakhouse", "diner", "buffet", "takeout", "delivery", "ubereats", "foodpanda", "doordash", "grubhub", "pizza", "pasta", "spaghetti", "lasagna", "risotto", "burger", "steak", "bbq", "barbecue", "grill", "taco", "burrito", "sushi", "sashimi", "poke", "ramen", "noodle", "noodles", "pho", "banh mi", "pad thai", "tom yum", "curry", "satay", "laksa", "dim sum", "dumpling", "gyoza", "paella", "sandwich", "bagel", "salad", "soup", "tapas", "omakase", "mcdonald", "mcdonalds", "kfc", "burger king", "subway", "chipotle", "shake shack", "five guys", "dominos", "pizza hut", "nandos",
+    // 台灣在地小吃、夜市與早餐店補充
+    "大腸包小腸", "蔥抓餅", "藥燉排骨", "胡椒餅", "棺材板", "鹽水雞", "鹹水雞", "黑輪", "米血", "米血糕", "豬血糕", "美而美", "弘爺漢堡", "拉亞漢堡", "麥味登", "早安美芝城", "呷尚寶", "度小月", "阿宗麵線", "金峰魯肉飯", "紅心地瓜", "御飯糰", "三明治", "蛋餅套餐", "自助餐店", "便當店", "悟饕",
+    // 韓文關鍵字
+    "먹다", "식당", "맛집", "한식", "분식", "김밥", "떡볶이", "순대", "튀김", "라면", "냉면", "비빔밥", "삼겹살", "갈비", "불고기", "치킨", "족발", "보쌈", "찜닭", "닭갈비", "감자탕", "순두부찌개", "김치찌개", "된장찌개", "부대찌개", "갈비탕", "설렁탕", "곰탕", "삼계탕", "국밥", "해장국", "잡채", "파전", "만두", "초밥", "회", "짬뽕", "짜장면", "탕수육", "마라탕", "훠궈", "브런치", "뷔페", "야식", "배달", "배달의민족", "배민", "요기요", "도시락", "국수", "칼국수", "수제비", "고기집", "육회"
   ],
 
   // 2. 飲料甜點
   drink: [
+    // 常見基本飲品（越通俗越好抓）
+    "水", "喝水", "礦泉水", "白開水", "氣泡水", "牛奶", "鮮奶", "優格", "優酪乳", "養樂多", "豆奶",
     // 茶與咖啡
     "咖啡", "拿鐵", "美式", "美式咖啡", "卡布奇諾", "卡布", "義式濃縮", "摩卡", "焦糖瑪奇朵", "瑪奇朵", "馥列白", "生椰拿鐵", "燕麥拿鐵", "冷萃", "手沖", "冰滴", "單品咖啡", "咖啡豆", "奶茶", "鮮奶茶", "紅茶", "綠茶", "青茶", "烏龍茶", "四季春", "金萱", "普洱茶", "鐵觀音", "抹茶", "焙茶", "玄米茶", "冬瓜茶", "花茶", "花草茶", "果茶", "水果茶", "洛神花茶", "仙草茶", "冰沙", "思樂冰", "果汁", "現打果汁", "柳橙汁", "西瓜汁", "木瓜牛奶", "楊枝甘露", "手搖", "手搖飲", "手搖杯", "飲料", "珍奶", "珍珠奶茶", "波霸", "椰果", "仙草", "愛玉", "粉條", "芋圓", "地瓜圓", "粉粿", "芝芝", "奶蓋", "豆花", "豆漿", "米漿", "燕麥奶",
     // 甜品與冰品烘焙
@@ -274,7 +275,11 @@ const CATEGORY_KEYWORDS = {
     // 日文關鍵字
     "カフェ", "コーヒー", "珈琲", "ラテ", "お茶", "まっちゃ", "スイーツ", "デザート", "ケーキ", "パフェ", "プリン", "クレープ", "パンケーキ", "ドーナツ", "ソフトクリーム", "アイス", "かき氷", "和菓子", "大福", "団子", "ビール", "生ビール", "ハイボール", "サワー", "チューハイ", "日本酒", "焼酎", "ワイン", "シャンパン", "カクテル", "ウィスキー", "バー", "喫茶店", "ベーカリー", "パン屋",
     // 英文關鍵字
-    "cafe", "coffee", "espresso", "latte", "cappuccino", "macchiato", "mocha", "americano", "cold brew", "pour over", "tea", "chai", "matcha", "boba", "bubble tea", "milk tea", "juice", "smoothie", "beverage", "ice cream", "gelato", "sorbet", "pastry", "cake", "cupcake", "scone", "croissant", "donut", "doughnut", "waffle", "pancake", "pudding", "tiramisu", "macaron", "chocolate", "bakery", "brewery", "taproom", "beer", "ale", "lager", "ipa", "stout", "wine", "champagne", "cocktail", "liquor", "spirits", "whiskey", "whisky", "gin", "vodka", "rum", "tequila", "sake", "soju", "lounge", "dunkin", "tim hortons", "gong cha"
+    "cafe", "coffee", "espresso", "latte", "cappuccino", "macchiato", "mocha", "americano", "cold brew", "pour over", "tea", "chai", "matcha", "boba", "bubble tea", "milk tea", "juice", "smoothie", "beverage", "ice cream", "gelato", "sorbet", "pastry", "cake", "cupcake", "scone", "croissant", "donut", "doughnut", "waffle", "pancake", "pudding", "tiramisu", "macaron", "chocolate", "bakery", "brewery", "taproom", "beer", "ale", "lager", "ipa", "stout", "wine", "champagne", "cocktail", "liquor", "spirits", "whiskey", "whisky", "gin", "vodka", "rum", "tequila", "sake", "soju", "lounge", "dunkin", "tim hortons", "gong cha",
+    // 台灣手搖飲與咖啡連鎖補充
+    "大苑子", "日出茶太", "chatime", "喜茶", "老虎堂", "鮮茶道", "水巷茶弄", "comebuy", "康青龍", "樺達奶茶", "御茶園", "costa", "丹堤咖啡", "怡客咖啡", "壹咖啡", "city cafe", "city café", "cama café",
+    // 韓文關鍵字
+    "커피", "아메리카노", "라떼", "카페라떼", "카푸치노", "에스프레소", "콜드브루", "밀크티", "버블티", "스무디", "주스", "맥주", "소주", "막걸리", "소맥", "하이볼", "와인", "위스키", "칵테일", "스타벅스", "이디야", "투썸플레이스", "메가커피", "빽다방", "컴포즈커피", "커피빈", "폴바셋", "할리스", "디저트", "빙수", "팥빙수", "케이크", "마카롱", "크로플", "붕어빵", "호떡", "떡", "약과", "한과"
   ],
 
   // 3. 大眾交通
@@ -286,7 +291,11 @@ const CATEGORY_KEYWORDS = {
     // 日文關鍵字
     "新幹線", "しんかんせん", "地下鉄", "メトロ", "切符", "きっぷ", "運賃", "定期券", "バス", "都バス", "高速バス", "夜行バス", "フェリー", "ロープウェイ", "ケーブルカー", "モノレール", "駅", "電車代", "交通費", "チャージ",
     // 英文與國際關鍵字
-    "transit", "transportation", "metro", "subway", "underground", "tube", "train", "railway", "railroad", "amtrak", "eurostar", "tgv", "ice", "thalys", "renfe", "frecciarossa", "sbb", "obb", "sncf", "db", "ticket", "fare", "pass", "travelcard", "oyster", "smartrip", "clipper", "octopus", "ez-link", "t-money", "bus", "coach", "shuttle", "tram", "streetcar", "trolley", "ferry", "boat", "cable car", "ropeway", "gondola", "funicular", "monorail"
+    "transit", "transportation", "metro", "subway", "underground", "tube", "train", "railway", "railroad", "amtrak", "eurostar", "tgv", "ice", "thalys", "renfe", "frecciarossa", "sbb", "obb", "sncf", "db", "ticket", "fare", "pass", "travelcard", "oyster", "smartrip", "clipper", "octopus", "ez-link", "t-money", "bus", "coach", "shuttle", "tram", "streetcar", "trolley", "ferry", "boat", "cable car", "ropeway", "gondola", "funicular", "monorail",
+    // 台灣交通補充
+    "台北捷運", "北捷", "高雄捷運", "高捷", "桃園捷運", "桃捷", "機場捷運", "機捷", "台灣好行", "微笑單車",
+    // 韓文關鍵字
+    "지하철", "버스", "택시", "기차", "ktx", "srt", "무궁화호", "새마을호", "시외버스", "고속버스", "공항버스", "리무진버스", "티머니", "캐시비", "교통카드", "환승", "지하철역", "공항철도", "카카오택시", "우버"
   ],
 
   // 4. 租車用油 / 計程車
@@ -296,11 +305,15 @@ const CATEGORY_KEYWORDS = {
     // 計程車與叫車
     "計程車", "小黃", "的士", "打車", "叫車", "拼車", "專車", "包車", "包車一日遊", "代駕", "司機", "uber", "lyft", "grab", "bolt", "didi", "滴滴", "kakaotaxi", "gojek", "line taxi", "呼叫小黃", "台灣大車隊", "大都會",
     // 加油用油與停車過路費
-    "油錢", "加油", "加油站", "汽油", "柴油", "92", "95", "98", "中油", "台塑", "shell", "esso", "bp", "eneos", "idemitsu", "停車", "停車場", "停車費", "路邊停車", "嘟嘟房", "times停車場", "車庫", "代客泊車", "valet", "過路費", "國道通行費", "高速公路", "收費站", "通行費", "etc", "e-tag", "罰單", "拖吊", "拖吊費", "洗車", "打蠟", "汽車保養",
+    "油錢", "加油", "加油站", "汽油", "柴油", "92", "95", "98", "中油", "台塑", "全國加油站", "shell", "esso", "bp", "eneos", "idemitsu", "停車", "停車場", "停車費", "路邊停車", "嘟嘟房", "times停車場", "車庫", "代客泊車", "valet", "過路費", "國道通行費", "高速公路", "收費站", "通行費", "etc", "e-tag", "罰單", "拖吊", "拖吊費", "洗車", "打蠟", "汽車保養",
+    // 台灣機車與電動車補充
+    "機車", "摩托車", "檔車", "機車行", "機車保養", "gogoro", "換電站", "光陽", "kymco", "三陽", "sym", "山葉", "yamaha", "光陽機車",
     // 日文關鍵字
     "レンタカー", "カーシェア", "タイムズ", "タクシー", "ガソリン", "給油", "レギュラー", "ハイオク", "軽油", "駐車場", "パーキング", "コインパーキング", "駐車代", "高速代", "有料道路", "洗車", "車検",
     // 英文關鍵字
-    "rental car", "car rental", "rent a car", "car hire", "car sharing", "scooter rental", "bike rental", "taxi", "cab", "rideshare", "uber", "lyft", "grab", "bolt", "didi", "ola", "gojek", "driver", "gas", "gasoline", "petrol", "diesel", "fuel", "gas station", "parking", "parking lot", "garage", "valet", "toll", "highway", "expressway", "ezpass", "hertz", "avis", "enterprise", "budget", "sixt", "europcar", "toyota rent", "nissan rent"
+    "rental car", "car rental", "rent a car", "car hire", "car sharing", "scooter rental", "bike rental", "taxi", "cab", "rideshare", "uber", "lyft", "grab", "bolt", "didi", "ola", "gojek", "driver", "gas", "gasoline", "petrol", "diesel", "fuel", "gas station", "parking", "parking lot", "garage", "valet", "toll", "highway", "expressway", "ezpass", "hertz", "avis", "enterprise", "budget", "sixt", "europcar", "toyota rent", "nissan rent",
+    // 韓文關鍵字
+    "렌터카", "렌트카", "주유소", "기름값", "주유비", "주차", "주차장", "주차비", "통행료", "하이패스", "세차", "카카오t"
   ],
 
   // 5. 機票航班
@@ -310,7 +323,9 @@ const CATEGORY_KEYWORDS = {
     // 機場與航廈
     "機場", "航廈", "登機", "登機證", "登機門", "出境", "入境", "海關", "候機室", "機場接送", "行李寄存", "飛行機", "航空券", "フライト", "空港", "成田", "羽田", "關空", "関空", "jal", "ana", "peach", "ピーチ", "ジェットスター", "スカイマーク",
     // 英文關鍵字
-    "flight", "fly", "air", "airplane", "plane", "airline", "airlines", "airport", "airfare", "air ticket", "boarding", "terminal", "baggage", "luggage", "lounge", "eva air", "china airlines", "starlux", "tigerair", "cathay pacific", "singapore airlines", "emirates", "qatar", "delta", "united", "american airlines", "lufthansa", "air france", "klm", "british airways", "airasia", "scoot", "vietjet", "korean air", "asiana"
+    "flight", "fly", "air", "airplane", "plane", "airline", "airlines", "airport", "airfare", "air ticket", "boarding", "terminal", "baggage", "luggage", "lounge", "eva air", "china airlines", "starlux", "tigerair", "cathay pacific", "singapore airlines", "emirates", "qatar", "delta", "united", "american airlines", "lufthansa", "air france", "klm", "british airways", "airasia", "scoot", "vietjet", "korean air", "asiana",
+    // 韓文關鍵字
+    "비행기", "항공권", "항공사", "대한항공", "아시아나항공", "진에어", "제주항공", "티웨이항공", "에어부산", "에어서울", "인천공항", "김포공항", "김해공항", "탑승", "수하물", "수화물", "라운지"
   ],
 
   // 6. 住宿溫泉
@@ -321,10 +336,14 @@ const CATEGORY_KEYWORDS = {
     "住宿", "訂房", "房費", "房租", "押金", "清潔費", "加床", "加人", "延遲退房", "airbnb", "booking", "agoda", "hotels.com", "expedia", "trip.com", "klook住宿", "kkday住宿",
     // 集團與品牌
     "萬豪", "marriott", "希爾頓", "hilton", "洲際", "ihg", "凱悅", "hyatt", "喜來登", "sheraton", "威斯汀", "westin", "麗思卡爾頓", "ritz carlton", "四季", "four seasons", "諾富特", "novotel", "宜必思", "ibis", "apa hotel", "apa", "東橫inn", "toyoko", "dormy inn", "dormy", "super hotel", "route inn", "daiwa roynet", "richmond hotel", "三井花園", "prince hotel", "星野集團", "星野", "hoshino", "虹夕諾雅", "界", "risonare", "omo", "beb",
+    // 台灣飯店集團補充
+    "老爺酒店", "老爺會館", "晶華酒店", "福華飯店", "兆品酒店", "雲品酒店", "天成飯店", "承億文旅", "涵碧樓", "礁溪老爺", "太魯閣晶英", "晶英酒店", "康華", "神旺", "喜來登台北",
     // 日文關鍵字
     "ホテル", "旅館", "りょかん", "宿", "やど", "温泉", "おんせん", "露天風呂", "銭湯", "民宿", "ペンション", "カプセルホテル", "ゲストハウス", "民泊", "宿泊", "チェックイン", "チェックアウト",
     // 英文關鍵字
-    "hotel", "hostel", "resort", "inn", "motel", "lodge", "lodging", "stay", "accommodation", "booking", "reservation", "room", "suite", "villa", "chalet", "cabin", "airbnb", "vrbo", "agoda", "expedia", "hotels.com", "trip.com", "hilton", "marriott", "hyatt", "ihg", "sheraton", "westin", "ritz carlton", "four seasons", "intercontinental", "novotel", "ibis", "best western", "holiday inn", "radisson", "b&b", "guesthouse", "capsule", "camping", "campsite", "glamping", "ryokan", "onsen"
+    "hotel", "hostel", "resort", "inn", "motel", "lodge", "lodging", "stay", "accommodation", "booking", "reservation", "room", "suite", "villa", "chalet", "cabin", "airbnb", "vrbo", "agoda", "expedia", "hotels.com", "trip.com", "hilton", "marriott", "hyatt", "ihg", "sheraton", "westin", "ritz carlton", "four seasons", "intercontinental", "novotel", "ibis", "best western", "holiday inn", "radisson", "b&b", "guesthouse", "capsule", "camping", "campsite", "glamping", "ryokan", "onsen",
+    // 韓文關鍵字
+    "호텔", "모텔", "게스트하우스", "펜션", "리조트", "숙박", "체크인", "체크아웃", "찜질방", "사우나"
   ],
 
   // 7. 門票娛樂景點
@@ -333,10 +352,16 @@ const CATEGORY_KEYWORDS = {
     "門票", "入場券", "參觀券", "票券", "預約券", "快速通關", "express pass", "fastpass", "環球", "環球影城", "usj", "迪士尼", "迪士尼樂園", "迪士尼海洋", "disneyland", "disneysea", "哈利波特影城", "吉卜力公園", "吉卜力美術館", "樂高樂園", "legoland", "六福村", "九族文化村", "麗寶樂園", "劍湖山", "遠雄海洋公園", "義大世界", "水族館", "海遊館", "美麗海水族館", "xpark", "動物園", "木柵動物園", "植物園", "博物館", "美術館", "故宮", "奇美博物館", "羅浮宮", "大英博物館", "科學館", "天文館", "展覽", "特展", "樂園", "遊樂園", "主題樂園", "摩天輪", "觀景台", "展望台", "101觀景台", "晴空塔", "skytree", "東京鐵塔", "shibuya sky", "阿倍野", "梅田藍天大廈", "巴黎鐵塔", "eiffel", "teamlab",
     // 體驗活動與戶外
     "體驗", "和服", "和服體驗", "浴衣", "韓服", "泰服", "茶道", "料理教室", "手作", "陶藝", "diy", "採果", "採草莓", "賞鯨", "夜釣", "滑雪", "滑雪場", "雪票", "纜車票", "租雪具", "教練費", "潛水", "水肺潛水", "浮潛", "衝浪", "sup", "立槳", "獨木舟", "溯溪", "泛舟", "跳傘", "高空彈跳", "飛行傘", "熱氣球", "賽車", "卡丁車", "密室逃脫", "桌遊", "vr體驗", "保齡球", "ktv", "唱歌", "錢櫃", "好樂迪", "溫泉券", "泡湯券", "按摩", "spa", "泰式按摩", "指壓", "油壓", "足湯", "岩盤浴", "神社", "寺廟", "御守", "拝觀", "參拜", "御朱印", "劇院", "劇場", "百老匯", "歌劇", "音樂劇", "電影", "影城", "戲院", "威秀", "秀泰", "國賓", "演唱會", "音樂會", "live", "祭典", "花火大會", "煙火", "klook", "kkday", "tripadvisor", "getyourguide",
+    // 運動票券與場地費用
+    "球賽", "球票", "棒球", "看球", "職棒", "中華職棒", "中職", "兄弟象", "統一獅", "樂天桃猿", "富邦悍將", "味全龍", "中信兄弟", "棒球場", "籃球", "籃球賽", "p.league", "sbl", "足球", "足球賽", "世足", "網球", "網球賽", "高爾夫", "高爾夫球場", "揮桿", "健身房", "健身房會員", "健身", "gym", "游泳池", "游泳", "羽球", "羽球場", "羽毛球", "桌球", "撞球", "攀岩", "攀岩館", "壁球", "瑜珈", "瑜伽", "皮拉提斯", "教練課", "運動中心", "體育館", "球場", "場地費", "場租", "路跑", "馬拉松", "運動賽事",
+    // 台灣景點補充
+    "貓空纜車", "貓纜", "美麗華摩天輪", "兒童新樂園", "佛光山", "中台禪寺", "阿里山", "太魯閣", "日月潭", "高美濕地", "劍湖山世界",
     // 日文關鍵字
     "チケット", "入場券", "拝観料", "ディズニー", "ユニバ", "ジブリ", "ハリーポッター", "チームラボ", "展望台", "スカイツリー", "東京タワー", "通天閣", "観覧車", "映画", "シネマ", "劇場", "舞台", "ライブ", "コンサート", "祭り", "花火大会", "スキー", "スノーボード", "リフト券", "着物", "浴衣", "神社", "お寺", "御朱印", "マッサージ", "エステ", "カラオケ",
     // 英文關鍵字
-    "ticket", "tickets", "admission", "entry", "entrance", "pass", "tour", "guided tour", "excursion", "sightseeing", "attraction", "universal studios", "universal", "disney", "disneyland", "disneyworld", "disneysea", "ghibli", "museum", "gallery", "louvre", "aquarium", "zoo", "safari", "theme park", "amusement park", "observation deck", "observatory", "tower", "eiffel", "skytree", "show", "broadway", "musical", "opera", "theatre", "theater", "concert", "gig", "festival", "cinema", "movie", "exhibition", "expo", "ski", "skiing", "snowboard", "snowboarding", "lift ticket", "ski pass", "scuba", "dive", "diving", "snorkeling", "surf", "skydiving", "bungee", "kart", "escape room", "bowling", "karaoke", "spa", "massage"
+    "ticket", "tickets", "admission", "entry", "entrance", "pass", "tour", "guided tour", "excursion", "sightseeing", "attraction", "universal studios", "universal", "disney", "disneyland", "disneyworld", "disneysea", "ghibli", "museum", "gallery", "louvre", "aquarium", "zoo", "safari", "theme park", "amusement park", "observation deck", "observatory", "tower", "eiffel", "skytree", "show", "broadway", "musical", "opera", "theatre", "theater", "concert", "gig", "festival", "cinema", "movie", "exhibition", "expo", "ski", "skiing", "snowboard", "snowboarding", "lift ticket", "ski pass", "scuba", "dive", "diving", "snorkeling", "surf", "skydiving", "bungee", "kart", "escape room", "bowling", "karaoke", "spa", "massage",
+    // 韓文關鍵字
+    "티켓", "입장권", "놀이공원", "에버랜드", "롯데월드", "롯데월드타워", "남산타워", "코엑스", "아쿠아리움", "박물관", "미술관", "전시", "콘서트", "공연", "뮤지컬", "영화", "노래방", "스파", "마사지", "한복", "스키장", "케이블카"
   ],
 
   // 8. 購物藥妝超商伴手禮
@@ -344,30 +369,45 @@ const CATEGORY_KEYWORDS = {
     // 超市與大賣場超商
     "超市", "大賣場", "量販店", "超商", "便利商店", "雜貨", "全聯", "家樂福", "大潤發", "愛買", "好市多", "costco", "美廉社", "7-11", "711", "小七", "全家", "familymart", "萊爾富", "ok超商", "lawson", "羅森", "唐吉", "唐吉訶德", "驚安", "驚安殿堂", "donki", "loft", "東急hands", "hands", "無印良品", "muji", "大創", "daiso", "seria", "cando", "宜得利", "nitori", "ikea", "aeon", "永旺", "ito yokado", "life超市", "西友", "成城石井", "big c", "lotte mart", "emart",
     // 藥妝與美妝保養
-    "藥妝", "藥局", "藥品", "美妝", "保養品", "化妝品", "面膜", "防曬", "精華液", "口紅", "香水", "屈臣氏", "watsons", "康是美", "cosmed", "寶雅", "poya", "日藥本舖", "松本清", "matsukiyo", "sundrug", "札幌藥妝", "大國藥妝", "鶴羽藥妝", "tsuruha", "杉藥局", "sugi", "cocokara fine", "tomod's", "sephora",
+    "藥妝", "藥局", "藥品", "美妝", "保養品", "化妝品", "化妝水", "乳液", "面膜", "防曬", "精華液", "口紅", "香水", "屈臣氏", "watsons", "康是美", "cosmed", "寶雅", "poya", "日藥本舖", "松本清", "matsukiyo", "sundrug", "札幌藥妝", "大國藥妝", "鶴羽藥妝", "tsuruha", "杉藥局", "sugi", "cocokara fine", "tomod's", "sephora",
     // 百貨商場與家電服飾
     "百貨", "百貨公司", "新光三越", "sogo", "遠東百貨", "微風", "台北101", "時代百貨", "三井outlet", "mitsui", "華泰名品城", "lalaport", "parco", "lumine", "丸井", "大丸", "高島屋", "伊勢丹", "阪急", "商場", "購物中心", "outlet", "逛街", "市集", "夜市", "跳蚤市場", "電器", "家電", "3c", "bic camera", "yodobashi", "山田電機", "edion", "sofmap", "燦坤", "全國電子", "apple store", "sony store", "相機", "鏡頭", "手機", "平板", "筆電", "吹風機", "保溫杯", "玩具", "模型", "公仔", "動漫", "animate", "扭蛋", "盲盒", "漫畫", "書", "書店", "誠品", "紀伊國屋", "蔦屋", "文具", "服飾", "服裝", "衣服", "外套", "毛衣", "襯衫", "t恤", "褲子", "牛仔褲", "裙子", "洋裝", "內衣", "發熱衣", "涼感衣", "鞋子", "球鞋", "靴子", "拖鞋", "包包", "背包", "皮夾", "配件", "飾品", "手錶", "眼鏡", "墨鏡", "jins", "owndays", "zoff", "uniqlo", "gu", "zara", "h&m", "gap", "mango", "nike", "adidas", "puma", "new balance", "lululemon", "decathlon",
     // 伴手禮與免稅
     "伴手禮", "土產", "紀念品", "禮物", "手信", "特產", "名產", "鳳梨酥", "太陽餅", "蛋黃酥", "芋頭酥", "牛軋糖", "茶葉", "東京芭娜娜", "白色戀人", "royce", "薯條三兄弟", "kitkat", "免稅", "退稅", "duty free", "tax free", "昇恆昌", "采盟",
+    // 台灣超市藥妝與書店補充
+    "大樹藥局", "躍獅藥局", "生活藥局", "佳瑪", "松青超市", "楓康超市", "全聯福利中心", "美廉社", "city super", "誠品生活", "金石堂", "三民書局",
     // 日文關鍵字
     "ショッピング", "買い物", "お土産", "おみやげ", "土產", "名物", "銘菓", "薬局", "ドラッグストア", "マツモトキヨシ", "マツキヨ", "サンドラッグ", "スギ薬局", "ツルハ", "ココカラファイン", "ドンキ", "ドンキホーテ", "ビックカメラ", "ヨドバシカメラ", "ヤマダ電機", "エディオン", "ソフマップ", "アニメイト", "まんだらけ", "ユニクロ", "ジーユー", "無印良品", "ロフト", "東急ハンズ", "ハンズ", "ダイソー", "セリア", "キャンドゥ", "イオン", "イトーヨーカドー", "ライフ", "西友", "成城石井", "デパ地下", "百貨店", "高島屋", "三越", "伊勢丹", "松坂屋", "大丸", "そごう", "西武", "阪急", "阪神", "近鉄", "マルイ", "パルコ", "ルミネ", "アトレ", "ららぽーと", "アウトレット", "免税",
+    "コンビニ", "セブンイレブン", "セブン-イレブン", "ファミリーマート", "ファミマ", "ローソン", "スーパー", "スーパーマーケット",
     // 英文關鍵字
-    "shop", "shopping", "store", "boutique", "mall", "outlet", "market", "bazaar", "supermarket", "grocery", "groceries", "bodega", "convenience store", "souvenir", "souvenirs", "gift", "gifts", "duty free", "target", "walmart", "costco", "carrefour", "whole foods", "trader joe", "trader joes", "woolworths", "coles", "sainsbury", "tesco", "aldi", "lidl", "coop", "boots", "watsons", "sephora", "apple store", "best buy", "zara", "h&m", "uniqlo", "gu", "gap", "mango", "asos", "nike", "adidas", "puma", "lululemon", "decathlon", "ikea", "nitori", "daiso", "muji", "big c", "emart", "lotte mart"
+    "shop", "shopping", "store", "boutique", "mall", "outlet", "market", "bazaar", "supermarket", "grocery", "groceries", "bodega", "convenience store", "souvenir", "souvenirs", "gift", "gifts", "duty free", "target", "walmart", "costco", "carrefour", "whole foods", "trader joe", "trader joes", "woolworths", "coles", "sainsbury", "tesco", "aldi", "lidl", "coop", "boots", "watsons", "sephora", "apple store", "best buy", "zara", "h&m", "uniqlo", "gu", "gap", "mango", "asos", "nike", "adidas", "puma", "lululemon", "decathlon", "ikea", "nitori", "daiso", "muji", "big c", "emart", "lotte mart",
+    // 韓文關鍵字
+    "쇼핑", "백화점", "롯데백화점", "신세계백화점", "현대백화점", "면세점", "올리브영", "다이소", "이마트", "코스트코", "편의점", "세븐일레븐", "화장품", "기념품", "선물", "특산품", "인삼", "홍삼"
   ],
 
   // 9. 醫療藥品
   medical: [
-    "藥", "西藥", "中藥", "成藥", "醫", "診所", "醫院", "急診", "看診", "門診", "醫生", "牙醫", "拔牙", "洗牙", "眼科", "皮膚科", "骨科", "復健", "掛號費", "健保", "醫療", "醫療費", "醫藥費", "藥品", "處方箋", "感冒藥", "退燒藥", "胃藥", "止痛藥", "普拿疼", "eve", "大正微粒", "太田胃散", "正露丸", "腸胃藥", "止瀉藥", "便秘藥", "過敏藥", "頭痛藥", "暈車藥", "眼藥水", "fx眼藥水", "樂敦", "小花眼藥水", "貼布", "痠痛貼布", "撒隆巴斯", "roihi", "液體ok繃", "ok繃", "繃帶", "紗布", "棉花棒", "消毒水", "優碘", "酒精", "體溫計", "口罩", "維他命", "保健食品", "b群", "益生菌", "魚油", "葉黃素", "膠原蛋白", "健檢", "疫苗", "pcr", "快篩", "保險", "旅遊平安險", "旅平險", "旅遊不便險", "海外突發", "意外險", "醫療險", "病院", "クリニック", "医院", "診療所", "救急", "歯医者", "薬", "くすり", "処方箋", "風邪薬", "胃腸薬", "痛み止め", "頭痛薬", "酔い止め", "目薬", "湿布", "バンドエイド", "保険", "海外旅行保険", "hospital", "clinic", "urgent care", "emergency", "er", "doctor", "physician", "dentist", "pharmacy", "drugstore", "chemist", "medicine", "medication", "pill", "pills", "prescription", "rx", "painkiller", "aspirin", "ibuprofen", "tylenol", "bandaid", "bandage", "insurance", "travel insurance", "medical expense"
+    "藥", "西藥", "中藥", "成藥", "醫", "診所", "醫院", "急診", "看診", "門診", "醫生", "牙醫", "拔牙", "洗牙", "眼科", "皮膚科", "骨科", "復健", "掛號費", "健保", "醫療", "醫療費", "醫藥費", "藥品", "處方箋", "感冒藥", "退燒藥", "胃藥", "止痛藥", "普拿疼", "eve", "大正微粒", "太田胃散", "正露丸", "腸胃藥", "止瀉藥", "便秘藥", "過敏藥", "頭痛藥", "暈車藥", "眼藥水", "fx眼藥水", "樂敦", "小花眼藥水", "貼布", "痠痛貼布", "撒隆巴斯", "roihi", "液體ok繃", "ok繃", "繃帶", "紗布", "棉花棒", "消毒水", "優碘", "酒精", "體溫計", "口罩", "維他命", "保健食品", "b群", "益生菌", "魚油", "葉黃素", "膠原蛋白", "健檢", "疫苗", "pcr", "快篩", "保險", "旅遊平安險", "旅平險", "旅遊不便險", "海外突發", "意外險", "醫療險", "病院", "クリニック", "医院", "診療所", "救急", "歯医者", "薬", "くすり", "処方箋", "風邪薬", "胃腸薬", "痛み止め", "頭痛薬", "酔い止め", "目薬", "湿布", "バンドエイド", "保険", "海外旅行保険", "hospital", "clinic", "urgent care", "emergency", "er", "doctor", "physician", "dentist", "pharmacy", "drugstore", "chemist", "medicine", "medication", "pill", "pills", "prescription", "rx", "painkiller", "aspirin", "ibuprofen", "tylenol", "bandaid", "bandage", "insurance", "travel insurance", "medical expense",
+    // 台灣醫院補充
+    "健保卡", "榮總", "台大醫院", "長庚醫院", "馬偕醫院", "亞東醫院", "新光醫院", "國泰醫院", "三軍總醫院", "萬芳醫院", "振興醫院",
+    // 韓文關鍵字
+    "약국", "병원", "응급실", "의원", "치과", "피부과", "감기약", "소화제", "진통제", "밴드", "파스", "여행자보험"
   ],
 
   // 10. 網卡通訊
   network: [
-    "網卡", "上網卡", "網路", "通訊", "漫遊", "國際漫遊", "數據漫遊", "原號漫遊", "電信", "esim", "sim", "sim卡", "實體卡", "虛擬卡", "流量", "流量包", "吃到飽", "上網", "wifi", "wi-fi", "wifi機", "隨身wifi", "wifi分享器", "路由器", "租wifi", "中華電信", "遠傳", "台灣大哥大", "台哥大", "airalo", "holafly", "nomad", "djb", "joytel", "飛買家", "wi-ho", "simカード", "ネット", "通信", "ローミング", "ポケットwifi", "wi-fiレンタル", "docomo", "ドコモ", "softbank", "ソフトバンク", "au", "楽天モバイル", "rakuten", "uqモバイル", "ymobile", "ahamo", "povo", "linemo", "sim", "esim", "sim card", "wifi", "wi-fi", "mobile wifi", "pocket wifi", "data", "mobile data", "roaming", "data roaming", "gigabyte", "gb", "unlimited data", "telecom", "network", "broadband", "ais", "true", "dtac", "singtel", "starhub", "m1", "kt", "skt", "lgu+", "docomo", "softbank", "vodafone", "o2", "ee", "three", "orange", "t-mobile", "verizon", "at&t", "mint"
+    "網卡", "上網卡", "網路", "通訊", "漫遊", "國際漫遊", "數據漫遊", "原號漫遊", "電信", "esim", "sim", "sim卡", "實體卡", "虛擬卡", "流量", "流量包", "吃到飽", "上網", "wifi", "wi-fi", "wifi機", "隨身wifi", "wifi分享器", "路由器", "租wifi", "中華電信", "遠傳", "台灣大哥大", "台哥大", "airalo", "holafly", "nomad", "djb", "joytel", "飛買家", "wi-ho", "simカード", "ネット", "通信", "ローミング", "ポケットwifi", "wi-fiレンタル", "docomo", "ドコモ", "softbank", "ソフトバンク", "au", "楽天モバイル", "rakuten", "uqモバイル", "ymobile", "ahamo", "povo", "linemo", "sim", "esim", "sim card", "wifi", "wi-fi", "mobile wifi", "pocket wifi", "data", "mobile data", "roaming", "data roaming", "gigabyte", "gb", "unlimited data", "telecom", "network", "broadband", "ais", "true", "dtac", "singtel", "starhub", "m1", "kt", "skt", "lgu+", "docomo", "softbank", "vodafone", "o2", "ee", "three", "orange", "t-mobile", "verizon", "at&t", "mint",
+    // 台灣電信補充
+    "台灣之星", "亞太電信", "亞太", "台星",
+    // 韓文關鍵字
+    "유심", "이심", "로밍", "와이파이", "포켓와이파이", "데이터"
   ],
 
   // 11. 跨幣轉移與手續費
   xcur: [
-    "換匯", "結匯", "買匯", "賣匯", "外幣兌換", "換外幣", "外幣提款", "海外提款", "跨國提款", "海外刷卡手續費", "國外交易手續費", "跨國交易手續費", "手續費", "匯差", "換錢", "盤谷銀行", "兆豐", "玉山", "台銀", "superrich", "money exchange", "currency exchange", "fx fee", "foreign exchange", "atm withdrawal", "atm fee", "exchange fee"
+    "換匯", "結匯", "買匯", "賣匯", "外幣兌換", "換外幣", "外幣提款", "海外提款", "跨國提款", "海外刷卡手續費", "國外交易手續費", "跨國交易手續費", "手續費", "匯差", "換錢", "盤谷銀行", "兆豐", "玉山", "台銀", "superrich", "money exchange", "currency exchange", "fx fee", "foreign exchange", "atm withdrawal", "atm fee", "exchange fee",
+    // 韓文關鍵字
+    "환전", "환전소", "환율", "수수료"
   ]
 };
 
@@ -445,10 +485,13 @@ function convertToTWD(amount, currencyCode){
 window.DEFAULT_RATES_TO_TWD = DEFAULT_RATES_TO_TWD;
 window.convertToTWD = convertToTWD;
 
-function getCategoryMeta(desc, note){
+function getCategoryMeta(desc, note, categoryCol){
+  // 0. 有真正的 category 欄位資料就直接採用，不用再靠文字猜測
+  if(categoryCol && CATEGORY_MAP[categoryCol]) return CATEGORY_MAP[categoryCol];
+
   const fullRaw = String(desc || "") + " " + String(note || "");
 
-  // 1. 優先檢查顯式自訂類別標籤 (例如 <!--CAT:food--> 或 [cat:food])
+  // 1. 優先檢查顯式自訂類別標籤（舊資料相容用，例如 <!--CAT:food--> 或 [cat:food]）
   const explicitMatch = fullRaw.match(/<!--?\s*CAT:([a-z0-9_-]+)\s*-->?/i) || fullRaw.match(/\[cat:([a-z0-9_-]+)\]/i);
   if(explicitMatch && explicitMatch[1]){
     const catKey = explicitMatch[1].toLowerCase();
@@ -529,8 +572,8 @@ function getCategoryMeta(desc, note){
   return CATEGORY_MAP.general;
 }
 
-function getCategoryIcon(desc){
-  return getCategoryMeta(desc).icon;
+function getCategoryIcon(desc, categoryCol){
+  return getCategoryMeta(desc, undefined, categoryCol).icon;
 }
 
 // ============================================================
@@ -732,7 +775,7 @@ const BADGES_CATALOG = [
         if(s){
           const amt = Number(s.amount) || 0;
           totalShare += amt;
-          const meta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note) : { type: "general" };
+          const meta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note, e.category) : { type: "general" };
           if(meta.type === "food" || meta.type === "drink") foodAmt += amt;
         }
       });
@@ -752,7 +795,7 @@ const BADGES_CATALOG = [
         if(s){
           const amt = Number(s.amount) || 0;
           totalShare += amt;
-          const meta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note) : { type: "general" };
+          const meta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note, e.category) : { type: "general" };
           if(meta.type === "shopping") shopAmt += amt;
         }
       });

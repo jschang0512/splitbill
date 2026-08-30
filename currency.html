@@ -26,12 +26,12 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=483">
-<link rel="stylesheet" href="shared.css?v=483">
+<link rel="stylesheet" href="theme.css?v=573">
+<link rel="stylesheet" href="shared.css?v=573">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js"></script>
-<script src="version.js"></script>
-<script src="sb-shared.js"></script>
+<script src="currencies.js?v=573"></script>
+<script src="version.js?v=573"></script>
+<script src="sb-shared.js?v=573"></script>
 <script src="theme.js" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
@@ -198,10 +198,30 @@ if("serviceWorker" in navigator){
       <div class="card card-category-donut">
         <div class="chart-title-row">
           <h2>🍩 花費類別分佈</h2>
-          <div class="donut-scope-tabs" id="donutScopeTabs">
-            <button type="button" class="donut-scope-tab active" data-scope="all">全團支出</button>
-            <button type="button" class="donut-scope-tab" data-scope="my">我的支出</button>
+          <div class="donut-controls-row">
+            <div class="chart-gran-select" id="donutTimeRangeSelect">
+              <button type="button" class="chart-gran-btn" id="donutTimeRangeBtn">
+                <span id="donutTimeRangeText">全部</span>
+                <span class="chart-gran-caret">▾</span>
+              </button>
+              <div class="chart-gran-menu hidden" id="donutTimeRangeMenu">
+                <button type="button" class="chart-gran-option active" data-value="all">全部</button>
+                <button type="button" class="chart-gran-option" data-value="week">近一週</button>
+                <button type="button" class="chart-gran-option" data-value="month">近一月</button>
+                <button type="button" class="chart-gran-option" data-value="year">近一年</button>
+                <button type="button" class="chart-gran-option" data-value="custom">自訂區間</button>
+              </div>
+            </div>
+            <div class="donut-scope-tabs" id="donutScopeTabs">
+              <button type="button" class="donut-scope-tab active" data-scope="all">全團支出</button>
+              <button type="button" class="donut-scope-tab" data-scope="my">我的支出</button>
+            </div>
           </div>
+        </div>
+        <div class="filter-date-row donut-custom-range hidden" id="donutCustomRangeRow">
+          <input type="date" id="donutCustomFrom" lang="en-CA">
+          <span class="filter-date-sep">～</span>
+          <input type="date" id="donutCustomTo" lang="en-CA">
         </div>
         <div id="categoryDonutWrap" class="category-donut-wrap">
           <p class="filter-hint">載入中…</p>
@@ -259,32 +279,23 @@ if("serviceWorker" in navigator){
           </select>
         </div>
 
-        <!-- 稅費計算模式：內含 vs 外加 -->
-        <label>稅費模式</label>
-        <div class="ai-tax-type-toggle exp-tax-type-toggle">
-          <button type="button" class="ai-tax-type-btn active" id="expTaxTypeInclusive" title="內含稅：輸入金額已含稅或免外加">內含稅 (免外加)</button>
-          <button type="button" class="ai-tax-type-btn" id="expTaxTypeExclusive" title="外加稅費：服務費或消費稅需外加至總額">外加稅費 (+)</button>
-        </div>
-
         <label id="expAmountLabel">支出總金額 (已含稅/免稅)</label>
         <div class="input-calc-wrap">
           <input type="number" id="expAmount" placeholder="例如 850" min="0" step="1">
           <button type="button" class="amt-row-calc-btn input-calc-btn" id="expAmountCalcBtn" title="小計算機">🧮</button>
         </div>
 
-        <!-- 服務費 / 稅（選填折疊卡片） -->
-        <div class="exp-addons-container exp-tax-container-spaced" id="expTaxContainer">
-          <button type="button" class="exp-addons-toggle" id="expTaxToggle">
-            <div class="exp-addons-toggle-left">
-              <span class="exp-addons-icon">🏷️</span>
-              <span class="exp-addons-title">服務費 / 稅</span>
-              <span class="exp-addons-badge">選填</span>
-            </div>
-            <span class="exp-addons-caret" id="expTaxCaret">▾</span>
+        <!-- 服務費 / 稅：預設收合，大部分時候金額已含稅、不用理它。摘要卡片
+             故意放在收合區塊外面，即使收合起來、只要有填資料就看得到組成 -->
+        <div class="exp-lightweight-container" id="expTaxContainer">
+          <button type="button" class="exp-lightweight-toggle" id="expTaxToggle">
+            <span class="exp-lightweight-toggle-icon" id="expTaxCaret">+</span>
+            <span>這筆有另外加服務費或稅嗎？</span>
           </button>
+          <div class="exp-tax-preview hidden exp-tax-preview-box" id="expTaxPreview"></div>
           <div class="exp-addons-body hidden" id="expTaxBody">
             <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
-            
+
             <label class="exp-addon-label">服務費 / 稅額金額</label>
             <div class="input-calc-wrap exp-addon-calc-wrap">
               <input type="number" id="expTaxAmount" placeholder="例如 85" min="0" step="1">
@@ -297,7 +308,7 @@ if("serviceWorker" in navigator){
               <button type="button" class="ai-tax-btn" data-manual-tax-mode="equal" id="expManualTaxEqualBtn" title="所有參與者平均分攤服務費與稅額">全員平分</button>
             </div>
 
-            <div class="exp-tax-preview hidden exp-tax-preview-box" id="expTaxPreview"></div>
+            <button type="button" class="link-btn exp-lightweight-clear" id="expTaxClearBtn">清除服務費/稅資料</button>
           </div>
         </div>
 
@@ -322,19 +333,28 @@ if("serviceWorker" in navigator){
         <div class="checks" id="expParticipants"></div>
         <button type="button" class="link-btn" id="toggleAllParticipants">取消全選</button>
 
-        <div class="exp-addons-container" id="expAddonsContainer">
-          <button type="button" class="exp-addons-toggle" id="expAddonsToggle">
-            <div class="exp-addons-toggle-left">
-              <span class="exp-addons-icon">✨</span>
-              <span class="exp-addons-title">個人自付 / 額外消費</span>
-              <span class="exp-addons-badge">選填</span>
-            </div>
-            <span class="exp-addons-caret" id="expAddonsCaret">▾</span>
+        <!-- 個人自付/額外消費：跟上面「怎麼分攤」的勾選名單是分開的，
+             不會因為那邊勾選誰而跟著變動或消失 -->
+        <div class="exp-lightweight-container" id="expAddonsContainer">
+          <button type="button" class="exp-lightweight-toggle" id="expAddonsToggle">
+            <span class="exp-lightweight-toggle-icon" id="expAddonsCaret">+</span>
+            <span>有人另外加點或自己買了什麼嗎？</span>
           </button>
+          <div class="exp-addons-preview hidden" id="expAddonsPreview"></div>
           <div class="exp-addons-body hidden" id="expAddonsBody">
-            <div class="exp-addons-hint">💡 若有人有個人專屬消費（如個人加點、自購用品、私人支出等），填入金額後系統會自動先扣除該總額，將共同費用平分，再把個人自付費用計入各自應付帳目。</div>
+            <div class="exp-addons-hint">💡 先設定誰有個人專屬消費（如個人加點、自購用品、私人支出等），系統會自動先扣除這些金額，剩下的部分才由其餘人平分。</div>
+            <div class="exp-addons-tax-warn hidden" id="expAddonsTaxWarn">⚠️ 這筆有加服務費/稅，下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動加算進去，不然會被多收一次。</div>
+            <div class="filter-type-toggle" id="expAddonModeToggle">
+              <button type="button" class="split-mode-btn exp-addon-mode-btn active" data-addon-mode="custom">每人自訂金額</button>
+              <button type="button" class="split-mode-btn exp-addon-mode-btn" data-addon-mode="shared">新增共同品項</button>
+            </div>
             <div class="amt-grid" id="expAddonsList"></div>
-            <div class="exp-addons-preview hidden" id="expAddonsPreview"></div>
+            <div class="exp-shared-addons hidden" id="expSharedAddonsWrap">
+              <div class="exp-shared-addon-hint">💡 適合「大家一起買、但不是每個人都有份」的情況（例如點了一輪酒，有一兩位不喝）：填入品項總價，再勾選要分攤的人，系統會平分給勾到的人。</div>
+              <div id="expSharedAddonsList"></div>
+              <button type="button" class="link-btn exp-shared-addon-add" id="expSharedAddonAddBtn">+ 新增共同品項</button>
+            </div>
+            <button type="button" class="link-btn exp-lightweight-clear" id="expAddonsClearBtn">清除個人自付資料</button>
           </div>
         </div>
 
@@ -346,6 +366,7 @@ if("serviceWorker" in navigator){
 
         <label>日期</label>
         <input type="date" id="expDate" lang="en-CA">
+
         <button class="btn" id="addExpenseBtn">加入這筆支出</button>
         <div class="msg" id="expMsg"></div>
       </div>
@@ -529,6 +550,36 @@ if("serviceWorker" in navigator){
   </div>
 </div>
 
+<div class="calc-modal" id="xcurRateEditModal">
+  <div class="calc-card card twd-settle-card">
+    <div class="calc-header">
+      <span class="calc-header-name">🔧 編輯債務轉入匯率</span>
+      <button type="button" class="calc-close" id="xcurRateEditCloseBtn">✕</button>
+    </div>
+
+    <div class="twd-settle-summary">
+      <div class="twd-settle-route" id="xcurRateEditRoute"></div>
+      <div class="twd-settle-orig-amt" id="xcurRateEditOrigAmt"></div>
+    </div>
+
+    <div class="twd-settle-rate-box">
+      <label class="twd-settle-rate-label">新的換算匯率：</label>
+      <div class="twd-settle-rate-row">
+        <span class="twd-settle-rate-prefix" id="xcurRateEditPrefix">1 單位 = NT$</span>
+        <input type="number" id="xcurRateEditInput" step="any" min="0" placeholder="例如 0.2145" class="twd-settle-rate-input">
+        <button type="button" class="btn secondary small twd-settle-rate-fetch-btn" id="xcurRateEditFetchRateBtn" title="帶入系統即時匯率">⚡ 即時匯率</button>
+      </div>
+
+      <div class="twd-settle-result-card">
+        <div class="twd-settle-result-label">更新後應付臺幣金額</div>
+        <div class="twd-settle-result-amt" id="xcurRateEditResultAmt">NT$ 0</div>
+      </div>
+    </div>
+
+    <button type="button" class="btn" id="xcurRateEditSaveBtn">儲存新匯率</button>
+  </div>
+</div>
+
 <div class="calc-modal" id="settlementImgModal">
   <div class="calc-card card settlement-img-modal-card">
     <div class="avatar-modal-header">
@@ -558,6 +609,7 @@ if("serviceWorker" in navigator){
         <span id="expDebtModalName">項目債務明細</span>
       </div>
       <div class="settings-item-label-wrap">
+        <button type="button" class="exp-debt-edit-btn" id="expDebtModalRestoreBtn" title="還原這筆跨幣別轉移">↺ 還原</button>
         <button type="button" class="exp-debt-edit-btn" id="expDebtModalEditBtn" title="編輯此筆支出">✎ 編輯</button>
         <button type="button" class="calc-close" id="expDebtModalCloseBtn">✕</button>
       </div>
@@ -883,6 +935,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=483"></script>
+<script src="app.js?v=573"></script>
 </body>
 </html>
