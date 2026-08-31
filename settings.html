@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=606">
-<link rel="stylesheet" href="shared.css?v=606">
+<link rel="stylesheet" href="theme.css?v=609">
+<link rel="stylesheet" href="shared.css?v=609">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=606"></script>
-<script src="version.js?v=606"></script>
-<script src="shared-ui.js?v=606"></script>
-<script src="theme.js?v=606" defer></script>
-<script src="app-banner.js?v=606" defer></script>
+<script src="currencies.js?v=609"></script>
+<script src="version.js?v=609"></script>
+<script src="shared-ui.js?v=609"></script>
+<script src="theme.js?v=609" defer></script>
+<script src="app-banner.js?v=609" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -181,10 +181,10 @@ if("serviceWorker" in navigator){
           </div>
           <div class="msg" id="avatarMsg"></div>
 
-          <label>帳戶姓名<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoAccountName">改了會同步套用到你所有群組——除非某個群組另外設定了暱稱，那個群組會繼續顯示暱稱，不受這裡影響。想改某個群組看到的名字，去「群組」分頁改那邊的暱稱。</p>
+          <label>全域使用者名稱<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoAccountName">全站唯一，不能跟別人重複；登入頁可以直接打這個名稱登入，不用記信箱。改了會同步套用到你所有群組的預設顯示名稱——除非某個群組另外設定了暱稱，那個群組會繼續顯示暱稱，不受這裡影響。可以是中文、英文、數字、底線，2~20 個字。</p>
           <div class="settings-field-row">
-            <input type="text" id="settingsName" placeholder="你的名字">
+            <input type="text" id="settingsName" placeholder="例如 小菘、chiasung" maxlength="20">
             <button class="btn secondary small" id="saveNameBtn">儲存</button>
           </div>
           <div class="msg" id="nameMsg"></div>
@@ -197,14 +197,6 @@ if("serviceWorker" in navigator){
           </div>
           <p class="settings-hint" id="emailStatusHint"></p>
           <div class="msg" id="emailMsg"></div>
-
-          <label>使用者名稱<button type="button" class="info-btn" data-info-for="infoUsername" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoUsername">全站通用、獨一無二，設定後登入頁就能直接打這個名稱登入，不用記信箱。可以是中文、英文、數字、底線，2~20 個字。</p>
-          <div class="settings-field-row">
-            <input type="text" id="settingsUsername" placeholder="例如 小菘、chiasung" maxlength="20">
-            <button class="btn secondary small" id="saveUsernameBtn">儲存</button>
-          </div>
-          <div class="msg" id="usernameMsg"></div>
         </div>
 
         <div class="settings-group">
@@ -252,7 +244,7 @@ if("serviceWorker" in navigator){
           <div class="msg" id="settingsGroupMsg"></div>
 
           <label>在這個群組顯示的暱稱<button type="button" class="info-btn" data-info-for="infoNickname" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoNickname">只影響這個群組看到的名字，不影響「帳號」分頁的姓名、也不影響你在其他群組的名字。留空表示不特別設定，跟著帳號姓名走。</p>
+          <p class="settings-hint hidden" id="infoNickname">只影響這個群組看到的名字，不影響「帳號」分頁的全域使用者名稱、也不影響你在其他群組的名字。留空表示不特別設定，跟著全域使用者名稱走。</p>
           <div class="settings-field-row">
             <input type="text" id="settingsNickname" placeholder="這個群組看到的名字">
             <button class="btn secondary small" id="saveNicknameBtn">儲存</button>
@@ -1380,18 +1372,32 @@ if(backBtn){
     });
   }
 
+  // 帳戶姓名已經跟全域使用者名稱合併成同一個欄位：全站唯一，登入頁「帳戶
+  // 名稱或電子信箱」那個欄位可以直接打這個名字登入。members.name（每個
+  // 群組各一筆、當作沒設定暱稱時的預設顯示名稱）不用在這裡另外手動更新
+  // ——資料庫那邊有 trigger 會在 usernames 存檔後自動同步過去，也會在
+  // members 被寫入時強制對齊 usernames，兩邊保證不會兜不起來，不用靠
+  // 前端連續呼叫兩次 API 自己維護一致性。格式要求（中文/英文/數字/底線，
+  // 2~20 字）要跟資料庫 usernames 表那條 check constraint 保持一致，
+  // 不然使用者在這裡看不出哪裡錯、直接被資料庫擋下來才看到生硬的錯誤。
+  const USERNAME_FORMAT_RE = /^[A-Za-z0-9_一-龥]{2,20}$/;
   const saveNameBtn = document.getElementById("saveNameBtn");
   if(saveNameBtn){
     saveNameBtn.addEventListener("click", async ()=>{
       const newName = document.getElementById("settingsName").value.trim();
       const msg = document.getElementById("nameMsg");
-      if(!newName){ msg.textContent = "請輸入帳戶姓名"; msg.className = "msg error"; return; }
-      // 帳號姓名存在 members.name（每個群組各一筆），要一次改掉這個帳號所有
-      // 群組的那一列才會同步，不然只改到目前這個群組，其他群組還是舊名字。
-      const { error } = await sb.from("members").update({ name: newName }).eq("user_id", currentUser.id);
-      if(error){ msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      if(!USERNAME_FORMAT_RE.test(newName)){
+        msg.textContent = "只能是中文、英文、數字、底線，長度 2~20 個字";
+        msg.className = "msg error";
+        return;
+      }
+      const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: newName });
+      if(error){
+        if(error.code === "23505"){ msg.textContent = "這個名稱已經有人用了，換一個試試"; msg.className = "msg error"; return; }
+        msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return;
+      }
       await loadMembers();
-      msg.textContent = "帳戶姓名已更新！"; msg.className = "msg ok";
+      msg.textContent = "已更新，之後登入可以直接打這個名字！"; msg.className = "msg ok";
     });
   }
 
@@ -1400,11 +1406,11 @@ if(backBtn){
     saveNicknameBtn.addEventListener("click", async ()=>{
       const newNickname = document.getElementById("settingsNickname").value.trim();
       const msg = document.getElementById("nicknameMsg");
-      // 留空表示清掉這個群組的暱稱，改回顯示帳號姓名。
+      // 留空表示清掉這個群組的暱稱，改回顯示全域使用者名稱。
       const { error } = await sb.from("members").update({ nickname: newNickname || null }).eq("id", myMember.id);
       if(error){ msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
       await loadMembers();
-      msg.textContent = newNickname ? "暱稱已更新！" : "已清除暱稱，改用帳號姓名"; msg.className = "msg ok";
+      msg.textContent = newNickname ? "暱稱已更新！" : "已清除暱稱，改用全域使用者名稱"; msg.className = "msg ok";
     });
   }
 
@@ -1419,30 +1425,6 @@ if(backBtn){
       const { error } = await sb.auth.updateUser({ email: newEmail });
       if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
       msg.textContent = "已寄出確認信到新信箱，請去收信、點連結完成確認！"; msg.className = "msg ok";
-    });
-  }
-
-  // 全站通用的使用者名稱，跟信箱是兩條平行的登入路徑：登入頁「帳戶名稱
-  // 或電子信箱」那個欄位，打這裡設定的名稱一樣能登入。格式要求（中文/
-  // 英文/數字/底線，2~20 字）要跟資料庫那條 check constraint 保持一致，
-  // 不然使用者會在這裡看不出哪裡錯、直接被資料庫擋下來才看到生硬的錯誤。
-  const USERNAME_FORMAT_RE = /^[A-Za-z0-9_一-龥]{2,20}$/;
-  const saveUsernameBtn = document.getElementById("saveUsernameBtn");
-  if(saveUsernameBtn){
-    saveUsernameBtn.addEventListener("click", async ()=>{
-      const newUsername = document.getElementById("settingsUsername").value.trim();
-      const msg = document.getElementById("usernameMsg");
-      if(!USERNAME_FORMAT_RE.test(newUsername)){
-        msg.textContent = "使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
-        msg.className = "msg error";
-        return;
-      }
-      const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: newUsername });
-      if(error){
-        if(error.code === "23505"){ msg.textContent = "這個使用者名稱已經有人用了，換一個試試"; msg.className = "msg error"; return; }
-        msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return;
-      }
-      msg.textContent = "使用者名稱已更新，之後登入可以直接打這個名字！"; msg.className = "msg ok";
     });
   }
 
@@ -1775,12 +1757,14 @@ if(backBtn){
         renderLinkedIdentities(),
         updateNotifyBtnState(),
         (async ()=>{
-          // 使用者名稱是獨立於 members 之外的全站通用資料，不會併在
-          // loadMembers() 裡，要另外查一次。
-          const usernameInp = document.getElementById("settingsUsername");
-          if(!usernameInp) return;
+          // 全域使用者名稱存在獨立的 usernames 表，不會併在 loadMembers()
+          // 裡，要另外查一次；這裡才是真正的權威資料，跟 members.name
+          // 理論上應該一致，但保險起見還是以這裡查到的為準（例如萬一
+          // 兩邊哪次沒同步成功，這裡看到的才是登入頁實際會用到的值）。
+          const nameInp = document.getElementById("settingsName");
+          if(!nameInp) return;
           const { data } = await sb.from("usernames").select("username").eq("user_id", currentUser.id).maybeSingle();
-          usernameInp.value = (data && data.username) || "";
+          if(data && data.username) nameInp.value = data.username;
         })(),
         (async ()=>{
           if(emailStatusHint){

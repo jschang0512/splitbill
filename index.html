@@ -99,15 +99,15 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=606">
-<link rel="stylesheet" href="shared.css?v=606">
+<link rel="stylesheet" href="theme.css?v=609">
+<link rel="stylesheet" href="shared.css?v=609">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="currencies.js?v=606"></script>
-<script src="version.js?v=606"></script>
-<script src="shared-ui.js?v=606"></script>
-<script src="theme.js?v=606" defer></script>
-<script src="app-banner.js?v=606" defer></script>
+<script src="currencies.js?v=609"></script>
+<script src="version.js?v=609"></script>
+<script src="shared-ui.js?v=609"></script>
+<script src="theme.js?v=609" defer></script>
+<script src="app-banner.js?v=609" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -209,6 +209,10 @@ if("serviceWorker" in navigator){
         <h1>帳務系統</h1>
       </div>
     </div>
+    <div class="login-mode-switcher">
+      <button type="button" class="login-mode-switch-btn active" id="authModeSigninBtn">登入</button>
+      <button type="button" class="login-mode-switch-btn" id="authModeSignupBtn">註冊</button>
+    </div>
     <div class="login-card">
       <div class="login-card-title">歡迎登入</div>
 
@@ -228,10 +232,7 @@ if("serviceWorker" in navigator){
           <button type="button" class="pw-toggle-btn hidden" aria-label="顯示密碼">👁️</button>
         </div>
         <button class="btn" id="authSubmitBtn">登入</button>
-        <div class="login-links-row">
-          <button type="button" class="link-btn" id="authToggleModeBtn">還沒有帳號？註冊</button>
-          <button type="button" class="link-btn" id="authForgotPwBtn">忘記密碼？</button>
-        </div>
+        <button type="button" class="link-btn" id="authForgotPwBtn">忘記密碼？</button>
         <div class="msg" id="authMsg"></div>
       </div>
 
@@ -700,28 +701,34 @@ function removeFlashGuard(){
   // 所以要先存進 localStorage，回來後再讀出來用，用完就清掉。
   const PENDING_NAME_KEY = "splitbill-pending-member-name";
   let pendingMemberName = localStorage.getItem(PENDING_NAME_KEY) || "";
-  const authToggleModeBtn = document.getElementById("authToggleModeBtn");
-  if(authToggleModeBtn){
-    authToggleModeBtn.addEventListener("click", ()=>{
-      authMode = authMode === "signup" ? "signin" : "signup";
-      const isSignup = authMode === "signup";
-      document.getElementById("authNameLabel").classList.toggle("hidden", !isSignup);
-      document.getElementById("authName").classList.toggle("hidden", !isSignup);
-      document.getElementById("authPasswordConfirmLabel").classList.toggle("hidden", !isSignup);
-      const confirmInput = document.getElementById("authPasswordConfirm");
-      confirmInput.classList.toggle("hidden", !isSignup);
-      confirmInput.closest(".pw-input-wrap").querySelector(".pw-toggle-btn").classList.toggle("hidden", !isSignup);
-      document.getElementById("authSubmitBtn").textContent = isSignup ? "註冊" : "登入";
-      authToggleModeBtn.textContent = isSignup ? "已經有帳號？登入" : "還沒有帳號？註冊";
-      // 註冊一定要真的信箱（Supabase 建帳號本來就需要），登入才能用帳戶
-      // 名稱或信箱兩種都行，欄位標籤跟提示文字跟著模式換。
-      const emailInp = document.getElementById("authEmail");
-      document.getElementById("authEmailLabel").textContent = isSignup ? "電子信箱" : "帳戶名稱或電子信箱";
-      emailInp.type = isSignup ? "email" : "text";
-      emailInp.placeholder = isSignup ? "你的信箱" : "使用者名稱或 you@gmail.com";
-      document.getElementById("authMsg").textContent = "";
-    });
+  const authModeSigninBtn = document.getElementById("authModeSigninBtn");
+  const authModeSignupBtn = document.getElementById("authModeSignupBtn");
+  function setAuthMode(mode){
+    authMode = mode;
+    const isSignup = mode === "signup";
+    if(authModeSigninBtn) authModeSigninBtn.classList.toggle("active", !isSignup);
+    if(authModeSignupBtn) authModeSignupBtn.classList.toggle("active", isSignup);
+    document.querySelector(".login-card-title").textContent = isSignup ? "建立帳號" : "歡迎登入";
+    document.getElementById("authNameLabel").classList.toggle("hidden", !isSignup);
+    document.getElementById("authName").classList.toggle("hidden", !isSignup);
+    document.getElementById("authPasswordConfirmLabel").classList.toggle("hidden", !isSignup);
+    const confirmInput = document.getElementById("authPasswordConfirm");
+    confirmInput.classList.toggle("hidden", !isSignup);
+    confirmInput.closest(".pw-input-wrap").querySelector(".pw-toggle-btn").classList.toggle("hidden", !isSignup);
+    document.getElementById("authSubmitBtn").textContent = isSignup ? "註冊" : "登入";
+    // 忘記密碼只在登入模式有意義，註冊模式先藏起來。
+    const forgotBtn = document.getElementById("authForgotPwBtn");
+    if(forgotBtn) forgotBtn.classList.toggle("hidden", isSignup);
+    // 註冊一定要真的信箱（Supabase 建帳號本來就需要），登入才能用帳戶
+    // 名稱或信箱兩種都行，欄位標籤跟提示文字跟著模式換。
+    const emailInp = document.getElementById("authEmail");
+    document.getElementById("authEmailLabel").textContent = isSignup ? "電子信箱" : "帳戶名稱或電子信箱";
+    emailInp.type = isSignup ? "email" : "text";
+    emailInp.placeholder = isSignup ? "你的信箱" : "使用者名稱或 you@gmail.com";
+    document.getElementById("authMsg").textContent = "";
   }
+  if(authModeSigninBtn) authModeSigninBtn.addEventListener("click", ()=> setAuthMode("signin"));
+  if(authModeSignupBtn) authModeSignupBtn.addEventListener("click", ()=> setAuthMode("signup"));
 
   const authForgotPwBtn = document.getElementById("authForgotPwBtn");
   if(authForgotPwBtn){

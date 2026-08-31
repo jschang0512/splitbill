@@ -1505,6 +1505,41 @@ button.dd-btn {
 .login-form-panel .app-header .app-logo .s2,
 .login-form-panel .app-header .app-logo .s3{ fill:url(#logoGrad); }
 
+.login-mode-switcher{
+  display:flex;
+  gap:6px;
+  width:100%;
+  max-width:390px;
+  margin:0 0 16px;
+  padding:4px;
+  background:var(--card);
+  border:1px solid var(--card-border);
+  border-radius:14px;
+  box-shadow:var(--glass-shadow);
+  box-sizing:border-box;
+}
+.login-mode-switch-btn{
+  flex:1;
+  border:none;
+  background:none;
+  padding:9px 0;
+  font-size:13px;
+  font-weight:700;
+  font-family:"Noto Sans TC",sans-serif;
+  color:var(--ink-soft);
+  border-radius:10px;
+  cursor:pointer;
+  transition:all .18s ease;
+}
+.login-mode-switch-btn.active{
+  background:linear-gradient(135deg, var(--logo-grad-a), var(--btn-primary));
+  color:var(--btn-primary-fg);
+  box-shadow:0 2px 8px rgba(122,107,158,.3);
+}
+:root[data-theme="dark"] .login-mode-switch-btn.active{
+  color:#1C142B;
+}
+
 .login-card{
   width:100%;
   max-width:390px;
