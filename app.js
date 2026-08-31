@@ -160,10 +160,12 @@
   // 是否在債務表／成員清單等畫面顯示已退出或帳號已銷毀的成員（純個人裝置端偏好）
   let showLeftMembers = localStorage.getItem("splitbill-show-left-members") !== "0";
   // 債務關係表是否只顯示跟我相關的欠款（人數多的群組完整矩陣格子太多、
-  // 大部分是空格，先只看自己相關的比較好找重點）。true/false 由使用者
-  // 點按鈕決定；一開始的預設值等 loadMembers() 知道群組人數後才決定，
-  // 見 onLoggedIn() 裡的設定。
-  let matrixShowOnlyMine = false;
+  // 大部分是空格，先只看自己相關的比較好找重點）。使用者只要手動點過
+  // 一次按鈕，就記住這個選擇（存在 localStorage，純個人裝置端偏好，
+  // 跟 showLeftMembers 是同一套做法），下次打開不用再點一次；還沒點過
+  // 的話，才用「群組人數多寡」自動決定預設值，見 onLoggedIn() 裡的設定。
+  const MATRIX_SHOW_ONLY_MINE_KEY = "splitbill-matrix-show-only-mine";
+  let matrixShowOnlyMine = localStorage.getItem(MATRIX_SHOW_ONLY_MINE_KEY) === "1";
 
   // 金額格式化：不進行整數四捨五入，保留精確位數（最多2位小數）
   function formatAmt(v){
@@ -608,8 +610,12 @@
 
     // 群組人數多的時候，債務關係表預設先只顯示跟我相關的部分，不然一
     // 打開就是一大片空格子的完整矩陣，很難找到重點；人少的話完整矩陣
-    // 本來就一覽無遺，維持預設顯示全部。
-    matrixShowOnlyMine = memberRows.length > 8;
+    // 本來就一覽無遺，維持預設顯示全部。但使用者只要手動點過一次按鈕，
+    // 那個選擇就會一直記住（存在 localStorage），這裡的自動判斷只在
+    // 「從來沒手動選過」的情況下才生效，不會蓋掉使用者自己選的結果。
+    if(localStorage.getItem(MATRIX_SHOW_ONLY_MINE_KEY) === null){
+      matrixShowOnlyMine = memberRows.length > 8;
+    }
 
     // 類別學習清單已經併進 refreshExpenses() 那一批平行查詢裡了（跟支出/
     // 還款/餘額一起發），這裡不用再額外呼叫一次，省一趟多餘的網路來回。
@@ -4580,6 +4586,7 @@ const matrixFilterMeBtn = document.getElementById("matrixFilterMeBtn");
 if(matrixFilterMeBtn){
   matrixFilterMeBtn.addEventListener("click", ()=>{
     matrixShowOnlyMine = !matrixShowOnlyMine;
+    localStorage.setItem(MATRIX_SHOW_ONLY_MINE_KEY, matrixShowOnlyMine ? "1" : "0");
     if(cachedExpenses && cachedRepayments) renderDebtMatrix(cachedExpenses, cachedRepayments);
   });
 }
