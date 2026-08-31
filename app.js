@@ -601,6 +601,8 @@
     window.currentUser = user;
     window.myMember = myMember;
 
+    loadCategoryLearning();
+
     let myAvatar = "";
     if(myMember && myMember.avatar_url){
       myAvatar = myMember.avatar_url;
@@ -1426,6 +1428,60 @@
   let selectedExpCategory = "general";
   let userManuallyPickedCategory = false;
 
+  // ---------- 類別自動分類：學習使用者手動選過的品項/店名 ----------
+  // 內建的 CATEGORY_KEYWORDS 是固定字庫，遇到庫裡沒有的店名就猜不到。這裡
+  // 額外記一份「這個群組裡，某個品項名稱使用者曾經手動選過哪個類別」，
+  // 之後同一個品項名稱（去頭尾空白、忽略大小寫）出現，直接套用學過的
+  // 類別，比固定字庫優先；同一群組的其他成員也會一起受惠。
+  let categoryLearningMap = {};
+  function normalizeCategoryKeyword(s){
+    return (s || "").trim().toLowerCase();
+  }
+  async function loadCategoryLearning(){
+    categoryLearningMap = {};
+    if(!myMember || !myMember.group_id) return;
+    try {
+      const { data, error } = await sb.from("category_learning")
+        .select("keyword, category")
+        .eq("group_id", myMember.group_id);
+      if(error){ console.warn("讀取類別學習紀錄失敗：", error); return; }
+      (data || []).forEach(row => { categoryLearningMap[row.keyword] = row.category; });
+    } catch(e){
+      console.warn("讀取類別學習紀錄異常：", e);
+    }
+  }
+  async function saveCategoryLearning(keyword, category){
+    if(!keyword || !category || !myMember || !myMember.group_id) return;
+    categoryLearningMap[keyword] = category;
+    try {
+      await sb.from("category_learning").upsert({
+        group_id: myMember.group_id,
+        keyword,
+        category,
+        updated_by: myMember.id,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "group_id,keyword" });
+    } catch(e){
+      console.warn("儲存類別學習紀錄失敗：", e);
+    }
+  }
+  // 部分符合：只要目前輸入的品項名稱裡「包含」某個學過的關鍵字就套用，
+  // 不用整段文字完全一樣。多個關鍵字都命中時，取字數最長的那個（愈長愈
+  // 具體，比較不會誤判到不相關的品項上）。
+  function findLearnedCategory(typedText){
+    const normalizedTyped = normalizeCategoryKeyword(typedText);
+    if(!normalizedTyped) return null;
+    let bestCategory = null;
+    let bestLength = 0;
+    Object.keys(categoryLearningMap).forEach(keyword => {
+      if(keyword && keyword.length > bestLength && normalizedTyped.includes(keyword)){
+        bestCategory = categoryLearningMap[keyword];
+        bestLength = keyword.length;
+      }
+    });
+    return bestCategory;
+  }
+
   function updateExpCategoryUI(catType){
     selectedExpCategory = catType || "general";
     const select = document.getElementById("expCategorySelect");
@@ -1449,8 +1505,14 @@
   if(expDescInput){
     expDescInput.addEventListener("input", ()=>{
       if(!userManuallyPickedCategory || !expDescInput.value.trim()){
-        const meta = window.getCategoryMeta ? window.getCategoryMeta(expDescInput.value) : { type: "general" };
-        updateExpCategoryUI(meta.type);
+        const typed = expDescInput.value.trim();
+        const learnedCategory = typed ? findLearnedCategory(typed) : null;
+        if(learnedCategory){
+          updateExpCategoryUI(learnedCategory);
+        } else {
+          const meta = window.getCategoryMeta ? window.getCategoryMeta(expDescInput.value) : { type: "general" };
+          updateExpCategoryUI(meta.type);
+        }
         if(!expDescInput.value.trim()) userManuallyPickedCategory = false;
       }
     });
@@ -1712,6 +1774,11 @@
         ? await sb.from("expenses").update(payload).eq("id", editingExpenseId)
         : await sb.from("expenses").insert(payload);
       if(error){ msg.textContent = (editingExpenseId ? "更新失敗：" : "新增失敗：") + error.message; msg.className = "msg error"; return; }
+
+      if(userManuallyPickedCategory && itemTitle){
+        const learnKeyword = normalizeCategoryKeyword(getFirstLineDesc(itemTitle));
+        if(learnKeyword) saveCategoryLearning(learnKeyword, selectedExpCategory || "general");
+      }
 
       msg.textContent = editingExpenseId ? "已更新！" : "已加入！";
       msg.className = "msg ok";
