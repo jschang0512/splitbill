@@ -99,15 +99,15 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=615">
-<link rel="stylesheet" href="shared.css?v=615">
+<link rel="stylesheet" href="theme.css?v=616">
+<link rel="stylesheet" href="shared.css?v=616">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="currencies.js?v=615"></script>
-<script src="version.js?v=615"></script>
-<script src="shared-ui.js?v=615"></script>
-<script src="theme.js?v=615" defer></script>
-<script src="app-banner.js?v=615" defer></script>
+<script src="currencies.js?v=616"></script>
+<script src="version.js?v=616"></script>
+<script src="shared-ui.js?v=616"></script>
+<script src="theme.js?v=616" defer></script>
+<script src="app-banner.js?v=616" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -735,6 +735,15 @@ function removeFlashGuard(){
     }
     return true;
   }
+  // 註冊當下（還沒登入、還沒建立 auth 帳號）就先問一次這個名字有沒有人
+  // 用過，避免使用者一路填完信箱驗證、密碼設定才在最後加入/建立群組時
+  // 才被擋下來。查詢失敗（例如網路問題）就先放行，交給後面 ensureUsername
+  // 的 upsert 23505 當最後一道防線。
+  async function isUsernameTaken(name){
+    const { data, error } = await sb.rpc("is_username_taken", { p_username: name });
+    if(error) return false;
+    return !!data;
+  }
   const authModeSigninBtn = document.getElementById("authModeSigninBtn");
   const authModeSignupBtn = document.getElementById("authModeSignupBtn");
   function setAuthMode(mode){
@@ -813,6 +822,12 @@ function removeFlashGuard(){
         if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
         const passwordConfirm = document.getElementById("authPasswordConfirm").value;
         if(password !== passwordConfirm){ msg.textContent = "兩次密碼輸入不一致"; msg.className = "msg error"; return; }
+        msg.textContent = "檢查使用者名稱中…"; msg.className = "msg";
+        if(await isUsernameTaken(name)){
+          msg.textContent = "這個使用者名稱已經有人用了，請改用其他名稱";
+          msg.className = "msg error";
+          return;
+        }
         localStorage.setItem(PENDING_NAME_KEY, name);
         msg.textContent = "註冊中…"; msg.className = "msg";
         // 明確算好、傳自己這個路徑當確認信連結的目的地，不要依賴 Supabase
@@ -910,6 +925,12 @@ function removeFlashGuard(){
       }
       if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
       if(password !== passwordConfirm){ msg.textContent = "兩次密碼輸入不一致"; msg.className = "msg error"; return; }
+      msg.textContent = "檢查使用者名稱中…"; msg.className = "msg";
+      if(await isUsernameTaken(name)){
+        msg.textContent = "這個使用者名稱已經有人用了，請改用其他名稱";
+        msg.className = "msg error";
+        return;
+      }
       msg.textContent = "設定中…"; msg.className = "msg";
       const { error } = await sb.auth.updateUser({ password });
       if(error){ msg.textContent = "設定失敗：" + error.message; msg.className = "msg error"; return; }
