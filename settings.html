@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=609">
-<link rel="stylesheet" href="shared.css?v=609">
+<link rel="stylesheet" href="theme.css?v=610">
+<link rel="stylesheet" href="shared.css?v=610">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=609"></script>
-<script src="version.js?v=609"></script>
-<script src="shared-ui.js?v=609"></script>
-<script src="theme.js?v=609" defer></script>
-<script src="app-banner.js?v=609" defer></script>
+<script src="currencies.js?v=610"></script>
+<script src="version.js?v=610"></script>
+<script src="shared-ui.js?v=610"></script>
+<script src="theme.js?v=610" defer></script>
+<script src="app-banner.js?v=610" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -1406,9 +1406,15 @@ if(backBtn){
     saveNicknameBtn.addEventListener("click", async ()=>{
       const newNickname = document.getElementById("settingsNickname").value.trim();
       const msg = document.getElementById("nicknameMsg");
-      // 留空表示清掉這個群組的暱稱，改回顯示全域使用者名稱。
+      // 留空表示清掉這個群組的暱稱，改回顯示全域使用者名稱。這個群組裡
+      // 「暱稱優先、沒設就用全域使用者名稱」這個有效顯示名稱不能跟同群組
+      // 其他還在群組中的人重複，是資料庫那條 unique index 擋的
+      // （members_group_active_display_name_unique），撞到會是 23505。
       const { error } = await sb.from("members").update({ nickname: newNickname || null }).eq("id", myMember.id);
-      if(error){ msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      if(error){
+        if(error.code === "23505"){ msg.textContent = "這個名字在這個群組裡已經有人用了，換一個試試"; msg.className = "msg error"; return; }
+        msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return;
+      }
       await loadMembers();
       msg.textContent = newNickname ? "暱稱已更新！" : "已清除暱稱，改用全域使用者名稱"; msg.className = "msg ok";
     });
