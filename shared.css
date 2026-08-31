@@ -4160,6 +4160,11 @@ button.dd-btn {
 .copy-settle-btn:active{
   transform:scale(.95);
 }
+.copy-settle-btn.active{
+  background:var(--btn-primary);
+  color:#FFFFFF;
+  border-color:var(--btn-primary);
+}
 
 /* History Category Badge & Date Group Headers */
 .exp-item-content{

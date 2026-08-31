@@ -159,6 +159,11 @@
   let memberById = {};
   // 是否在債務表／成員清單等畫面顯示已退出或帳號已銷毀的成員（純個人裝置端偏好）
   let showLeftMembers = localStorage.getItem("splitbill-show-left-members") !== "0";
+  // 債務關係表是否只顯示跟我相關的欠款（人數多的群組完整矩陣格子太多、
+  // 大部分是空格，先只看自己相關的比較好找重點）。true/false 由使用者
+  // 點按鈕決定；一開始的預設值等 loadMembers() 知道群組人數後才決定，
+  // 見 onLoggedIn() 裡的設定。
+  let matrixShowOnlyMine = false;
 
   // 金額格式化：不進行整數四捨五入，保留精確位數（最多2位小數）
   function formatAmt(v){
@@ -600,6 +605,11 @@
 
     window.currentUser = user;
     window.myMember = myMember;
+
+    // 群組人數多的時候，債務關係表預設先只顯示跟我相關的部分，不然一
+    // 打開就是一大片空格子的完整矩陣，很難找到重點；人少的話完整矩陣
+    // 本來就一覽無遺，維持預設顯示全部。
+    matrixShowOnlyMine = memberRows.length > 8;
 
     // 類別學習清單已經併進 refreshExpenses() 那一批平行查詢裡了（跟支出/
     // 還款/餘額一起發），這裡不用再額外呼叫一次，省一趟多餘的網路來回。
@@ -4173,10 +4183,46 @@ function renderDebtMatrix(
   );
 
 
-  const ids =
+  const allIds =
     memberRows.map(
       m => m.id
     );
+
+  // 欄位順序把自己排在第一個，一打開就先看到跟自己有關的那一行/列，
+  // 不用先掃過其他人才找到自己。
+  //
+  // 這裡不能只用「排到第一個」處理：設定裡「顯示已退出／已銷毀成員」
+  // 這個偏好關掉時，memberRows 會把已退出的成員整個濾掉——如果剛好
+  // 我自己這筆成員紀錄也標了已退出（loadMembers() 找不到還在啟用中的
+  // 那筆時會退而求其次抓到這筆），我就會直接從 allIds 裡消失，債務
+  // 關係表變成完全看不到自己的欠款。這是「要不要顯示其他人」的顯示
+  // 偏好，不該連自己的欠款都跟著藏起來，所以自己一定要強制留著。
+  // owed 本身是直接從支出/還款原始紀錄算出來的（見 buildDebtMatrix()），
+  // 不受 memberRows 篩選影響，所以就算自己不在 memberRows 裡，補回來
+  // 一樣抓得到正確的欠款金額。
+  if(myMember && myMember.id){
+    const meIdx = allIds.indexOf(myMember.id);
+    if(meIdx === -1){
+      allIds.unshift(myMember.id);
+    } else if(meIdx > 0){
+      allIds.splice(meIdx, 1);
+      allIds.unshift(myMember.id);
+    }
+  }
+
+  // 「只看跟我相關」：把矩陣縮到只剩我自己，以及跟我之間有欠款往來
+  // （不管我欠他還是他欠我）的人，人數多的群組不用面對一大片空格子。
+  let ids = allIds;
+  if(matrixShowOnlyMine && myMember && myMember.id){
+    const relatedIds = new Set([myMember.id]);
+    allIds.forEach(otherId => {
+      if(otherId === myMember.id) return;
+      const oweMe = (owed[myMember.id] && owed[myMember.id][otherId]) || 0;
+      const iOwe = (owed[otherId] && owed[otherId][myMember.id]) || 0;
+      if(oweMe > 0.05 || iOwe > 0.05) relatedIds.add(otherId);
+    });
+    ids = allIds.filter(id => relatedIds.has(id));
+  }
 
   // 熱圖用：找出整張表裡金額最大的一格，其他格子的顏色都相對這個最大值
   // 算比例，才能做出「越紅欠越多」這種連續漸層，而不是只有幾檔固定深淺。
@@ -4450,6 +4496,8 @@ function renderDebtMatrix(
     tbody +
     tfoot;
 
+  if(typeof syncMatrixFilterMeBtn === "function") syncMatrixFilterMeBtn();
+
 
   // ----------------------------------------------------------
   // 滑動表格時固定「債權人」欄（左側前兩欄）
@@ -4523,6 +4571,23 @@ function renderDebtMatrix(
 
     });
 
+}
+
+// ==========================================================
+// 債務關係表：只看跟我相關 / 完整矩陣 切換
+// ==========================================================
+const matrixFilterMeBtn = document.getElementById("matrixFilterMeBtn");
+if(matrixFilterMeBtn){
+  matrixFilterMeBtn.addEventListener("click", ()=>{
+    matrixShowOnlyMine = !matrixShowOnlyMine;
+    if(cachedExpenses && cachedRepayments) renderDebtMatrix(cachedExpenses, cachedRepayments);
+  });
+}
+function syncMatrixFilterMeBtn(){
+  if(!matrixFilterMeBtn) return;
+  const textEl = document.getElementById("matrixFilterMeBtnText");
+  matrixFilterMeBtn.classList.toggle("active", matrixShowOnlyMine);
+  if(textEl) textEl.textContent = matrixShowOnlyMine ? "🔗 查看完整矩陣" : "👤 只看跟我相關";
 }
 
 // ==========================================================
