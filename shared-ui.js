@@ -355,3 +355,25 @@ function showToast(title, body, actionLabel, actionFn){
   // 滾動時自動隱藏
   window.addEventListener("scroll", hideCard, { passive: true });
 })();
+
+// ============================================================
+// App 已安裝、正在執行時，掃到邀請 QR code（App Links 驗證通過後系統會
+// 直接把 https://.../splitbill/index.html?join=代碼 這個網址交給 App，
+// 不會另外開系統瀏覽器）——不管使用者這時候人在 index/settings/summary/
+// currency 哪一頁，都先把邀請碼存起來；如果已經登入，直接導去設定頁的
+// 「用邀請碼加入」，讓使用者接著完成；還沒登入的話不用多做什麼，登入完成
+// 後既有流程（showGroupChoiceScreen）本來就會自己讀出這個值來用。
+// ============================================================
+(function(){
+  if(typeof window.Capacitor === "undefined" || !window.Capacitor.Plugins || !window.Capacitor.Plugins.App) return;
+  window.Capacitor.Plugins.App.addListener("appUrlOpen", (event)=>{
+    if(!event || !event.url) return;
+    let joinCode = "";
+    try{ joinCode = new URL(event.url).searchParams.get("join") || ""; }catch(e){}
+    if(!joinCode) return;
+    localStorage.setItem("splitbill-pending-invite-code", joinCode);
+    if(window.currentUser){
+      location.href = "settings.html";
+    }
+  });
+})();

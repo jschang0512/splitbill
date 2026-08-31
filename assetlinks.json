@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.splitbill.app",
+    "sha256_cert_fingerprints": [
+      "78:B4:F4:DF:88:4B:09:A8:A2:7E:D0:6E:6E:B3:F9:09:D2:BF:DC:44:95:13:7A:0F:79:FA:FA:30:F5:4C:93:92"
+    ]
+  }
+}]
