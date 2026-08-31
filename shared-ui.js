@@ -256,7 +256,9 @@ function showToast(title, body, actionLabel, actionFn){
       cleanName = cleanName.replace(/^應付人[:：]\s*/, "");
     }
 
-    let displayName = cleanName.replace(/\s*\([^)]*\)/g, "").trim();
+    // (退出)/(銷毀) 是資料庫直接寫進暱稱的離開標籤，特地留著不濾掉，
+    // 其他括號內容（雜訊）維持原本邏輯照樣清掉。
+    let displayName = cleanName.replace(/\s*\((?!退出\)|銷毀\))[^)]*\)/g, "").trim();
     if(!displayName) displayName = cleanName;
 
     // 3. 取得頭像圖片或底色與字母

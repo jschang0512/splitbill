@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=612">
-<link rel="stylesheet" href="shared.css?v=612">
+<link rel="stylesheet" href="theme.css?v=615">
+<link rel="stylesheet" href="shared.css?v=615">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=612"></script>
-<script src="version.js?v=612"></script>
-<script src="shared-ui.js?v=612"></script>
-<script src="theme.js?v=612" defer></script>
-<script src="app-banner.js?v=612" defer></script>
+<script src="currencies.js?v=615"></script>
+<script src="version.js?v=615"></script>
+<script src="shared-ui.js?v=615"></script>
+<script src="theme.js?v=615" defer></script>
+<script src="app-banner.js?v=615" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -609,8 +609,8 @@ if(backBtn){
       }
       m.accountName = m.name;
       if(m.nickname) m.name = m.nickname;
-      if(m.account_deleted_at) m.name = m.name + " (銷毀)";
-      else if(m.left_at) m.name = m.name + " (退出)";
+      // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
+      // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
     });
     memberById = {};
     MEMBERS.forEach(m => memberById[m.id] = m.name);
@@ -1742,6 +1742,19 @@ if(backBtn){
       if(nameInp && myMember) nameInp.value = myMember.accountName || "";
       const nicknameInp = document.getElementById("settingsNickname");
       if(nicknameInp && myMember) nicknameInp.value = myMember.nickname || "";
+
+      // 掃 QR code 邀請碼進來時，index.html 的 <head> 那段腳本已經把邀請碼
+      // 存進 localStorage 了；但這裡是「已經有帳號、已經在某個群組裡」的
+      // 人要加入另一個群組的入口（跟全新註冊、還沒有任何群組時走的
+      // showGroupChoiceScreen() 是不同路徑），原本沒有接這段，掃了碼也
+      // 不會自動帶進來，要自己回想邀請碼再手動打一次。這裡補上同樣的
+      // 邏輯，用過一次就清掉，不要留著影響下次進來。
+      const pendingInviteCode = localStorage.getItem("splitbill-pending-invite-code");
+      if(pendingInviteCode){
+        const joinCodeInp = document.getElementById("settingsJoinCode");
+        if(joinCodeInp) joinCodeInp.value = pendingInviteCode;
+        localStorage.removeItem("splitbill-pending-invite-code");
+      }
       const emailInp = document.getElementById("settingsEmail");
       const currentEmail = isRealEmail(myMember && myMember.email) ? myMember.email : (isRealEmail(currentUser.email) ? currentUser.email : "");
       if(emailInp) emailInp.value = currentEmail;

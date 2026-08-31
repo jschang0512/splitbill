@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=612">
-<link rel="stylesheet" href="shared.css?v=612">
+<link rel="stylesheet" href="theme.css?v=615">
+<link rel="stylesheet" href="shared.css?v=615">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=612"></script>
-<script src="version.js?v=612"></script>
-<script src="shared-ui.js?v=612"></script>
-<script src="theme.js?v=612" defer></script>
-<script src="app-banner.js?v=612" defer></script>
+<script src="currencies.js?v=615"></script>
+<script src="version.js?v=615"></script>
+<script src="shared-ui.js?v=615"></script>
+<script src="theme.js?v=615" defer></script>
+<script src="app-banner.js?v=615" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -564,8 +564,8 @@ renderNavLinks();
       }
       m.accountName = m.name;
       if(m.nickname) m.name = m.nickname;
-      if(m.account_deleted_at) m.name = m.name + " (銷毀)";
-      else if(m.left_at) m.name = m.name + " (退出)";
+      // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
+      // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
     });
     memberById = {};
     MEMBERS.forEach(m => memberById[m.id] = m.name);

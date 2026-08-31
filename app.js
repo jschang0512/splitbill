@@ -305,8 +305,8 @@
       }
       m.accountName = m.name; // 保留帳號原始姓名（不含暱稱/標籤），設定頁「姓名」欄位要用
       if(m.nickname) m.name = m.nickname; // 這個群組如果有另外設定暱稱，畫面上一律優先顯示暱稱
-      if(m.account_deleted_at) m.name = m.name + " (銷毀)";
-      else if(m.left_at) m.name = m.name + " (退出)";
+      // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
+      // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
     });
     memberById = {};
     MEMBERS.forEach(m => memberById[m.id] = m.name);
