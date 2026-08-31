@@ -99,15 +99,15 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=616">
-<link rel="stylesheet" href="shared.css?v=616">
+<link rel="stylesheet" href="theme.css?v=617">
+<link rel="stylesheet" href="shared.css?v=617">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="currencies.js?v=616"></script>
-<script src="version.js?v=616"></script>
-<script src="shared-ui.js?v=616"></script>
-<script src="theme.js?v=616" defer></script>
-<script src="app-banner.js?v=616" defer></script>
+<script src="currencies.js?v=617"></script>
+<script src="version.js?v=617"></script>
+<script src="shared-ui.js?v=617"></script>
+<script src="theme.js?v=617" defer></script>
+<script src="app-banner.js?v=617" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -287,9 +287,11 @@ if("serviceWorker" in navigator){
       <p class="settings-hint">你的帳號還沒有加入任何群組，選一個開始吧。這個群組的暱稱預設會用你註冊時填的姓名，之後可以在⚙️設定裡個別改。</p>
       <p class="settings-hint">⚠️ 如果你已經有 Splitbill 帳號，卻看到這個畫面，代表這個信箱還沒連結到你原本的帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個帳號連結上去。</p>
 
-      <label>全域使用者名稱</label>
-      <p class="settings-hint">全站唯一，如果撞名會在加入/建立群組時被擋下來——擋下來的話直接在這裡改一個名字再試一次即可。</p>
-      <input type="text" id="groupChoiceUsername" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
+      <div id="groupChoiceUsernameWrap" class="hidden">
+        <label>全域使用者名稱</label>
+        <p class="settings-hint">這個名字剛好被別人搶走了，改一個再試一次。</p>
+        <input type="text" id="groupChoiceUsername" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
+      </div>
 
       <span class="filter-type-toggle">
         <button type="button" class="split-mode-btn active" data-group-mode="join">加入現有群組</button>
@@ -716,7 +718,7 @@ function removeFlashGuard(){
   // 別人已經用過的名稱，回傳 false，呼叫端要擋下來、不要繼續加入/建立
   // 群組（不然 members.name 会被 trigger 強制對齊 usernames，兩邊卻沒有
   // 真的寫入成功，變成邏輯上兜不起來）。
-  async function ensureUsername(name, msgEl){
+  async function ensureUsername(name, msgEl, onConflict){
     // 已經有全域使用者名稱的人（例如原本的帳號，只是離開所有群組後要
     // 重新加入/建立一個新的）不用再處理——這時候 pendingMemberName 很
     // 可能是空的或已經過期，不該拿它跟既有的使用者名稱比對格式/擋下來，
@@ -726,14 +728,34 @@ function removeFlashGuard(){
     if(!USERNAME_FORMAT_RE.test(name || "")){
       msgEl.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
       msgEl.className = "msg error";
+      if(onConflict) onConflict();
       return false;
     }
     const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: name });
     if(error){
-      if(error.code === "23505"){ msgEl.textContent = "這個名稱已經有人用了，請改用其他名稱"; msgEl.className = "msg error"; return false; }
+      if(error.code === "23505"){
+        msgEl.textContent = "這個名稱已經有人用了，請改用其他名稱";
+        msgEl.className = "msg error";
+        if(onConflict) onConflict();
+        return false;
+      }
       msgEl.textContent = "更新失敗：" + error.message; msgEl.className = "msg error"; return false;
     }
     return true;
+  }
+  // 撞名（罕見的競速情況）時，把原本藏起來的名稱欄位打開讓使用者改，
+  // join/create 兩個按鈕共用同一套復原邏輯。
+  function revealGroupChoiceUsername(){
+    const wrap = document.getElementById("groupChoiceUsernameWrap");
+    const inp = document.getElementById("groupChoiceUsername");
+    if(wrap) wrap.classList.remove("hidden");
+    if(inp){ if(!inp.value) inp.value = pendingMemberName; inp.focus(); }
+  }
+  function currentGroupChoiceUsername(){
+    const wrap = document.getElementById("groupChoiceUsernameWrap");
+    const inp = document.getElementById("groupChoiceUsername");
+    if(wrap && !wrap.classList.contains("hidden") && inp && inp.value.trim()) return inp.value.trim();
+    return pendingMemberName;
   }
   // 註冊當下（還沒登入、還沒建立 auth 帳號）就先問一次這個名字有沒有人
   // 用過，避免使用者一路填完信箱驗證、密碼設定才在最後加入/建立群組時
@@ -881,10 +903,14 @@ function removeFlashGuard(){
     document.getElementById("oauthConfirmScreen").classList.add("hidden");
     const screen = document.getElementById("groupChoiceScreen");
     if(screen) screen.classList.remove("hidden");
-    // 帶進來的名字先填好，讓使用者看得到、也能直接在這裡改——如果這個
-    // 名字撞名被擋下來，不用跑去設定頁，直接在這一格改掉重試就好。
+    // 名字在註冊當下已經檢查過可以用了，這裡預設不用再讓使用者看一次、
+    // 改一次——欄位先藏起來，值還是先存好；只有極少數的競速情況（兩個人
+    // 剛好在註冊檢查完、到這一步之間搶到同一個名字）才會在下面 ensureUsername
+    // 失敗時被打開讓使用者改。
+    const usernameWrap = document.getElementById("groupChoiceUsernameWrap");
     const usernameInp = document.getElementById("groupChoiceUsername");
-    if(usernameInp && !usernameInp.value) usernameInp.value = pendingMemberName;
+    if(usernameWrap) usernameWrap.classList.add("hidden");
+    if(usernameInp) usernameInp.value = pendingMemberName;
     // 掃 QR code 進來的邀請碼，這裡幫忙填好（一定是「加入現有群組」這個
     // 分頁，本來就是預設分頁），用過一次就清掉，不要留著影響下次進來。
     const pendingInvite = localStorage.getItem(PENDING_INVITE_KEY);
@@ -978,10 +1004,10 @@ function removeFlashGuard(){
     joinGroupBtn.addEventListener("click", async ()=>{
       const code = document.getElementById("joinInviteCode").value.trim();
       const msg = document.getElementById("joinGroupMsg");
-      const name = document.getElementById("groupChoiceUsername").value.trim();
+      const name = currentGroupChoiceUsername();
       if(!code){ msg.textContent = "請填寫邀請碼"; msg.className = "msg error"; return; }
       msg.textContent = "加入中…"; msg.className = "msg";
-      if(!(await ensureUsername(name, msg))) return;
+      if(!(await ensureUsername(name, msg, revealGroupChoiceUsername))) return;
       pendingMemberName = name;
       const { error } = await sb.rpc("join_group", { p_invite_code: code, p_member_name: name });
       if(error){ msg.textContent = "加入失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
@@ -997,10 +1023,10 @@ function removeFlashGuard(){
       const groupName = document.getElementById("createGroupName").value.trim();
       const code = document.getElementById("createGroupCode").value.trim();
       const msg = document.getElementById("createGroupMsg");
-      const name = document.getElementById("groupChoiceUsername").value.trim();
+      const name = currentGroupChoiceUsername();
       if(!groupName || !code){ msg.textContent = "請填寫所有欄位"; msg.className = "msg error"; return; }
       msg.textContent = "建立中…"; msg.className = "msg";
-      if(!(await ensureUsername(name, msg))) return;
+      if(!(await ensureUsername(name, msg, revealGroupChoiceUsername))) return;
       pendingMemberName = name;
       const { error } = await sb.rpc("create_group", { p_group_name: groupName, p_member_name: name, p_creation_code: code });
       if(error){ msg.textContent = "建立失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
