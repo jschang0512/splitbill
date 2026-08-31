@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=597">
-<link rel="stylesheet" href="shared.css?v=597">
+<link rel="stylesheet" href="theme.css?v=598">
+<link rel="stylesheet" href="shared.css?v=598">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=597"></script>
-<script src="version.js?v=597"></script>
-<script src="shared-ui.js?v=597"></script>
-<script src="theme.js?v=597" defer></script>
-<script src="app-banner.js?v=597" defer></script>
+<script src="currencies.js?v=598"></script>
+<script src="version.js?v=598"></script>
+<script src="shared-ui.js?v=598"></script>
+<script src="theme.js?v=598" defer></script>
+<script src="app-banner.js?v=598" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -322,6 +322,7 @@ if("serviceWorker" in navigator){
         </div>
       </div>
 
+      <div class="exp-addons-tax-warn hidden" id="quickSharesTaxWarn">⚠️ 這筆有加服務費/稅，下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動加算進去，不然會被多收一次。</div>
       <div class="amt-grid hidden" id="quickSharesCustom"></div>
       <div class="sum-check" id="quickShareSumCheck"></div>
 
@@ -1575,6 +1576,18 @@ renderNavLinks();
       const v = Number(taxAmtInput && taxAmtInput.value) || 0;
       setTaxMode(v > 0 ? "exclusive" : "inclusive");
     }
+    // 自訂分攤區塊如果有服務費/稅，要提醒使用者這裡填的是未稅金額
+    // （服務費/稅會由系統另外依比例/平分加算進去，不是自訂金額裡自己加）。
+    function updateQuickShareTaxWarn(){
+      const warnEl = document.getElementById("quickSharesTaxWarn");
+      const hasTax = quickTaxMode === "exclusive" && (Number(taxAmtInput && taxAmtInput.value) || 0) > 0;
+      if(warnEl) warnEl.classList.toggle("hidden", !hasTax);
+      if(quickSharesCustom){
+        quickSharesCustom.querySelectorAll(".quick-share-inp").forEach(inp => {
+          inp.placeholder = hasTax ? "未稅金額" : "0";
+        });
+      }
+    }
     function updateQuickTaxPreview(){
       const previewEl = document.getElementById("quickTaxPreview");
       if(!previewEl) return;
@@ -1604,6 +1617,7 @@ renderNavLinks();
         recomputeQuickTaxMode();
         updateQuickTaxPreview();
         updateQuickAddonsPreview();
+        updateQuickShareTaxWarn();
       });
     }
     taxToggle && taxToggle.addEventListener("click", ()=>{
@@ -1621,6 +1635,7 @@ renderNavLinks();
         document.getElementById("quickTaxEqualBtn") && document.getElementById("quickTaxEqualBtn").classList.remove("active");
         recomputeQuickTaxMode();
         updateQuickTaxPreview();
+        updateQuickShareTaxWarn();
       });
     }
 
@@ -1663,6 +1678,11 @@ renderNavLinks();
       const quickAddonsContainer = document.getElementById("quickAddonsContainer");
       if(quickAddonsContainer) quickAddonsContainer.classList.toggle("hidden", mode !== "equal");
       if(quickSharesCustom) quickSharesCustom.classList.toggle("hidden", mode === "equal");
+      if(mode === "custom") updateQuickShareTaxWarn();
+      else {
+        const warnEl = document.getElementById("quickSharesTaxWarn");
+        if(warnEl) warnEl.classList.add("hidden");
+      }
     }
     modal.querySelectorAll("[data-quick-mode]").forEach(btn =>{
       btn.addEventListener("click", () => setSplitMode(btn.dataset.quickMode));

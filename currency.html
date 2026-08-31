@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=597">
-<link rel="stylesheet" href="shared.css?v=597">
+<link rel="stylesheet" href="theme.css?v=598">
+<link rel="stylesheet" href="shared.css?v=598">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=597"></script>
-<script src="version.js?v=597"></script>
-<script src="shared-ui.js?v=597"></script>
-<script src="theme.js?v=597" defer></script>
+<script src="currencies.js?v=598"></script>
+<script src="version.js?v=598"></script>
+<script src="shared-ui.js?v=598"></script>
+<script src="theme.js?v=598" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -358,6 +358,7 @@ if("serviceWorker" in navigator){
           </div>
         </div>
 
+        <div class="exp-addons-tax-warn hidden" id="expSharesTaxWarn">⚠️ 這筆有加服務費/稅，下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動加算進去，不然會被多收一次。</div>
         <div class="amt-grid hidden" id="expSharesCustom"></div>
         <div class="sum-check" id="shareSumCheck"></div>
 
@@ -935,6 +936,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=597"></script>
+<script src="app.js?v=598"></script>
 </body>
 </html>

@@ -820,6 +820,8 @@
       const addonsContainer = document.getElementById("expAddonsContainer");
       if(addonsContainer) addonsContainer.classList.toggle("hidden", splitMode !== "equal");
       document.getElementById("expSharesCustom").classList.toggle("hidden", splitMode !== "custom");
+      const shareTaxWarnEl = document.getElementById("expSharesTaxWarn");
+      if(shareTaxWarnEl) shareTaxWarnEl.classList.toggle("hidden", splitMode !== "custom");
       document.getElementById("shareSumCheck").textContent = "";
       if(splitMode === "custom") updateShareSumCheck();
       if(splitMode === "equal") renderAddonsList();
@@ -1430,6 +1432,11 @@
   function updateShareSumCheck(){
     if(splitMode !== "custom") return;
     const { subtotal, tax, total } = getManualExpenseTotals();
+    const shareTaxWarnEl = document.getElementById("expSharesTaxWarn");
+    if(shareTaxWarnEl) shareTaxWarnEl.classList.toggle("hidden", tax <= 0);
+    document.querySelectorAll("#expSharesCustom .amt-row-input").forEach(inp => {
+      inp.placeholder = tax > 0 ? "未稅金額" : "0";
+    });
     const rows = readAmountRows("expSharesCustom");
     const sumBase = rows.reduce((s,p)=>s+p.amount, 0);
     if(tax > 0){
