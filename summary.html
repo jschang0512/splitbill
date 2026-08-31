@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=574">
-<link rel="stylesheet" href="shared.css?v=574">
+<link rel="stylesheet" href="theme.css?v=588">
+<link rel="stylesheet" href="shared.css?v=588">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=574"></script>
-<script src="version.js?v=574"></script>
-<script src="sb-shared.js?v=574"></script>
-<script src="theme.js?v=574" defer></script>
-<script src="app-banner.js?v=574" defer></script>
+<script src="currencies.js?v=588"></script>
+<script src="version.js?v=588"></script>
+<script src="sb-shared.js?v=588"></script>
+<script src="theme.js?v=588" defer></script>
+<script src="app-banner.js?v=588" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -207,6 +207,7 @@ if("serviceWorker" in navigator){
         <span class="quick-exp-modal-title-icon">⚡</span>
         <span class="quick-exp-modal-title-text">快速記帳</span>
       </div>
+      <button type="button" class="btn-ai-receipt quick-exp-ai-receipt-btn" id="quickExpAiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 AI照片自動拆單</button>
       <button type="button" class="calc-close" id="quickExpenseCloseBtn" aria-label="關閉">✕</button>
     </div>
 
@@ -1404,6 +1405,17 @@ renderNavLinks();
     const dateInput = document.getElementById("quickExpDate");
     const submitBtn = document.getElementById("quickExpSubmitBtn");
     const msgEl = document.getElementById("quickExpMsg");
+    const aiReceiptBtn = document.getElementById("quickExpAiReceiptBtn");
+
+    // 快速記帳沒有另外做一套照片辨識流程（跟幣別頁「新增支出」共用同一套，
+    // 避免同樣的邏輯維護兩份）——改成直接帶著目前選好的幣別跳過去，
+    // 並自動幫忙打開那邊的「照片自動拆單」。
+    if(aiReceiptBtn){
+      aiReceiptBtn.addEventListener("click", ()=>{
+        const cur = (curSelect && curSelect.value) || "TWD";
+        location.href = `currency.html?c=${encodeURIComponent(cur)}&ai=1`;
+      });
+    }
 
     // --- 小計算機（金額/稅額/共同品項總價欄位共用）---
     const calcModal = document.getElementById("calcModal");

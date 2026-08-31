@@ -96,6 +96,11 @@ body{
   color:var(--ink);
   overflow-x:hidden;
   min-height:100vh;
+  /* 手機瀏覽器往上滑動時網址列會收合/展開，畫面實際可視高度跟著變動，
+     用 100vh 算的高度沒跟上，底部固定的導覽列看起來就會跳一下、縮一
+     點；dvh 是跟著「當下真正看得到」的高度走，新瀏覽器才不會這樣。
+     舊瀏覽器不支援 dvh 會直接忽略這行，保留上面的 100vh 當退路。*/
+  min-height:100dvh;
   position:relative;
 }
 
@@ -1033,6 +1038,15 @@ button.dd-btn {
   margin-bottom:14px;
   padding-bottom:12px;
   border-bottom:1px solid var(--line);
+}
+@media (max-width:600px){
+  /* 「支出/還款紀錄」切換跟「每頁幾筆」兩邊都設了 flex-shrink:0（誰都
+     不讓），窄螢幕（例如 Galaxy Fold 5 折疊起來的封面螢幕）擠不下會直接
+     溢出、把選單擠到看不到。改成允許換行，擠不下就自動分成兩行。 */
+  .history-header-bar{
+    flex-wrap:wrap;
+    row-gap:8px;
+  }
 }
 .history-type-toggle{
   display:inline-flex;
@@ -2344,6 +2358,16 @@ button.dd-btn {
 }
 .debt-matrix .matrix-cell.has-debt:hover{ background:#F7D5DC; box-shadow:inset 0 0 0 1px #C2445F; }
 .debt-matrix .matrix-cell.has-debt:active{ transform:scale(.95); }
+/* 熱圖格子的底色/文字色是 JS 依金額比例算好直接寫 inline style，換算的
+   小字（twd-hint）本來是寫死的粉紅色，跟黃→紅漸層對不起來——改成直接
+   跟著格子本身的文字顏色走，永遠讀得清楚。 */
+.debt-matrix .matrix-cell.has-debt .twd-hint{ color:inherit; opacity:0.85; }
+.debt-matrix .matrix-cell.matrix-cell-settled{
+  cursor:pointer;
+  transition:background .15s ease, transform .1s ease;
+}
+.debt-matrix .matrix-cell.matrix-cell-settled:hover{ background:var(--line); }
+.debt-matrix .matrix-cell.matrix-cell-settled:active{ transform:scale(.95); }
 
 /* 十字高亮 (Crosshair Focus) */
 .debt-matrix tr.matrix-row-hover th.matrix-row-name{
@@ -2416,9 +2440,6 @@ button.dd-btn {
 :root[data-theme="dark"] .debt-matrix .matrix-cell.has-debt {
   background: rgba(232, 90, 126, 0.18); /* 晶透桃紅玫瑰底 */
   color: #FF85A0; /* 亮麗高辨識桃粉色 */
-}
-:root[data-theme="dark"] .debt-matrix .matrix-cell.has-debt .twd-hint {
-  color: #FFB3C2;
 }
 :root[data-theme="dark"] .debt-matrix .matrix-cell.has-debt:hover {
   background: rgba(232, 90, 126, 0.32);
@@ -6759,31 +6780,9 @@ input#aiExpenseTime {
 
 /* ============================================================
    視覺升級：債務關係表熱力層次 (Matrix Heat Map Intensity)
+   改成 JS 依金額比例算出黃→紅連續漸層，用 inline style 直接蓋掉下面
+   .has-debt 的預設色，這裡不用再放固定檔位的顏色規則。
    ============================================================ */
-.matrix-cell.has-debt.debt-low{
-  background:color-mix(in srgb, var(--accent) 12%, var(--card)) !important;
-}
-.matrix-cell.has-debt.debt-med{
-  background:color-mix(in srgb, var(--accent) 22%, var(--card)) !important;
-  font-weight:700;
-}
-.matrix-cell.has-debt.debt-high{
-  background:color-mix(in srgb, var(--accent) 36%, var(--card)) !important;
-  font-weight:700;
-  color:var(--accent-text);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-:root[data-theme="dark"] .matrix-cell.has-debt.debt-low{
-  background:rgba(232, 90, 126, 0.12) !important;
-}
-:root[data-theme="dark"] .matrix-cell.has-debt.debt-med{
-  background:rgba(232, 90, 126, 0.22) !important;
-}
-:root[data-theme="dark"] .matrix-cell.has-debt.debt-high{
-  background:rgba(232, 90, 126, 0.36) !important;
-  color:#FF94AC !important;
-  box-shadow:inset 0 0 0 1px rgba(255, 148, 172, 0.35);
-}
 
 /* ============================================================
    視覺升級：動態金流傳送條 (Dynamic Flow Header in Pair Detail)
@@ -7759,6 +7758,15 @@ input#aiExpenseTime {
   font-size: 16px;
   font-weight: 700;
   color: var(--ink);
+  flex-shrink: 0;
+}
+#quickExpenseModal .calc-header{
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.quick-exp-ai-receipt-btn{
+  padding: 5px 12px;
+  font-size: 11.5px;
 }
 .quick-exp-modal-body {
   overflow-y: auto;

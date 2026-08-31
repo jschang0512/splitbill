@@ -23,10 +23,10 @@
 <meta name="theme-color" content="#7A6B9E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=574">
-<link rel="stylesheet" href="shared.css?v=574">
-<script src="version.js?v=574"></script>
-<script src="theme.js" defer></script>
+<link rel="stylesheet" href="theme.css?v=588">
+<link rel="stylesheet" href="shared.css?v=588">
+<script src="version.js?v=588"></script>
+<script src="theme.js?v=588" defer></script>
 <script src="app-banner.js" defer></script>
 </head>
 <body>
@@ -52,7 +52,7 @@
   </div>
 
   <div class="card legal-card">
-    <div class="legal-updated">最後更新：2026 年 8 月 30 日</div>
+    <div class="legal-updated">最後更新：2026 年 8 月 31 日</div>
 
     <p>Splitbill（分帳系統）是一套專為朋友、旅遊夥伴或小群體記帳、分攤共同開銷所設計之工具。本文件詳細說明在使用本服務（包含 Web 網頁版、PWA 與 Android App 原生應用程式）時，我們如何收集、使用、保護及共享相關資料。</p>
 
@@ -61,6 +61,7 @@
       <li><b>帳號與個人檔案：</b>顯示名稱、個人大頭貼圖片、電子信箱（選填）、密碼（由 Supabase 加密儲存，無明文存取），或透過 Google／Discord 快速登入時取得之帳號識別碼、信箱與顯示名稱。</li>
       <li><b>記帳與分攤紀錄：</b>群組內新增之支出項目、金額、幣別、消費日期、代付人與分攤成員名單，以及還款與結清紀錄。</li>
       <li><b>發票與收據影像（選用）：</b>當你使用「📷 AI 拍照自動拆單」功能時，當次拍攝或選取之收據發票圖片僅於記憶體中進行影像前處理與單次辨識，絕不留存、亦不任意公開或用於模型訓練。</li>
+      <li><b>定位資訊（選用）：</b>開啟「總覽」頁或「快速記帳」時，若瀏覽器/裝置允許定位，系統會自動取得一次性地理座標，透過第三方地圖服務（OpenStreetMap Nominatim）反查所在國家與城市，藉此推薦適合的記帳幣別、或在您移動到不同國家時提醒您。座標本身不會回傳或保存於我方伺服器，僅將反查後的國家代碼與城市名稱存放於裝置本機（localStorage）。</li>
       <li><b>群組留言與互動：</b>於「群組留言板」發布之內容僅限同一群組之成員可見。</li>
       <li><b>通知推播識別碼：</b>若開啟即時推播，系統會儲存瀏覽器 Web Push 或 Android Firebase Cloud Messaging (FCM) 提供之加密 Token，僅在群組帳務異動時發送通知。</li>
       <li><b>裝置本機偏好：</b>深色/淺色主題模式、當前幣別顯示設定等，僅儲存於使用者裝置本機（localStorage），不上傳伺服器。</li>
@@ -70,7 +71,7 @@
     <p>我們的 Android 原生 App 僅向系統請求最基礎且必要之權限：</p>
     <ul>
       <li><b>相機與相片選取（CAMERA / Photo Picker）：</b>僅在主動點擊「📷 拍照自動拆單」或「上傳/裁切大頭貼」時請求授權，用於拍攝收據或選取頭像。</li>
-      <li><b>地理位置權限（LOCATION / GPS）：</b>僅在使用者於記帳時主動點擊「📍 智慧定位」按鈕時請求單次授權，用於反查當前消費之商圈/地標地名，絕不在背景追蹤。</li>
+      <li><b>地理位置權限（LOCATION / GPS）：</b>開啟「總覽」頁或「快速記帳」時會自動請求一次性定位（非持續背景追蹤，也不會在您不使用本服務時定位），用於偵測所在國家/城市藉此推薦適合的記帳幣別。</li>
       <li><b>檔案快取與原生分享（Filesystem / Share）：</b>用於將產生的對帳單與結算圖片暫存至應用程式快取並調用系統原生分享面板發送至 LINE、社群軟體。</li>
       <li><b>網路連線（INTERNET）：</b>用於載入最新畫面及與 Supabase 雲端資料庫同步帳務。</li>
       <li><b>通知與震動（POST_NOTIFICATIONS / VIBRATE）：</b>用於接收即時帳務更動與還款推播。</li>
@@ -85,13 +86,14 @@
     </ul>
 
     <h3>資料儲存與安全防護</h3>
-    <p>所有帳務資料均儲存於 Supabase 企業級雲端資料庫，並由資料庫層級權限規則（Row Level Security, RLS）嚴格保護，確保僅具備群組授權之成員可存取該群組帳目，群組間彼此完全隔離。</p>
+    <p>所有帳務資料均儲存於 Supabase 企業級雲端資料庫，並由資料庫層級權限規則（Row Level Security, RLS）嚴格保護，確保僅具備群組授權之成員可存取該群組帳目，群組間彼此完全隔離。若同一帳號同時加入多個群組，各群組之帳務資料仍分別獨立儲存與保護，切換群組不會使不同群組間的資料互相顯示或混用。</p>
 
     <h3>第三方服務整合</h3>
     <ul>
       <li><b>Supabase：</b>提供帳號身份驗證、雲端資料庫與後端安全授權機制。</li>
       <li><b>Google Firebase (FCM)：</b>Android 原生背景推播服務。</li>
       <li><b>多模態 AI 視覺模型端點（Google Gemini / OpenRouter 等）：</b>用於發票收據文字與結構化金額解析。</li>
+      <li><b>OpenStreetMap Nominatim：</b>用於將定位座標反查為國家/城市名稱，藉此推薦記帳幣別，僅傳送座標、不含帳號或個人識別資訊。</li>
       <li><b>Google / Discord OAuth：</b>提供便捷安全之第三方單一登入（SSO）。</li>
       <li><b>Cloudflare Turnstile：</b>登入防護與防止惡意機器人濫用。</li>
     </ul>

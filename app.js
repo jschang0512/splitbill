@@ -563,7 +563,11 @@
       if(typeof hidePwaSplash === "function") hidePwaSplash();
       appScreen.classList.add("sb-fade-in");
       requestAnimationFrame(()=>{
-        // 讓 PWA 主畫面捷徑可以直接跳到指定分頁（?tab=expense 之類的）
+        // ?ai=1（從「快速記帳」跳過來要直接開照片拆單）這裡先不處理——
+        // aiReceiptBtn 的點擊事件要等 setupAiReceiptModal() 跑過才會綁上
+        // 去，這裡（onLoggedIn 剛開始、還在 await loadMembers() 之前）綁
+        // 定根本還沒生效，點了也沒反應。改到 setupAiReceiptModal() 之後
+        // 處理，詳見下面。
         const requestedTab = new URLSearchParams(location.search).get("tab");
         const tabBtn = requestedTab && document.querySelector(`.app-tab[data-tab="${requestedTab}"]`);
         if(tabBtn) tabBtn.click();
@@ -698,6 +702,14 @@
     setupAiReceiptModal();
     fetchSystemGeminiApiKey();
 
+    // 從總表頁「快速記帳」按了「改用照片自動拆單」跳過來的（?ai=1），
+    // 直接開拍照拆單看板本身——一定要放在 setupAiReceiptModal() 之後，
+    // 那個按鈕的點擊事件是在裡面才綁上去的，太早點沒有用。
+    if(new URLSearchParams(location.search).get("ai") === "1"){
+      const aiBtn = document.getElementById("aiReceiptBtn");
+      if(aiBtn) aiBtn.click();
+    }
+
     const expDateInp = document.getElementById("expDate");
     if(expDateInp) expDateInp.value = new Date().toISOString().slice(0,10);
 
@@ -724,6 +736,13 @@
     await refreshExpenses();
     subscribeRealtime();
     ensurePushSubscribed();
+
+    // 債務關係表熱圖的顏色是算好直接寫進 inline style，不是純 CSS 變數，
+    // 使用者切換深淺模式時 theme.js 會發這個事件，這裡收到後用現有快取
+    // 的資料重畫一次（不用重打 API），顏色才會馬上跟著換。
+    window.addEventListener("splitbill-theme-change", ()=>{
+      if(cachedExpenses && cachedRepayments) renderDebtMatrix(cachedExpenses, cachedRepayments);
+    });
 
     // 處理從外幣「以臺幣結算」跳轉過來的自動填寫
     const urlParams = new URLSearchParams(location.search);
@@ -4170,6 +4189,28 @@ function renderDebtMatrix(
       m => m.id
     );
 
+  // 熱圖用：找出整張表裡金額最大的一格，其他格子的顏色都相對這個最大值
+  // 算比例，才能做出「越紅欠越多」這種連續漸層，而不是只有幾檔固定深淺。
+  let maxDebtAmount = 0;
+  ids.forEach(c => {
+    ids.forEach(d => {
+      if(c === d) return;
+      const amt = (owed[c] && owed[c][d]) || 0;
+      if(amt > maxDebtAmount) maxDebtAmount = amt;
+    });
+  });
+  // 單一玫瑰紅色系（跟 app 其他地方「欠款=紅/粉紅」的既定配色語言一致，
+  // 例如 balance-chip.is-owe、刪除按鈕 hover），只用深淺表示金額比例，不
+  // 摻黃色。文字不跟著底色深淺算同一色相，統一用白字或深紅字兩檔，跟
+  // 色塊深淺分開處理，數字才會一直清楚。參數算法抽到 debtHeatParams()，
+  // 跟匯出圖片（renderSettlementImageCanvas）共用同一份，兩邊顏色才會
+  // 永遠對得起來。
+  function debtHeatStyle(amount){
+    const p = debtHeatParams(amount, maxDebtAmount, isSettlementDarkTheme());
+    const bg = `color-mix(in srgb, hsl(${p.hue}, 82%, ${p.bgLightness}%) ${p.bgPct.toFixed(0)}%, var(--card))`;
+    return `background:${bg};color:${p.fg};font-weight:${p.fontWeight};`;
+  }
+
 
   // ----------------------------------------------------------
   // 表頭
@@ -4272,10 +4313,10 @@ function renderDebtMatrix(
           if(amount > 0.05){
 
             rowTotal += amount;
-            const intensity = amount >= 8000 ? "debt-high" : (amount >= 2000 ? "debt-med" : "debt-low");
 
             tbody +=
-              '<td class="matrix-cell has-debt ' + intensity + '"' +
+              '<td class="matrix-cell has-debt"' +
+                ' style="' + debtHeatStyle(amount) + '"' +
                 ' data-creditor="' +
                 creditorId +
                 '"' +
@@ -4298,8 +4339,22 @@ function renderDebtMatrix(
           }
           else{
 
+            // 沒有欠款不代表這兩人之間從來沒有往來——已結清的舊紀錄還是
+            // 看得到，所以這格還是要能點開查看，只是不顯示數字而已。
             tbody +=
-              '<td class="matrix-cell"></td>';
+              '<td class="matrix-cell matrix-cell-settled"' +
+                ' data-creditor="' +
+                creditorId +
+                '"' +
+                ' data-debtor="' +
+                debtorId +
+                '"' +
+                ' title="' +
+                escapeHtml(debtorFullName) +
+                ' 與 ' +
+                escapeHtml(creditorFullName) +
+                ' 已結清"' +
+              '></td>';
 
           }
 
@@ -4458,7 +4513,7 @@ function renderDebtMatrix(
 
   table
     .querySelectorAll(
-      ".has-debt"
+      ".has-debt, .matrix-cell-settled"
     )
     .forEach(cell=>{
 
@@ -4594,6 +4649,55 @@ function isSettlementDarkTheme(){
   return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
 }
 
+// 債務關係表熱圖顏色公式：網頁版（debtHeatStyle）跟匯出圖片
+// （renderSettlementImageCanvas）共用同一份參數計算，只有輸出格式不同
+// （CSS color-mix 字串 vs. canvas 算好的 rgb() 字串），顏色才會永遠一致。
+function debtHeatParams(amount, maxDebtAmount, isDark){
+  const ratio = maxDebtAmount > 0 ? Math.min(1, amount / maxDebtAmount) : 0;
+  const hue = 345; // 玫瑰紅，跟 app 既有「欠款=紅」的色系一致
+  const bgPct = 22 + ratio * 58;
+  const bgLightness = isDark ? 42 : 55;
+  const useWhiteText = isDark || ratio > 0.35;
+  return {
+    ratio, hue, bgPct, bgLightness,
+    fg: useWhiteText ? "#FFFFFF" : "#7A1030",
+    fontWeight: ratio > 0.4 ? 700 : 600
+  };
+}
+
+// HSL → RGB（canvas fillStyle 沒辦法解析 CSS 的 var()，要跟卡片底色混合
+// 就得自己把 hsl() 換算成實際的 rgb 數字再手動內插）。
+function hslToRgb255(h, s, l){
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+// 解析 getSettlementTheme() 裡的 "#rrggbb" 或 "rgba(r,g,b,a)" 色碼，取出 rgb。
+function parseThemeColorToRgb(str){
+  if(str[0] === "#"){
+    return [parseInt(str.slice(1,3),16), parseInt(str.slice(3,5),16), parseInt(str.slice(5,7),16)];
+  }
+  const m = str.match(/rgba?\(([^)]+)\)/);
+  if(m){
+    const parts = m[1].split(",").map(s => parseFloat(s.trim()));
+    return [parts[0], parts[1], parts[2]];
+  }
+  return [0, 0, 0];
+}
+// 熱圖格子在 canvas 上要用的實際顏色：跟網頁版同一套 debtHeatParams()，
+// 只是把 color-mix() 換成手動內插出來的 rgb() 字串。cardRgbStr 對應網頁上
+// .matrix-cell 的 var(--card)，用 getSettlementTheme() 的 cellBg 當基準色。
+function debtHeatCanvasColors(amount, maxDebtAmount, isDark, cardRgbStr){
+  const p = debtHeatParams(amount, maxDebtAmount, isDark);
+  const hueRgb = hslToRgb255(p.hue, 82, p.bgLightness);
+  const cardRgb = parseThemeColorToRgb(cardRgbStr);
+  const t = p.bgPct / 100;
+  const mixed = [0,1,2].map(i => Math.round(hueRgb[i] * t + cardRgb[i] * (1 - t)));
+  return { bg: `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`, fg: p.fg, fontWeight: p.fontWeight };
+}
+
 // 這裡的顏色是直接照抄 shared.css 裡 .debt-matrix 實際在用的色碼（包含
 // 深色模式的 :root[data-theme="dark"] 覆寫），不是另外設計一套配色——
 // 使用者明確要求圖片的表格要跟網頁上長得一模一樣，所以格線有沒有、
@@ -4614,9 +4718,6 @@ function getSettlementTheme(){
     // matrix-self（自己欠自己那格）
     selfBg: "rgba(26,26,28,0.7)",
     selfText: "rgba(255,255,255,0.2)",
-    // matrix-cell.has-debt（有欠款金額的格子）
-    debtBg: "rgba(232,90,126,0.18)",
-    debtText: "#FF85A0",
     accent: "#C6B7FE",
     footerText: "#8873C2"
   } : {
@@ -4627,8 +4728,6 @@ function getSettlementTheme(){
     cellBg: "#FFFFFF",
     selfBg: "#FAF9FA",
     selfText: "rgba(122,107,158,0.35)",
-    debtBg: "#FDF0F3",
-    debtText: "#C2445F",
     accent: "#544388",
     footerText: "#726196"
   };
@@ -4644,6 +4743,17 @@ function renderSettlementImageCanvas(){
   const n = ids.length;
   const T = getSettlementTheme();
   const dark = isSettlementDarkTheme();
+
+  // 熱圖跟網頁版 debtHeatStyle 共用同一套 debtHeatParams()，這裡一樣要先
+  // 找出整張表最大的金額，顏色才會算出跟網頁上一致的比例。
+  let maxDebtAmount = 0;
+  ids.forEach(c => {
+    ids.forEach(d => {
+      if(c === d) return;
+      const amt = (owed[c] && owed[c][d]) || 0;
+      if(amt > maxDebtAmount) maxDebtAmount = amt;
+    });
+  });
 
   const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
   const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
@@ -4768,10 +4878,11 @@ function renderSettlementImageCanvas(){
       const amt = (owed[creditorId] && owed[creditorId][debtorId]) || 0;
       if(amt > 0.05){
         rowTotal += amt;
-        ctx.fillStyle = T.debtBg;
+        const heat = debtHeatCanvasColors(amt, maxDebtAmount, dark, T.cellBg);
+        ctx.fillStyle = heat.bg;
         ctx.fillRect(colX(c), y, cellColW, dataRowH);
-        ctx.fillStyle = T.debtText;
-        ctx.font = "700 11px 'JetBrains Mono', monospace";
+        ctx.fillStyle = heat.fg;
+        ctx.font = `${heat.fontWeight} 11px 'JetBrains Mono', monospace`;
         ctx.fillText(settlementCanvasTruncate(ctx, formatAmt(amt), cellColW - 10), cx, cy + 1);
       } else {
         ctx.fillStyle = T.cellBg;
@@ -5753,16 +5864,19 @@ function showPairDetail(
   // cutoffTimes：由新到舊排列的切點時間，cutoffTimes[0] 是「最近一次歸零」、
   // cutoffTimes[1] 是「再前一次歸零」……如果整段歷史從未歸零過，退回原本
   // 的預設行為：只有一個切點（第一筆事件本身），代表全部都算「最新」。
-  const cutoffIndices = (zeroIndices.length ? zeroIndices.slice().reverse() : [-1]).map(zi => {
-    let idx = zi + 1;
-    if(idx >= timelineEvents.length) idx = timelineEvents.length - 1;
-    return idx;
-  });
+  //
+  // 如果最近一次歸零剛好就是最後一筆（現在已經結清、後面沒有新動作），
+  // 不該把那筆結清事件硬留在「目前」區塊充當還沒結清的樣子——這裡改用一
+  // 個比任何真實時間都大的哨兵值當切點，讓「目前」直接淨空、改顯示已結
+  // 清；那筆結清事件連同它前面的歷史，一起收進「上一輪」可以回頭查看。
+  const FUTURE_SENTINEL = "9999-12-31T23:59:59.999Z";
+  const cutoffIndices = zeroIndices.length ? zeroIndices.slice().reverse().map(zi => zi + 1) : [0];
   const cutoffTimes = [];
   cutoffIndices.forEach(idx => {
-    const ev = timelineEvents[idx];
-    if(!ev) return;
-    const t = ev.createdAt || (ev.date ? ev.date + "T00:00:00.000Z" : "");
+    const t = idx >= timelineEvents.length
+      ? FUTURE_SENTINEL
+      : (timelineEvents[idx] ? (timelineEvents[idx].createdAt || (timelineEvents[idx].date ? timelineEvents[idx].date + "T00:00:00.000Z" : "")) : null);
+    if(t === null) return;
     if(cutoffTimes[cutoffTimes.length - 1] !== t) cutoffTimes.push(t);
   });
 
@@ -5794,6 +5908,10 @@ function showPairDetail(
   const totalCyclePages = historicalCycles.length;
   if(olderCyclePage > totalCyclePages) olderCyclePage = totalCyclePages;
   const olderEvents = olderCyclePage > 0 ? historicalCycles[olderCyclePage - 1] : [];
+  // 畫面上顯示的輪數跟內部索引方向相反：內部 olderCyclePage=1 是「離現在
+  // 最近的一輪」，但使用者往前（上一輪）翻應該要看到數字愈翻愈小，翻到
+  // 最早那一輪剛好是「第 1 輪」，所以顯示用的輪數要反過來算。
+  const displayRound = olderCyclePage > 0 ? (totalCyclePages - olderCyclePage + 1) : 0;
 
   // ==========================================================
   // 建立詳細紀錄
@@ -5951,10 +6069,7 @@ function showPairDetail(
       <div class="debt-empty-state">
         <div class="debt-empty-icon">📜</div>
         <div class="debt-empty-title">
-          正在查看第 ${olderCyclePage} / ${totalCyclePages} 輪已結清的舊紀錄
-        </div>
-        <div class="debt-empty-text">
-          往下捲可以看這一輪的明細，按「下一輪」可以回到目前這一輪。
+          正在查看第 ${displayRound} / ${totalCyclePages} 輪已結清的舊紀錄
         </div>
       </div>
     `;
@@ -5986,9 +6101,6 @@ function showPairDetail(
             </div>
           </div>
         </div>
-        <div class="debt-empty-title" style="margin-top:14px;">
-          目前沒有往來紀錄
-        </div>
       </div>
     `;
   }
@@ -6013,7 +6125,7 @@ function showPairDetail(
         ` : ""}
         <div class="pagination">
           <button type="button" class="btn secondary small pagination-prev" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>← 上一輪</button>
-          <span class="pagination-info">${olderCyclePage > 0 ? `第 ${olderCyclePage} / ${totalCyclePages} 輪` : `共 ${totalCyclePages} 輪已結清`}</span>
+          <span class="pagination-info">${olderCyclePage > 0 ? `第 ${displayRound} / ${totalCyclePages} 輪` : `共 ${totalCyclePages} 輪已結清`}</span>
           <button type="button" class="btn secondary small pagination-next" id="matrixCycleNextBtn" ${olderCyclePage <= 0 ? "disabled" : ""}>下一輪 →</button>
         </div>
       </div>

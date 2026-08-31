@@ -29,6 +29,10 @@
       document.documentElement.setAttribute("data-theme", current);
       btn.textContent = current === "dark" ? "☀️" : "🌙";
       try{ localStorage.setItem(KEY, current); }catch(e){}
+      // 債務關係表熱圖的顏色是算好直接寫進 inline style 的，不是純 CSS
+      // 變數，切換深淺模式不會自動跟著換，這裡另外發一個事件讓 app.js
+      // 有機會重畫一次。
+      window.dispatchEvent(new CustomEvent("splitbill-theme-change", { detail: { theme: current } }));
     });
     document.body.appendChild(btn);
   }
