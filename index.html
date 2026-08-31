@@ -99,15 +99,15 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=610">
-<link rel="stylesheet" href="shared.css?v=610">
+<link rel="stylesheet" href="theme.css?v=612">
+<link rel="stylesheet" href="shared.css?v=612">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="currencies.js?v=610"></script>
-<script src="version.js?v=610"></script>
-<script src="shared-ui.js?v=610"></script>
-<script src="theme.js?v=610" defer></script>
-<script src="app-banner.js?v=610" defer></script>
+<script src="currencies.js?v=612"></script>
+<script src="version.js?v=612"></script>
+<script src="shared-ui.js?v=612"></script>
+<script src="theme.js?v=612" defer></script>
+<script src="app-banner.js?v=612" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -219,8 +219,8 @@ if("serviceWorker" in navigator){
       <div id="newAuthPane">
         <label id="authEmailLabel">帳戶名稱或電子信箱</label>
         <input type="text" id="authEmail" placeholder="使用者名稱或 you@gmail.com">
-        <label id="authNameLabel" class="hidden">姓名</label>
-        <input type="text" id="authName" class="hidden" placeholder="之後在各群組預設用這個名字">
+        <label id="authNameLabel" class="hidden">全域使用者名稱</label>
+        <input type="text" id="authName" class="hidden" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
         <label>密碼</label>
         <div class="pw-input-wrap">
           <input type="password" id="authPassword" placeholder="至少 6 碼">
@@ -330,8 +330,8 @@ if("serviceWorker" in navigator){
       <h2>👋 建立新帳號</h2>
       <p class="settings-hint">你正在用 <b id="oauthConfirmEmail"></b> 建立一個全新的 Splitbill 帳號。</p>
       <p class="settings-hint">⚠️ 如果你已經有 Splitbill 帳號，進入這個畫面代表你還沒連結這個 Google/Discord 帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個 Google/Discord 帳號連結上去。</p>
-      <label>姓名</label>
-      <input type="text" id="oauthConfirmName" placeholder="之後在各群組預設用這個名字">
+      <label>全域使用者名稱</label>
+      <input type="text" id="oauthConfirmName" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
       <label>設定一組密碼（以後也可以直接用密碼登入）</label>
       <div class="pw-input-wrap">
         <input type="password" id="oauthConfirmPassword" placeholder="至少 6 碼">
@@ -701,6 +701,35 @@ function removeFlashGuard(){
   // 所以要先存進 localStorage，回來後再讀出來用，用完就清掉。
   const PENDING_NAME_KEY = "splitbill-pending-member-name";
   let pendingMemberName = localStorage.getItem(PENDING_NAME_KEY) || "";
+  // 「姓名」欄位其實就是全域使用者名稱，格式要求要跟資料庫 usernames 表
+  // 那條 check constraint、settings.html 那邊保持一致。
+  const USERNAME_FORMAT_RE = /^[A-Za-z0-9_一-龥]{2,20}$/;
+  // 真正把這個名字寫進 usernames 表（全站唯一），要在確定有 session 之後
+  // 才能呼叫（RLS 限制只能寫自己那筆）。放在「加入/建立群組」按鈕按下去
+  // 的當下才呼叫，因為不管是密碼註冊、email 確認信、還是 OAuth 建立新
+  // 帳號，最後都會走到這裡，是唯一保證這時候已經登入的共同點。如果撞到
+  // 別人已經用過的名稱，回傳 false，呼叫端要擋下來、不要繼續加入/建立
+  // 群組（不然 members.name 会被 trigger 強制對齊 usernames，兩邊卻沒有
+  // 真的寫入成功，變成邏輯上兜不起來）。
+  async function ensureUsername(name, msgEl){
+    // 已經有全域使用者名稱的人（例如原本的帳號，只是離開所有群組後要
+    // 重新加入/建立一個新的）不用再處理——這時候 pendingMemberName 很
+    // 可能是空的或已經過期，不該拿它跟既有的使用者名稱比對格式/擋下來，
+    // 交給資料庫的 trigger 對齊 members.name 就好。
+    const { data: existing } = await sb.from("usernames").select("username").eq("user_id", currentUser.id).maybeSingle();
+    if(existing && existing.username) return true;
+    if(!USERNAME_FORMAT_RE.test(name || "")){
+      msgEl.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+      msgEl.className = "msg error";
+      return false;
+    }
+    const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: name });
+    if(error){
+      if(error.code === "23505"){ msgEl.textContent = "這個名稱已經有人用了，請改用其他名稱"; msgEl.className = "msg error"; return false; }
+      msgEl.textContent = "更新失敗：" + error.message; msgEl.className = "msg error"; return false;
+    }
+    return true;
+  }
   const authModeSigninBtn = document.getElementById("authModeSigninBtn");
   const authModeSignupBtn = document.getElementById("authModeSignupBtn");
   function setAuthMode(mode){
@@ -771,13 +800,23 @@ function removeFlashGuard(){
       if(authMode === "signup"){
         const email = identifier; // 註冊一定要真的信箱，不走使用者名稱解析
         const name = document.getElementById("authName").value.trim();
-        if(!name){ msg.textContent = "請輸入姓名"; msg.className = "msg error"; return; }
+        if(!USERNAME_FORMAT_RE.test(name)){
+          msg.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+          msg.className = "msg error";
+          return;
+        }
         if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
         const passwordConfirm = document.getElementById("authPasswordConfirm").value;
         if(password !== passwordConfirm){ msg.textContent = "兩次密碼輸入不一致"; msg.className = "msg error"; return; }
         localStorage.setItem(PENDING_NAME_KEY, name);
         msg.textContent = "註冊中…"; msg.className = "msg";
-        const { data, error } = await sb.auth.signUp({ email, password, options: { captchaToken: turnstileToken } });
+        // 明確算好、傳自己這個路徑當確認信連結的目的地，不要依賴 Supabase
+        // 後台「Site URL」那個預設值——之前就出過這個預設值沒指到
+        // /splitbill/ 這個子路徑，導致確認信連結跳轉錯地方的問題，
+        // 跟忘記密碼（下面 resetPasswordForEmail）用同一套做法才不會兩邊
+        // 又走岔開。
+        const emailRedirectTo = new URL("index.html", location.href).href;
+        const { data, error } = await sb.auth.signUp({ email, password, options: { captchaToken: turnstileToken, emailRedirectTo } });
         resetTurnstile();
         if(error){ msg.textContent = friendlyAuthErr(error) || ("註冊失敗：" + error.message); msg.className = "msg error"; return; }
         if(!data.session){
@@ -855,7 +894,11 @@ function removeFlashGuard(){
       const name = document.getElementById("oauthConfirmName").value.trim();
       const password = document.getElementById("oauthConfirmPassword").value;
       const passwordConfirm = document.getElementById("oauthConfirmPasswordConfirm").value;
-      if(!name){ msg.textContent = "請輸入姓名"; msg.className = "msg error"; return; }
+      if(!USERNAME_FORMAT_RE.test(name)){
+        msg.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+        msg.className = "msg error";
+        return;
+      }
       if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
       if(password !== passwordConfirm){ msg.textContent = "兩次密碼輸入不一致"; msg.className = "msg error"; return; }
       msg.textContent = "設定中…"; msg.className = "msg";
@@ -907,6 +950,7 @@ function removeFlashGuard(){
       const msg = document.getElementById("joinGroupMsg");
       if(!code){ msg.textContent = "請填寫邀請碼"; msg.className = "msg error"; return; }
       msg.textContent = "加入中…"; msg.className = "msg";
+      if(!(await ensureUsername(pendingMemberName, msg))) return;
       const { error } = await sb.rpc("join_group", { p_invite_code: code, p_member_name: pendingMemberName });
       if(error){ msg.textContent = "加入失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
       localStorage.removeItem(PENDING_NAME_KEY);
@@ -923,6 +967,7 @@ function removeFlashGuard(){
       const msg = document.getElementById("createGroupMsg");
       if(!groupName || !code){ msg.textContent = "請填寫所有欄位"; msg.className = "msg error"; return; }
       msg.textContent = "建立中…"; msg.className = "msg";
+      if(!(await ensureUsername(pendingMemberName, msg))) return;
       const { error } = await sb.rpc("create_group", { p_group_name: groupName, p_member_name: pendingMemberName, p_creation_code: code });
       if(error){ msg.textContent = "建立失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
       localStorage.removeItem(PENDING_NAME_KEY);

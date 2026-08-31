@@ -1468,13 +1468,17 @@ button.dd-btn {
 .login-form-panel{
   position:relative;
   z-index:1;
-  flex:1;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;
   padding:24px 16px 40px;
-  min-height:100%;
+  /* 用 margin:auto 讓內容在空間夠的時候垂直置中，跟 flex 的
+     justify-content:center 效果一樣；但內容比畫面高、需要捲動時
+     （例如手機上註冊表單展開 + Turnstile 驗證框），auto margin 會自然
+     退回貼齊頂端，讓 #loginScreen 的 overflow-y:auto 捲得到最上面，
+     不會像 justify-content:center 那樣把往上溢出的部分卡在捲不到的
+     負向空間、整個看不見也滑不到。 */
+  margin:auto 0;
   width:100%;
   box-sizing:border-box;
 }
