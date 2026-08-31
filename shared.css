@@ -2254,6 +2254,7 @@ button.dd-btn {
   font-size:16px;
   cursor:pointer;
   backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
 }
 .theme-toggle:hover{ background:rgba(0,0,0,0.1); }
 :root[data-theme="dark"] .theme-toggle{
@@ -6570,9 +6571,6 @@ input#aiExpenseTime {
   box-sizing: border-box !important;
   padding: 0 12px !important;
   font-size: 14px !important;
-  line-height: 40px !important;
-  display: flex !important;
-  align-items: center !important;
   border-radius: 12px !important;
   margin: 0 !important;
 }
