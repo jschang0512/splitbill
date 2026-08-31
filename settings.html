@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=605">
-<link rel="stylesheet" href="shared.css?v=605">
+<link rel="stylesheet" href="theme.css?v=606">
+<link rel="stylesheet" href="shared.css?v=606">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=605"></script>
-<script src="version.js?v=605"></script>
-<script src="shared-ui.js?v=605"></script>
-<script src="theme.js?v=605" defer></script>
-<script src="app-banner.js?v=605" defer></script>
+<script src="currencies.js?v=606"></script>
+<script src="version.js?v=606"></script>
+<script src="shared-ui.js?v=606"></script>
+<script src="theme.js?v=606" defer></script>
+<script src="app-banner.js?v=606" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -197,6 +197,14 @@ if("serviceWorker" in navigator){
           </div>
           <p class="settings-hint" id="emailStatusHint"></p>
           <div class="msg" id="emailMsg"></div>
+
+          <label>使用者名稱<button type="button" class="info-btn" data-info-for="infoUsername" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoUsername">全站通用、獨一無二，設定後登入頁就能直接打這個名稱登入，不用記信箱。可以是中文、英文、數字、底線，2~20 個字。</p>
+          <div class="settings-field-row">
+            <input type="text" id="settingsUsername" placeholder="例如 小菘、chiasung" maxlength="20">
+            <button class="btn secondary small" id="saveUsernameBtn">儲存</button>
+          </div>
+          <div class="msg" id="usernameMsg"></div>
         </div>
 
         <div class="settings-group">
@@ -1414,6 +1422,30 @@ if(backBtn){
     });
   }
 
+  // 全站通用的使用者名稱，跟信箱是兩條平行的登入路徑：登入頁「帳戶名稱
+  // 或電子信箱」那個欄位，打這裡設定的名稱一樣能登入。格式要求（中文/
+  // 英文/數字/底線，2~20 字）要跟資料庫那條 check constraint 保持一致，
+  // 不然使用者會在這裡看不出哪裡錯、直接被資料庫擋下來才看到生硬的錯誤。
+  const USERNAME_FORMAT_RE = /^[A-Za-z0-9_一-龥]{2,20}$/;
+  const saveUsernameBtn = document.getElementById("saveUsernameBtn");
+  if(saveUsernameBtn){
+    saveUsernameBtn.addEventListener("click", async ()=>{
+      const newUsername = document.getElementById("settingsUsername").value.trim();
+      const msg = document.getElementById("usernameMsg");
+      if(!USERNAME_FORMAT_RE.test(newUsername)){
+        msg.textContent = "使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+        msg.className = "msg error";
+        return;
+      }
+      const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: newUsername });
+      if(error){
+        if(error.code === "23505"){ msg.textContent = "這個使用者名稱已經有人用了，換一個試試"; msg.className = "msg error"; return; }
+        msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return;
+      }
+      msg.textContent = "使用者名稱已更新，之後登入可以直接打這個名字！"; msg.className = "msg ok";
+    });
+  }
+
   const settingsThemeBtn = document.getElementById("settingsThemeBtn");
   const themeRowIcon = document.getElementById("themeRowIcon");
   const themeRow = document.getElementById("themeRow");
@@ -1742,6 +1774,14 @@ if(backBtn){
         renderSettingsGroupSection(),
         renderLinkedIdentities(),
         updateNotifyBtnState(),
+        (async ()=>{
+          // 使用者名稱是獨立於 members 之外的全站通用資料，不會併在
+          // loadMembers() 裡，要另外查一次。
+          const usernameInp = document.getElementById("settingsUsername");
+          if(!usernameInp) return;
+          const { data } = await sb.from("usernames").select("username").eq("user_id", currentUser.id).maybeSingle();
+          usernameInp.value = (data && data.username) || "";
+        })(),
         (async ()=>{
           if(emailStatusHint){
             const { data } = await sb.auth.getUser();

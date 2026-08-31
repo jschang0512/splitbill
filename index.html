@@ -99,15 +99,15 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=605">
-<link rel="stylesheet" href="shared.css?v=605">
+<link rel="stylesheet" href="theme.css?v=606">
+<link rel="stylesheet" href="shared.css?v=606">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="currencies.js?v=605"></script>
-<script src="version.js?v=605"></script>
-<script src="shared-ui.js?v=605"></script>
-<script src="theme.js?v=605" defer></script>
-<script src="app-banner.js?v=605" defer></script>
+<script src="currencies.js?v=606"></script>
+<script src="version.js?v=606"></script>
+<script src="shared-ui.js?v=606"></script>
+<script src="theme.js?v=606" defer></script>
+<script src="app-banner.js?v=606" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -212,27 +212,9 @@ if("serviceWorker" in navigator){
     <div class="login-card">
       <div class="login-card-title">歡迎登入</div>
 
-      <div class="filter-type-toggle">
-        <button type="button" class="split-mode-btn active" data-login-mode="legacy">姓名/密碼 <span class="login-mode-hint">(美食殿堂)</span></button>
-        <button type="button" class="split-mode-btn" data-login-mode="new">帳號/密碼 <span class="login-mode-hint">(所有人)</span></button>
-      </div>
-
-      <div id="legacyLoginPane">
-        <label>選擇你的名字</label>
-        <select id="loginName"></select>
-        <label>密碼</label>
-        <div class="pw-input-wrap">
-          <input type="password" id="loginPassword" placeholder="輸入密碼">
-          <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
-        </div>
-        <button class="btn" id="loginBtn">登入</button>
-        <button type="button" class="link-btn hidden" id="forgotPwBtn">忘記密碼？</button>
-        <div class="msg" id="loginMsg"></div>
-      </div>
-
-      <div id="newAuthPane" class="hidden">
-        <label>電子信箱</label>
-        <input type="email" id="authEmail" placeholder="你的信箱">
+      <div id="newAuthPane">
+        <label id="authEmailLabel">帳戶名稱或電子信箱</label>
+        <input type="text" id="authEmail" placeholder="使用者名稱或 you@gmail.com">
         <label id="authNameLabel" class="hidden">姓名</label>
         <input type="text" id="authName" class="hidden" placeholder="之後在各群組預設用這個名字">
         <label>密碼</label>
@@ -246,8 +228,10 @@ if("serviceWorker" in navigator){
           <button type="button" class="pw-toggle-btn hidden" aria-label="顯示密碼">👁️</button>
         </div>
         <button class="btn" id="authSubmitBtn">登入</button>
-        <button type="button" class="link-btn" id="authToggleModeBtn">還沒有帳號？註冊</button>
-        <button type="button" class="link-btn" id="authForgotPwBtn">忘記密碼？</button>
+        <div class="login-links-row">
+          <button type="button" class="link-btn" id="authToggleModeBtn">還沒有帳號？註冊</button>
+          <button type="button" class="link-btn" id="authForgotPwBtn">忘記密碼？</button>
+        </div>
         <div class="msg" id="authMsg"></div>
       </div>
 
@@ -479,7 +463,7 @@ function removeFlashGuard(){
         }
       });
       if(error){
-        const msg = document.getElementById("loginMsg") || document.getElementById("authMsg");
+        const msg = document.getElementById("authMsg");
         if(msg){ msg.textContent = friendlyAuthErr(error) || error.message; msg.className = "msg error"; }
         return;
       }
@@ -645,21 +629,16 @@ function removeFlashGuard(){
   }
 
   const loginScreen = document.getElementById("loginScreen");
-  const loginNameSel = document.getElementById("loginName");
-  const loginPwInput = document.getElementById("loginPassword");
-  const loginMsg = document.getElementById("loginMsg");
 
   // ---------- 成員名單：直接從 Supabase members 表讀取，改人不用改程式碼 ----------
+  // 這裡只在登入成功之後才會呼叫（見 onLoggedIn()），登入頁本身不用先
+  // 讀取全部成員名單——以前「姓名/密碼 (美食殿堂)」那個下拉選單登入前
+  // 就要抓全部成員的姓名/信箱，等於讓 members 表對訪客也開放讀取，是
+  // 隱私風險；拿掉那個下拉選單、改用帳戶名稱登入之後就不需要了。
   let MEMBERS = [];
   // escapeHtml() / enhanceSelect() 移到全站共用的 shared-ui.js 了。
   function isRealEmail(email){
     return !!email && !email.endsWith("@splitbill.local");
-  }
-  const forgotPwBtn = document.getElementById("forgotPwBtn");
-  function updateForgotPwVisibility(){
-    if(!forgotPwBtn || !loginNameSel) return;
-    const m = MEMBERS.find(x => x.email === loginNameSel.value);
-    forgotPwBtn.classList.toggle("hidden", !(m && isRealEmail(m.email)));
   }
   async function loadMembers(){
     // 已登入時，先問清楚「目前啟用的群組是哪個」，查詢才只抓那個群組的
@@ -678,7 +657,6 @@ function removeFlashGuard(){
         memberById = {};
         myMember = null;
         memberRows = [];
-        if(loginNameSel){ loginNameSel.innerHTML = ""; enhanceSelect(loginNameSel); }
         return;
       }
       activeGroupId = gid;
@@ -698,60 +676,22 @@ function removeFlashGuard(){
     MEMBERS.forEach(m => memberById[m.id] = m.name);
     myMember = currentUser ? MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) : null;
     memberRows = MEMBERS.filter(m => !m.left_at);
-    if(loginNameSel){
-      loginNameSel.innerHTML = MEMBERS.map(m => `<option value="${escapeHtml(m.email)}">${escapeHtml(m.name)}</option>`).join("");
-      enhanceSelect(loginNameSel);
-      updateForgotPwVisibility();
-    }
-  }
-  const membersLoadedPromise = loadMembers();
-  if(loginNameSel) loginNameSel.addEventListener("change", updateForgotPwVisibility);
-
-  async function doLogin(){
-    await membersLoadedPromise;
-    const email = loginNameSel.value;
-    const password = loginPwInput.value;
-    if(!password){ loginMsg.textContent = "請輸入密碼"; loginMsg.className="msg error"; return; }
-    loginMsg.textContent = "登入中…"; loginMsg.className = "msg";
-    const { data, error } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken: turnstileToken } });
-    resetTurnstile();
-    if(error){
-      loginMsg.textContent = friendlyAuthErr(error) || "帳號或密碼不對，再試一次";
-      loginMsg.className = "msg error";
-      return;
-    }
-    loginMsg.textContent = "";
-    await onLoggedIn(data.user, true);
   }
 
-  document.getElementById("loginBtn").addEventListener("click", doLogin);
-  loginPwInput.addEventListener("keydown", (e)=>{
-    if(e.key === "Enter") doLogin();
-  });
-
-  if(forgotPwBtn){
-    forgotPwBtn.addEventListener("click", async ()=>{
-      await membersLoadedPromise;
-      const email = loginNameSel.value;
-      loginMsg.textContent = "寄送中…"; loginMsg.className = "msg";
-      const redirectTo = new URL("index.html", location.href).href;
-      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo, captchaToken: turnstileToken });
-      resetTurnstile();
-      if(error){ loginMsg.textContent = friendlyAuthErr(error) || ("寄送失敗：" + error.message); loginMsg.className = "msg error"; return; }
-      loginMsg.textContent = "已寄出重設密碼信，請去信箱收信！"; loginMsg.className = "msg ok";
-    });
+  // ---------- 帳戶名稱或電子信箱 -> 實際登入用的信箱 ----------
+  // 輸入含 @ 就直接當信箱；不含就當使用者名稱，呼叫安全的 RPC 換成信箱
+  // （這支 RPC 只回傳一個信箱字串或 null，不會把整張使用者名稱表洩漏出去）。
+  // 查不到的話回傳 null，呼叫端要注意：不能因為「查不到使用者名稱」就
+  // 顯示跟「帳號密碼登入失敗」不一樣的訊息，不然會變成可以拿來偵測
+  // 「這個使用者名稱存不存在」的側管道。
+  async function resolveLoginIdentifier(input){
+    const trimmed = (input || "").trim();
+    if(!trimmed) return null;
+    if(trimmed.includes("@")) return trimmed;
+    const { data, error } = await sb.rpc("email_for_username", { p_username: trimmed });
+    if(error) return null;
+    return data || null;
   }
-
-  // ---------- 登入模式切換（舊成員 vs 註冊/其他群組）----------
-  document.querySelectorAll('[data-login-mode]').forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      document.querySelectorAll('[data-login-mode]').forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
-      const isNew = btn.dataset.loginMode === "new";
-      document.getElementById("legacyLoginPane").classList.toggle("hidden", isNew);
-      document.getElementById("newAuthPane").classList.toggle("hidden", !isNew);
-    });
-  });
 
   // ---------- 註冊／登入其他群組 ----------
   let authMode = "signin";
@@ -773,6 +713,12 @@ function removeFlashGuard(){
       confirmInput.closest(".pw-input-wrap").querySelector(".pw-toggle-btn").classList.toggle("hidden", !isSignup);
       document.getElementById("authSubmitBtn").textContent = isSignup ? "註冊" : "登入";
       authToggleModeBtn.textContent = isSignup ? "已經有帳號？登入" : "還沒有帳號？註冊";
+      // 註冊一定要真的信箱（Supabase 建帳號本來就需要），登入才能用帳戶
+      // 名稱或信箱兩種都行，欄位標籤跟提示文字跟著模式換。
+      const emailInp = document.getElementById("authEmail");
+      document.getElementById("authEmailLabel").textContent = isSignup ? "電子信箱" : "帳戶名稱或電子信箱";
+      emailInp.type = isSignup ? "email" : "text";
+      emailInp.placeholder = isSignup ? "你的信箱" : "使用者名稱或 you@gmail.com";
       document.getElementById("authMsg").textContent = "";
     });
   }
@@ -780,10 +726,15 @@ function removeFlashGuard(){
   const authForgotPwBtn = document.getElementById("authForgotPwBtn");
   if(authForgotPwBtn){
     authForgotPwBtn.addEventListener("click", async ()=>{
-      const email = document.getElementById("authEmail").value.trim();
+      const identifier = document.getElementById("authEmail").value.trim();
       const msg = document.getElementById("authMsg");
-      if(!email){ msg.textContent = "請先輸入信箱"; msg.className = "msg error"; return; }
+      if(!identifier){ msg.textContent = "請先輸入帳戶名稱或信箱"; msg.className = "msg error"; return; }
       msg.textContent = "寄送中…"; msg.className = "msg";
+      const email = await resolveLoginIdentifier(identifier);
+      // 查不到對應信箱時，還是顯示跟寄送成功一樣的訊息（呼應 Supabase
+      // resetPasswordForEmail 本身「不管信箱存不存在都回傳成功」的防列舉
+      // 設計），不要因為改用使用者名稱查詢就多一個側管道洩漏帳號存不存在。
+      if(!email){ msg.textContent = "已寄出重設密碼信，請去信箱收信！"; msg.className = "msg ok"; return; }
       const redirectTo = new URL("index.html", location.href).href;
       const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo, captchaToken: turnstileToken });
       resetTurnstile();
@@ -801,12 +752,17 @@ function removeFlashGuard(){
   }
   if(authSubmitBtn){
     authSubmitBtn.addEventListener("click", async ()=>{
-      const email = document.getElementById("authEmail").value.trim();
+      const identifier = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
       const msg = document.getElementById("authMsg");
-      if(!email || !password){ msg.textContent = "請輸入信箱和密碼"; msg.className = "msg error"; return; }
+      if(!identifier || !password){
+        msg.textContent = authMode === "signup" ? "請輸入信箱和密碼" : "請輸入帳戶名稱/信箱和密碼";
+        msg.className = "msg error";
+        return;
+      }
 
       if(authMode === "signup"){
+        const email = identifier; // 註冊一定要真的信箱，不走使用者名稱解析
         const name = document.getElementById("authName").value.trim();
         if(!name){ msg.textContent = "請輸入姓名"; msg.className = "msg error"; return; }
         if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
@@ -832,6 +788,15 @@ function removeFlashGuard(){
         await onLoggedIn(data.user, true);
       } else {
         msg.textContent = "登入中…"; msg.className = "msg";
+        const email = await resolveLoginIdentifier(identifier);
+        // 查不到這個使用者名稱時，不要另外顯示「查無此帳號」之類的訊息，
+        // 直接跟密碼錯誤顯示同一句話——不然會變成可以拿來偵測「這個
+        // 使用者名稱存不存在」的側管道。
+        if(!email){
+          resetTurnstile();
+          msg.textContent = "帳號或密碼不對，再試一次"; msg.className = "msg error";
+          return;
+        }
         const { data, error } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken: turnstileToken } });
         resetTurnstile();
         if(error){ msg.textContent = friendlyAuthErr(error) || "帳號或密碼不對，再試一次"; msg.className = "msg error"; return; }
@@ -996,7 +961,6 @@ function removeFlashGuard(){
     localStorage.removeItem(OAUTH_FLOW_KEY);
 
     try{
-      await membersLoadedPromise;
       await loadMembers();
 
       // 這個人還沒有任何啟用中的群組（剛註冊、或還沒選群組）：

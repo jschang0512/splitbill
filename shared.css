@@ -1634,6 +1634,16 @@ button.dd-btn {
   text-align:center;
 }
 .login-card .link-btn:hover{ color:var(--ink); }
+.login-card .login-links-row{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  margin-top:8px;
+}
+.login-card .login-links-row .link-btn{
+  width:auto;
+  margin-top:0;
+}
 
 .login-divider{
   display:flex;
