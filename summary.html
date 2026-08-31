@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=592">
-<link rel="stylesheet" href="shared.css?v=592">
+<link rel="stylesheet" href="theme.css?v=597">
+<link rel="stylesheet" href="shared.css?v=597">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=592"></script>
-<script src="version.js?v=592"></script>
-<script src="sb-shared.js?v=592"></script>
-<script src="theme.js?v=592" defer></script>
-<script src="app-banner.js?v=592" defer></script>
+<script src="currencies.js?v=597"></script>
+<script src="version.js?v=597"></script>
+<script src="shared-ui.js?v=597"></script>
+<script src="theme.js?v=597" defer></script>
+<script src="app-banner.js?v=597" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -547,7 +547,7 @@ renderNavLinks();
   }
 
   // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()
-  // 移到全站共用的 sb-shared.js 了。登入畫面已經搬去 index.html，
+  // 移到全站共用的 shared-ui.js 了。登入畫面已經搬去 index.html，
   // 這裡只留這頁自己導向邏輯不一樣的 forceLogout()。
   async function forceLogout(){
     try{ await sb.auth.signOut(); }catch(e){}
@@ -562,7 +562,7 @@ renderNavLinks();
     location.href = "index.html";
   });
 
-  // escapeHtml() 移到全站共用的 sb-shared.js 了。
+  // escapeHtml() 移到全站共用的 shared-ui.js 了。
 
   // ---------- 群組留言：只有同一個群組的人看得到，只能刪自己寫的 ----------
   function formatFeedbackTime(iso){
@@ -713,7 +713,7 @@ renderNavLinks();
     });
   }
 
-  // showToast() 移到全站共用的 sb-shared.js 了。
+  // showToast() 移到全站共用的 shared-ui.js 了。
 
   // Web Push 公鑰（可公開，用來讓瀏覽器跟推播服務建立訂閱）
   const VAPID_PUBLIC_KEY = "BNR-GFJ6UxpQWVk6ghTFNUl9RYncDp_WX9W6XNA1vqsyWk9zQ4WC5ghAGiuBqqXQhluRiVB7KsAPGxTWNl27JW4";
@@ -2052,73 +2052,14 @@ renderNavLinks();
           msgEl.className = "msg error";
           return;
         }
-        const baseAmount = Math.max(0, subtotal - totalAddon);
-        const n = checked.length;
-        const base = Math.floor(baseAmount / n);
-        const remainder = Math.round(baseAmount - base * n);
-
-        const payerIds = new Set(payers.map(p => p.member_id));
-        const shuffle = arr => {
-          const a = arr.slice();
-          for(let i = a.length - 1; i > 0; i--){
-            const j = Math.floor(Math.random() * (i + 1));
-            [a[i], a[j]] = [a[j], a[i]];
-          }
-          return a;
-        };
-        const priority = [
-          ...shuffle(checked.filter(id => !payerIds.has(id))),
-          ...shuffle(checked.filter(id => payerIds.has(id)))
-        ];
-
-        const shareAmt = {};
-        const memberPreTax = {};
-        checked.forEach(id => { shareAmt[id] = base; memberPreTax[id] = base; });
-        priority.slice(0, remainder).forEach(id => { shareAmt[id] += 1; memberPreTax[id] += 1; });
-        checked.forEach(id => {
-          const add = addonItems[id];
-          if(add > 0){ shareAmt[id] += add; memberPreTax[id] += add; }
-        });
-
-        // 分配服務費 / 稅額
-        const memberTax = {};
-        if(taxAmt > 0){
-          if(quickTaxSplitMode === "ratio" && subtotal > 0){
-            let taxSum = 0;
-            checked.forEach(id => {
-              const rawTax = Math.round((memberPreTax[id] / subtotal) * taxAmt);
-              memberTax[id] = rawTax;
-              taxSum += rawTax;
-            });
-            const taxDiff = taxAmt - taxSum;
-            if(taxDiff !== 0 && checked.length > 0) memberTax[checked[0]] += taxDiff;
-          } else {
-            const baseTax = Math.floor(taxAmt / n);
-            const taxRem = taxAmt - (baseTax * n);
-            checked.forEach((id, idx) => { memberTax[id] = baseTax + (idx < taxRem ? 1 : 0); });
-          }
-        }
-
-        shares = checked.map(id => {
-          const baseVal = shareAmt[id];
-          const taxVal = memberTax[id] || 0;
-          const finalVal = baseVal + taxVal;
-          const add = addonItems[id] || 0;
-          let calc = "";
-          if(add > 0 && taxVal > 0) calc = `平分${baseVal - add}+自付${add}+稅額${taxVal}`;
-          else if(add > 0) calc = `平分${baseVal - add}+自付${add}`;
-          else if(taxVal > 0) calc = `平分${baseVal}+稅額${taxVal}`;
-          const obj = { member_id: id, amount: finalVal };
-          if(calc) obj.calc = calc;
-          return obj;
-        });
-
-        // 個人自付名單跟「怎麼分攤」勾選名單是分開的：有人只掛了個人加點卻
-        // 沒被勾進共同分攤時，他的加點金額還是要記進帳，不能無聲消失。
-        Object.keys(addonItems).forEach(id => {
-          if(checked.includes(id)) return;
-          const add = addonItems[id];
-          if(add > 0) shares.push({ member_id: id, amount: add, calc: `自付${add}` });
+        // 均分/自訂分攤的計算已經抽成共用的 expense-form-shared.js（ES
+        // module），跟「新增支出」完整表單共用同一套演算法，不用再各自維護一份。
+        const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
+        shares = formShared.computeEqualSplitShares({
+          subtotal, taxAmount: taxAmt, taxSplitMode: quickTaxSplitMode,
+          participantIds: checked,
+          payerIds: payers.map(p => p.member_id),
+          addonAmounts: addonItems
         });
       } else {
         const customRows = [];
@@ -2129,31 +2070,11 @@ renderNavLinks();
           });
         }
         if(!customRows.length){ msgEl.textContent = "至少需要輸入一位分攤金額"; msgEl.className = "msg error"; return; }
-        const customBaseSum = customRows.reduce((s,r)=>s+r.amount, 0);
 
-        if(taxAmt > 0){
-          const memberTax = {};
-          if(quickTaxSplitMode === "ratio" && customBaseSum > 0){
-            let taxSum = 0;
-            customRows.forEach(r => {
-              const rawTax = Math.round((r.amount / customBaseSum) * taxAmt);
-              memberTax[r.member_id] = rawTax;
-              taxSum += rawTax;
-            });
-            const taxDiff = taxAmt - taxSum;
-            if(taxDiff !== 0) memberTax[customRows[0].member_id] += taxDiff;
-          } else {
-            const baseTax = Math.floor(taxAmt / customRows.length);
-            const taxRem = taxAmt - (baseTax * customRows.length);
-            customRows.forEach((r, idx) => { memberTax[r.member_id] = baseTax + (idx < taxRem ? 1 : 0); });
-          }
-          shares = customRows.map(r => {
-            const taxVal = memberTax[r.member_id] || 0;
-            return { member_id: r.member_id, amount: r.amount + taxVal, calc: `自訂${r.amount}+稅額${taxVal}` };
-          });
-        } else {
-          shares = customRows.map(r => ({ member_id: r.member_id, amount: r.amount }));
-        }
+        // 均分/自訂分攤的計算已經抽成共用的 expense-form-shared.js（ES
+        // module），跟「新增支出」完整表單共用同一套演算法，不用再各自維護一份。
+        const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
+        shares = formShared.computeCustomSplitShares({ subtotal, taxAmount: taxAmt, taxSplitMode: quickTaxSplitMode, rows: customRows });
       }
 
       submitBtn.disabled = true;

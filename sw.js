@@ -21,7 +21,7 @@ const APP_SHELL = [
   "shared.css",
   "theme.css",
   "theme.js",
-  "sb-shared.js",
+  "shared-ui.js",
   "app-banner.js",
   "app.js",
   "version.js",

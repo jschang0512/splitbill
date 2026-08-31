@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=592">
-<link rel="stylesheet" href="shared.css?v=592">
+<link rel="stylesheet" href="theme.css?v=597">
+<link rel="stylesheet" href="shared.css?v=597">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=592"></script>
-<script src="version.js?v=592"></script>
-<script src="sb-shared.js?v=592"></script>
-<script src="theme.js?v=592" defer></script>
+<script src="currencies.js?v=597"></script>
+<script src="version.js?v=597"></script>
+<script src="shared-ui.js?v=597"></script>
+<script src="theme.js?v=597" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -262,7 +262,7 @@ if("serviceWorker" in navigator){
         <input type="text" id="expDesc" placeholder="例如 晚餐、淺草雷門 星巴克">
 
         <!-- 支出類別下拉式選單 -->
-        <label for="expCategorySelect">類別 (自動辨識 / 可手動選擇)</label>
+        <label for="expCategorySelect">類別 (自動辨識 / 可手動選擇)<span class="category-learned-hint hidden" id="expCategoryLearnedHint">🧠 已套用學習</span></label>
         <div class="select-wrap exp-category-select-wrap">
           <select id="expCategorySelect" class="exp-category-select">
             <option value="general">🧾 一般支出</option>
@@ -935,6 +935,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=592"></script>
+<script src="app.js?v=597"></script>
 </body>
 </html>

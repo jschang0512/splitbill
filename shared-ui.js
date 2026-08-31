@@ -224,8 +224,8 @@ function showToast(title, body, actionLabel, actionFn){
   function showCardForElement(targetEl){
     if(!targetEl) return;
     // 設定頁面與設定相關彈窗/編輯元件不觸發懸浮卡片
-    if(location.pathname.endsWith("settings.html") || 
-       location.href.includes("settings.html") || 
+    if(location.pathname.endsWith("settings.html") ||
+       location.href.includes("settings.html") ||
        targetEl.closest(".settings-card, #avatarCropModal, .avatar-crop-modal, .avatar-preview-wrap, .avatar-editor-modal, .profile-avatar-wrap, .member-manage-pill, .member-manage-row, .settings-section")){
       return;
     }
@@ -273,7 +273,7 @@ function showToast(title, body, actionLabel, actionFn){
       : "";
 
     const card = getCardEl();
-    const avatarHtml = imgSrc 
+    const avatarHtml = imgSrc
       ? `<img src="${imgSrc}" class="sb-afc-avatar-img" alt="${escapeHtml(displayName)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="sb-afc-avatar-initial" style="display:none;background:${initialBg};">${escapeHtml(initialChar)}</span>`
       : `<span class="sb-afc-avatar-initial" style="background:${initialBg};">${escapeHtml(initialChar)}</span>`;
 

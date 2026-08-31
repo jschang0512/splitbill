@@ -2770,24 +2770,6 @@ button.dd-btn {
 .debt-section-icon{ font-size:15px; }
 .debt-section-count{ margin-left:auto; font-size:11px; font-weight:400; color:var(--ink-soft); }
 
-.debt-advance-card{
-  border-left:4px solid var(--btn-primary);
-}
-/* 超額還款形成的虛擬欠款卡片，跟一般由支出形成的欠款卡片（左邊框用
-   --accent 主題色）區分開來，改用跟 AI 收據「未認領」同一組琥珀色，
-   代表這筆欠款不是來自支出。 */
-.debt-expense-card.virtual-debt-card{
-  border-left:4px solid #FFA726;
-}
-.badge-virtual-debt{
-  font-size:10.5px;
-  padding:1px 6px;
-  border-radius:6px;
-  background:rgba(255,167,38,0.15);
-  color:#FFA726;
-  font-weight:700;
-  margin-left:6px;
-}
 .ledger-sort-toggle-btn{
   padding:3px 9px;
   border-radius:999px;
@@ -3084,16 +3066,6 @@ button.dd-btn {
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
-}
-.debt-expense-card.is-settled-card,
-.debt-repayment-card.is-settled-card {
-  opacity: 0.72;
-  background: color-mix(in srgb, var(--input-bg) 60%, var(--paper));
-  border: 1px dashed var(--line);
-}
-.debt-expense-card.is-settled-card:hover,
-.debt-repayment-card.is-settled-card:hover {
-  opacity: 1;
 }
 .debt-cleared{
   display:flex;
@@ -4726,18 +4698,6 @@ button.dd-btn {
     padding: 6px 3px !important;
     font-size: 11px !important;
   }
-  .debt-expense-card {
-    padding: 10px !important;
-    border-radius: 12px !important;
-  }
-  .debt-expense-name {
-    font-size: 13px !important;
-  }
-  .debt-formed-amount,
-  .debt-repayment-amount {
-    font-size: 14px !important;
-  }
-
   /* 8. 金額分攤列 (Amount Share Row) */
   .amt-row-name {
     font-size: 11.5px !important;
@@ -7076,6 +7036,19 @@ input#aiExpenseTime {
 .exp-category-select-wrap{
   margin-top: 4px;
   margin-bottom: 12px;
+}
+/* 類別是套用「學過」的紀錄（不是內建字庫猜的）時，在標籤旁邊閃一個小
+   提示，讓這個功能被感知到，也方便使用者發現猜錯了要改回來。 */
+.category-learned-hint{
+  display:inline-block;
+  margin-left:6px;
+  padding:1px 7px;
+  border-radius:999px;
+  font-size:10.5px;
+  font-weight:700;
+  background:color-mix(in srgb, var(--btn-primary) 15%, transparent);
+  color:var(--btn-primary);
+  vertical-align:middle;
 }
 .exp-category-select{
   width: 100%;

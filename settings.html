@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=592">
-<link rel="stylesheet" href="shared.css?v=592">
+<link rel="stylesheet" href="theme.css?v=597">
+<link rel="stylesheet" href="shared.css?v=597">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=592"></script>
-<script src="version.js?v=592"></script>
-<script src="sb-shared.js?v=592"></script>
-<script src="theme.js?v=592" defer></script>
-<script src="app-banner.js?v=592" defer></script>
+<script src="currencies.js?v=597"></script>
+<script src="version.js?v=597"></script>
+<script src="shared-ui.js?v=597"></script>
+<script src="theme.js?v=597" defer></script>
+<script src="app-banner.js?v=597" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -573,7 +573,7 @@ if(backBtn){
   function isRealEmail(email){
     return !!email && !email.endsWith("@splitbill.local");
   }
-  // escapeHtml() / showToast() / enhanceSelect() 移到全站共用的 sb-shared.js 了。
+  // escapeHtml() / showToast() / enhanceSelect() 移到全站共用的 shared-ui.js 了。
 
   async function loadMembers(){
     let activeGroupId = null;
@@ -619,7 +619,7 @@ if(backBtn){
   }
 
   // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()
-  // 移到全站共用的 sb-shared.js 了，這裡只留這頁自己導向邏輯不一樣的 forceLogout()。
+  // 移到全站共用的 shared-ui.js 了，這裡只留這頁自己導向邏輯不一樣的 forceLogout()。
   async function forceLogout(){
     try{ await sb.auth.signOut(); }catch(e){}
     localStorage.removeItem(LOGIN_TIME_KEY);
