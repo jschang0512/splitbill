@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=598">
-<link rel="stylesheet" href="shared.css?v=598">
+<link rel="stylesheet" href="theme.css?v=602">
+<link rel="stylesheet" href="shared.css?v=602">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=598"></script>
-<script src="version.js?v=598"></script>
-<script src="shared-ui.js?v=598"></script>
-<script src="theme.js?v=598" defer></script>
-<script src="app-banner.js?v=598" defer></script>
+<script src="currencies.js?v=602"></script>
+<script src="version.js?v=602"></script>
+<script src="shared-ui.js?v=602"></script>
+<script src="theme.js?v=602" defer></script>
+<script src="app-banner.js?v=602" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -207,130 +207,156 @@ if("serviceWorker" in navigator){
         <span class="quick-exp-modal-title-icon">⚡</span>
         <span class="quick-exp-modal-title-text">快速記帳</span>
       </div>
-      <button type="button" class="btn-ai-receipt quick-exp-ai-receipt-btn" id="quickExpAiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 AI照片自動拆單</button>
       <button type="button" class="calc-close" id="quickExpenseCloseBtn" aria-label="關閉">✕</button>
     </div>
 
     <div class="quick-exp-modal-body">
 
-      <!-- 幣別智慧推薦與手動切換 -->
-      <div class="quick-field-label-row">
-        <label for="quickExpCurrencySelect">幣別</label>
-        <span class="quick-cur-auto-badge" id="quickCurAutoBadge">🌍 依時區自動推薦</span>
-      </div>
-      <div class="select-wrap">
-        <select id="quickExpCurrencySelect" class="quick-exp-currency-select"></select>
-      </div>
+      <div class="exp-form-section sec-content">
+        <div class="exp-form-section-head">
+          <span class="exp-form-section-icon">🍽️</span>
+          <span class="exp-form-section-title">支出內容</span>
+          <button type="button" class="btn-ai-receipt quick-exp-ai-receipt-btn exp-form-section-action" id="quickExpAiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 AI拆單</button>
+        </div>
 
-      <label for="quickExpDesc">項目 / 店名</label>
-      <input type="text" id="quickExpDesc" placeholder="例如 晚餐、淺草雷門 星巴克">
+        <!-- 幣別智慧推薦與手動切換 -->
+        <div class="quick-field-label-row">
+          <label for="quickExpCurrencySelect">幣別</label>
+          <span class="quick-cur-auto-badge" id="quickCurAutoBadge">🌍 依時區自動推薦</span>
+        </div>
+        <div class="select-wrap">
+          <select id="quickExpCurrencySelect" class="quick-exp-currency-select"></select>
+        </div>
 
-      <!-- 類別下拉式選單 -->
-      <label for="quickExpCategorySelect">類別 (自動辨識 / 可手動選擇)</label>
-      <div class="select-wrap exp-category-select-wrap">
-        <select id="quickExpCategorySelect" class="exp-category-select">
-          <option value="general">🧾 一般支出</option>
-          <option value="food" selected>🍜 美食餐飲</option>
-          <option value="drink">☕ 飲料甜點</option>
-          <option value="transit">🚄 大眾交通</option>
-          <option value="car">🚗 租車用油</option>
-          <option value="flight">✈️ 機票航班</option>
-          <option value="hotel">🏨 住宿溫泉</option>
-          <option value="ticket">🎟️ 門票娛樂</option>
-          <option value="shopping">🛍️ 購物藥妝</option>
-          <option value="medical">💊 醫療藥品</option>
-          <option value="network">📶 網卡通訊</option>
-        </select>
-      </div>
+        <label for="quickExpDesc">項目 / 店名</label>
+        <input type="text" id="quickExpDesc" placeholder="例如 晚餐、淺草雷門 星巴克">
 
-      <!-- 金額 -->
-      <label id="quickExpAmountLabel">支出總金額 (已含稅/免稅)</label>
-      <div class="input-calc-wrap">
-        <input type="number" id="quickExpAmount" placeholder="例如 850" min="0" step="1">
-        <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickExpAmountCalcBtn" title="小計算機">🧮</button>
-      </div>
+        <!-- 類別下拉式選單 -->
+        <label for="quickExpCategorySelect">類別 (自動辨識 / 可手動選擇)</label>
+        <div class="select-wrap exp-category-select-wrap">
+          <select id="quickExpCategorySelect" class="exp-category-select">
+            <option value="general">🧾 一般支出</option>
+            <option value="food" selected>🍜 美食餐飲</option>
+            <option value="drink">☕ 飲料甜點</option>
+            <option value="transit">🚄 大眾交通</option>
+            <option value="car">🚗 租車用油</option>
+            <option value="flight">✈️ 機票航班</option>
+            <option value="hotel">🏨 住宿溫泉</option>
+            <option value="ticket">🎟️ 門票娛樂</option>
+            <option value="shopping">🛍️ 購物藥妝</option>
+            <option value="medical">💊 醫療藥品</option>
+            <option value="network">📶 網卡通訊</option>
+          </select>
+        </div>
 
-      <!-- 服務費 / 稅：預設收合，大部分時候金額已含稅、不用理它。摘要卡片
-           故意放在收合區塊外面，即使收合起來、只要有填資料就看得到組成 -->
-      <div class="exp-lightweight-container" id="quickTaxContainer">
-        <button type="button" class="exp-lightweight-toggle" id="quickTaxToggle">
-          <span class="exp-lightweight-toggle-icon" id="quickTaxCaret">+</span>
-          <span>這筆有另外加服務費或稅嗎？</span>
-        </button>
-        <div class="exp-tax-preview hidden exp-tax-preview-box" id="quickTaxPreview"></div>
-        <div class="exp-addons-body hidden" id="quickTaxBody">
-          <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
-          <label class="exp-addon-label">服務費 / 稅額金額</label>
-          <div class="input-calc-wrap exp-addon-calc-wrap">
-            <input type="number" id="quickTaxAmount" placeholder="例如 85" min="0" step="1">
-            <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickTaxCalcBtn" title="小計算機">🧮</button>
+        <!-- 金額 -->
+        <label id="quickExpAmountLabel">支出總金額 (已含稅/免稅)</label>
+        <div class="input-calc-wrap">
+          <input type="number" id="quickExpAmount" placeholder="例如 850" min="0" step="1">
+          <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickExpAmountCalcBtn" title="小計算機">🧮</button>
+        </div>
+
+        <!-- 服務費 / 稅：預設收合，大部分時候金額已含稅、不用理它。摘要卡片
+             故意放在收合區塊外面，即使收合起來、只要有填資料就看得到組成 -->
+        <div class="exp-lightweight-container" id="quickTaxContainer">
+          <button type="button" class="exp-lightweight-toggle" id="quickTaxToggle">
+            <span class="exp-lightweight-toggle-icon" id="quickTaxCaret">+</span>
+            <span>這筆有另外加服務費或稅嗎？</span>
+          </button>
+          <div class="exp-addons-body hidden" id="quickTaxBody">
+            <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
+            <label class="exp-addon-label">服務費 / 稅額金額</label>
+            <div class="input-calc-wrap exp-addon-calc-wrap">
+              <input type="number" id="quickTaxAmount" placeholder="例如 85" min="0" step="1">
+              <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickTaxCalcBtn" title="小計算機">🧮</button>
+            </div>
+            <label class="exp-tax-label">分配方式</label>
+            <div class="ai-tax-split-toggle exp-tax-split-wrap">
+              <button type="button" class="ai-tax-btn active" data-quick-tax-mode="ratio" id="quickTaxRatioBtn">依消費比例</button>
+              <button type="button" class="ai-tax-btn" data-quick-tax-mode="equal" id="quickTaxEqualBtn">全員平分</button>
+            </div>
+            <button type="button" class="link-btn exp-lightweight-clear" id="quickTaxClearBtn">清除服務費/稅資料</button>
           </div>
-          <label class="exp-tax-label">分配方式</label>
-          <div class="ai-tax-split-toggle exp-tax-split-wrap">
-            <button type="button" class="ai-tax-btn active" data-quick-tax-mode="ratio" id="quickTaxRatioBtn">依消費比例</button>
-            <button type="button" class="ai-tax-btn" data-quick-tax-mode="equal" id="quickTaxEqualBtn">全員平分</button>
-          </div>
-          <button type="button" class="link-btn exp-lightweight-clear" id="quickTaxClearBtn">清除服務費/稅資料</button>
+          <div class="exp-tax-preview hidden exp-tax-preview-box" id="quickTaxPreview"></div>
         </div>
       </div>
 
-      <!-- 誰付的錢 -->
-      <label>
-        誰付的錢
-        <span class="split-toggle">
-          <button type="button" class="split-mode-btn active" data-quick-payer-mode="single">單人全付</button>
-          <button type="button" class="split-mode-btn" data-quick-payer-mode="multi">多人付款</button>
-        </span>
-      </label>
-      <select id="quickExpPaidBy"></select>
-      <div class="amt-grid hidden" id="quickExpPayers"></div>
-      <div class="sum-check" id="quickPayerSumCheck"></div>
-
-      <!-- 怎麼分攤 -->
-      <label>
-        怎麼分攤
-        <span class="split-toggle">
-          <button type="button" class="split-mode-btn active" data-quick-mode="equal">平均分攤</button>
-          <button type="button" class="split-mode-btn" data-quick-mode="custom">自訂金額</button>
-        </span>
-      </label>
-      <div class="checks" id="quickExpParticipants"></div>
-      <button type="button" class="link-btn" id="quickToggleAllParticipants">取消全選</button>
-
-      <!-- 個人自付/額外消費：跟上面「怎麼分攤」的勾選名單是分開的，
-           不會因為那邊勾選誰而跟著變動或消失 -->
-      <div class="exp-lightweight-container" id="quickAddonsContainer">
-        <button type="button" class="exp-lightweight-toggle" id="quickAddonsToggle">
-          <span class="exp-lightweight-toggle-icon" id="quickAddonsCaret">+</span>
-          <span>有人另外加點或自己買了什麼嗎？</span>
-        </button>
-        <div class="exp-addons-preview hidden" id="quickAddonsPreview"></div>
-        <div class="exp-addons-body hidden" id="quickAddonsBody">
-          <div class="exp-addons-hint">💡 先設定誰有個人專屬消費（如個人加點、自購用品、私人支出等），系統會自動先扣除這些金額，剩下的部分才由其餘人平分。</div>
-          <div class="exp-addons-tax-warn hidden" id="quickAddonsTaxWarn">⚠️ 這筆有加服務費/稅，下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動加算進去，不然會被多收一次。</div>
-          <div class="filter-type-toggle" id="quickAddonModeToggle">
-            <button type="button" class="split-mode-btn exp-addon-mode-btn active" data-addon-mode="custom">每人自訂金額</button>
-            <button type="button" class="split-mode-btn exp-addon-mode-btn" data-addon-mode="shared">新增共同品項</button>
-          </div>
-          <div class="amt-grid" id="quickAddonsList"></div>
-          <div class="exp-shared-addons hidden" id="quickSharedAddonsWrap">
-            <div class="exp-shared-addon-hint">💡 適合「大家一起買、但不是每個人都有份」的情況（例如點了一輪酒，有一兩位不喝）：填入品項總價，再勾選要分攤的人，系統會平分給勾到的人。</div>
-            <div id="quickSharedAddonsList"></div>
-            <button type="button" class="link-btn exp-shared-addon-add" id="quickSharedAddonAddBtn">+ 新增共同品項</button>
-          </div>
-          <button type="button" class="link-btn exp-lightweight-clear" id="quickAddonsClearBtn">清除個人自付資料</button>
+      <div class="exp-form-section sec-payer">
+        <div class="exp-form-section-head">
+          <span class="exp-form-section-icon">💰</span>
+          <span class="exp-form-section-title">誰付的錢</span>
         </div>
+
+        <label>
+          付款方式
+          <span class="split-toggle">
+            <button type="button" class="split-mode-btn active" data-quick-payer-mode="single">單人全付</button>
+            <button type="button" class="split-mode-btn" data-quick-payer-mode="multi">多人付款</button>
+          </span>
+        </label>
+        <select id="quickExpPaidBy"></select>
+        <div class="amt-grid hidden" id="quickExpPayers"></div>
+        <div class="sum-check" id="quickPayerSumCheck"></div>
       </div>
 
-      <div class="exp-addons-tax-warn hidden" id="quickSharesTaxWarn">⚠️ 這筆有加服務費/稅，下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動加算進去，不然會被多收一次。</div>
-      <div class="amt-grid hidden" id="quickSharesCustom"></div>
-      <div class="sum-check" id="quickShareSumCheck"></div>
+      <div class="exp-form-section sec-split">
+        <div class="exp-form-section-head">
+          <span class="exp-form-section-icon">🤝</span>
+          <span class="exp-form-section-title">怎麼分攤</span>
+        </div>
 
-      <label>備註（選填）</label>
-      <textarea id="quickExpNote" placeholder="例如 金額+匯率、備註說明" rows="2" style="resize:vertical;"></textarea>
+        <label>
+          分攤方式
+          <span class="split-toggle">
+            <button type="button" class="split-mode-btn active" data-quick-mode="equal">平均分攤</button>
+            <button type="button" class="split-mode-btn" data-quick-mode="custom">自訂金額</button>
+          </span>
+        </label>
+        <div class="checks" id="quickExpParticipants"></div>
+        <button type="button" class="link-btn" id="quickToggleAllParticipants">取消全選</button>
 
-      <label>日期</label>
-      <input type="date" id="quickExpDate" lang="en-CA">
+        <!-- 個人自付/額外消費：跟上面「怎麼分攤」的勾選名單是分開的，
+             不會因為那邊勾選誰而跟著變動或消失 -->
+        <div class="exp-lightweight-container" id="quickAddonsContainer">
+          <button type="button" class="exp-lightweight-toggle" id="quickAddonsToggle">
+            <span class="exp-lightweight-toggle-icon" id="quickAddonsCaret">+</span>
+            <span>有人另外加點或自己買了什麼嗎？</span>
+          </button>
+          <div class="exp-addons-body hidden" id="quickAddonsBody">
+            <div class="exp-addons-hint">💡 先設定誰有個人專屬消費（如個人加點、自購用品、私人支出等），系統會自動先扣除這些金額，剩下的部分才由其餘人平分。</div>
+            <div class="exp-addons-tax-warn hidden" id="quickAddonsTaxWarn">⚠️ 下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動計算。</div>
+            <div class="filter-type-toggle" id="quickAddonModeToggle">
+              <button type="button" class="split-mode-btn exp-addon-mode-btn active" data-addon-mode="custom">每人自訂金額</button>
+              <button type="button" class="split-mode-btn exp-addon-mode-btn" data-addon-mode="shared">新增共同品項</button>
+            </div>
+            <div class="amt-grid" id="quickAddonsList"></div>
+            <div class="exp-shared-addons hidden" id="quickSharedAddonsWrap">
+              <div class="exp-shared-addon-hint">💡 適合「大家一起買、但不是每個人都有份」的情況（例如點了一輪酒，有一兩位不喝）：填入品項總價，再勾選要分攤的人，系統會平分給勾到的人。</div>
+              <div id="quickSharedAddonsList"></div>
+              <button type="button" class="link-btn exp-shared-addon-add" id="quickSharedAddonAddBtn">+ 新增共同品項</button>
+            </div>
+            <button type="button" class="link-btn exp-lightweight-clear" id="quickAddonsClearBtn">清除個人自付資料</button>
+          </div>
+          <div class="exp-addons-preview hidden" id="quickAddonsPreview"></div>
+        </div>
+
+        <div class="exp-addons-tax-warn hidden" id="quickSharesTaxWarn">⚠️ 下面請填「未稅」金額——服務費/稅會由系統依你選的方式自動計算。</div>
+        <div class="amt-grid hidden" id="quickSharesCustom"></div>
+        <div class="sum-check" id="quickShareSumCheck"></div>
+      </div>
+
+      <div class="exp-form-section sec-note">
+        <div class="exp-form-section-head">
+          <span class="exp-form-section-icon">🗒️</span>
+          <span class="exp-form-section-title">備註與日期</span>
+        </div>
+
+        <label>備註（選填）</label>
+        <textarea id="quickExpNote" placeholder="例如 金額+匯率、備註說明" rows="2" style="resize:vertical;"></textarea>
+
+        <label>日期</label>
+        <input type="date" id="quickExpDate" lang="en-CA">
+      </div>
 
       <div class="msg" id="quickExpMsg"></div>
 

@@ -3474,6 +3474,56 @@ button.dd-btn {
   margin-top:10px;
   margin-bottom:14px;
 }
+
+/* ============================================================
+   新增支出／快速記帳表單分區卡片：把「支出內容／誰付的錢／怎麼分攤／
+   備註與日期」拆成四個各自獨立的區塊，取代原本從上到下一路排下來、
+   只靠 label 粗體字區分的長表單。每一塊用色只是分區提示，沿用既有的
+   強調色 token（--accent-text/--positive-text/--btn-primary/--ink-soft），
+   不用另外定義新顏色，深色模式自動跟著換。
+   ============================================================ */
+.exp-form-section{
+  border-radius:16px;
+  padding:14px 14px 16px;
+  margin-bottom:14px;
+  background:var(--paper);
+  border:1px solid var(--card-nested-border);
+  box-shadow:var(--card-nested-shadow);
+}
+.exp-form-section:last-child{ margin-bottom:0; }
+.exp-form-section-head{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin-bottom:2px;
+}
+.exp-form-section-icon{
+  width:28px;
+  height:28px;
+  border-radius:9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  flex-shrink:0;
+  background:color-mix(in srgb, currentColor 16%, var(--card));
+}
+.exp-form-section-title{
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.01em;
+  color:var(--ink);
+  flex:1;
+  min-width:0;
+}
+.exp-form-section-action{
+  flex-shrink:0;
+}
+.exp-form-section.sec-content .exp-form-section-icon{ color:var(--accent-text); }
+.exp-form-section.sec-payer .exp-form-section-icon{ color:var(--positive-text); }
+.exp-form-section.sec-split .exp-form-section-icon{ color:var(--btn-primary); }
+.exp-form-section.sec-note .exp-form-section-icon{ color:var(--ink-soft); }
+.exp-form-section label:first-of-type{ margin-top:8px; }
 .exp-lightweight-toggle{
   display:inline-flex;
   align-items:center;
