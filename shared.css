@@ -2951,24 +2951,103 @@ button.dd-btn {
   transform:scale(.95);
 }
 
-/* 往來紀錄時間軸流向指示列 */
-.ledger-timeline-direction-bar{
+/* 往來紀錄分頁切換器（進行中 vs 歷史結清存檔） */
+.debt-cycle-tabs{
+  display:flex;
+  gap:6px;
+  margin-bottom:12px;
+  background:var(--input-bg);
+  padding:4px;
+  border-radius:12px;
+  border:1px solid var(--line);
+}
+.debt-cycle-tab{
+  flex:1;
+  border:none;
+  background:transparent;
+  color:var(--ink-soft);
+  font-size:12px;
+  font-weight:700;
+  padding:8px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:all .15s ease;
+  font-family:inherit;
+}
+.debt-cycle-tab:hover{
+  color:var(--ink);
+}
+.debt-cycle-tab.active{
+  background:var(--paper);
+  color:var(--btn-primary);
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* 歷史存檔翻頁步進卡片 */
+.debt-archive-stepper-card{
   display:flex;
   align-items:center;
-  gap:8px;
-  margin:-4px 0 14px;
-  padding:6px 12px;
-  border-radius:10px;
+  justify-content:space-between;
+  padding:10px 14px;
+  border-radius:12px;
   background:color-mix(in srgb, var(--btn-primary) 8%, var(--paper));
-  border:1px dashed color-mix(in srgb, var(--btn-primary) 28%, transparent);
+  border:1px dashed color-mix(in srgb, var(--btn-primary) 25%, transparent);
+  margin-bottom:14px;
 }
-.ledger-timeline-direction-bar .direction-badge{
+.archive-step-btn{
+  border:1px solid var(--line);
+  background:var(--paper);
+  color:var(--ink);
   font-size:11px;
   font-weight:700;
+  padding:5px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.archive-step-btn:hover:not(:disabled){
+  border-color:var(--btn-primary);
   color:var(--btn-primary);
+}
+.archive-step-btn:disabled{
+  opacity:0.35;
+  cursor:not-allowed;
+}
+.archive-step-info{
   display:flex;
+  flex-direction:column;
   align-items:center;
-  gap:5px;
+  gap:2px;
+  text-align:center;
+}
+.archive-step-title{
+  font-size:12.5px;
+  font-weight:800;
+  color:var(--ink);
+}
+.archive-step-sub{
+  font-size:11px;
+  font-weight:600;
+  color:var(--positive-text);
+}
+
+/* 歷史存檔底部卡片 */
+.debt-archive-footer-card{
+  margin-top:14px;
+  padding:14px;
+  text-align:center;
+  border-radius:12px;
+  background:var(--paper);
+  border:1.5px solid var(--card-nested-border);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+.archive-settled-text{
+  font-size:12.5px;
+  font-weight:700;
+  color:var(--positive-text);
 }
 
 /* 往來紀錄時間軸容器與連續垂直軌道 */
@@ -2991,6 +3070,16 @@ button.dd-btn {
   );
   border-radius:999px;
   opacity:0.65;
+}
+
+/* 當已結清 (ALL CLEARED) 或無項目時，移除左側軌道與內縮 */
+.debt-expense-list.is-empty,
+.debt-expense-list:has(.debt-empty-state){
+  padding-left:0 !important;
+}
+.debt-expense-list.is-empty::before,
+.debt-expense-list:has(.debt-empty-state)::before{
+  display:none !important;
 }
 
 .ledger-row-wrap{
@@ -3052,30 +3141,6 @@ button.dd-btn {
 .ledger-timeline-node.is-expense{
   border-color:var(--btn-primary);
   background:color-mix(in srgb, var(--paper) 90%, var(--btn-primary));
-}
-
-/* 序號/起訖裝飾徽章 */
-.ledger-seq-badge{
-  display:inline-flex;
-  align-items:center;
-  gap:2px;
-  font-size:10px;
-  font-weight:800;
-  padding:1px 6px;
-  border-radius:6px;
-  background:color-mix(in srgb, var(--btn-primary) 12%, var(--paper));
-  color:var(--btn-primary);
-  margin-right:6px;
-  font-variant-numeric:tabular-nums;
-  vertical-align:middle;
-}
-.ledger-seq-badge.is-start{
-  background:color-mix(in srgb, #f59e0b 18%, var(--paper));
-  color:#d97706;
-}
-.ledger-seq-badge.is-latest{
-  background:color-mix(in srgb, #10b981 18%, var(--paper));
-  color:#059669;
 }
 
 .ledger-row{

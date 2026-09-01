@@ -6081,20 +6081,42 @@ function showPairDetail(
         </div>
       </div>
 
-      <!-- 往來紀錄 -->
-      <div class="debt-detail-section">
-        <div class="debt-section-title">
-          <span class="debt-section-icon">📋</span>
-          <span>往來紀錄</span>
-          <span class="debt-section-count">${olderCyclePage > 0 ? olderEvents.length : visibleEvents.length} 筆</span>
-          <button type="button" class="ledger-sort-toggle-btn" id="matrixLedgerSortBtn" title="切換排序方向" aria-label="切換排序方向">
-            ${ledgerSortAsc ? "⬇ 舊到新（正序）" : "⬆ 新到舊（倒序）"}
+      <!-- 往來分頁切換器（有歷史結清存檔時顯示） -->
+      ${totalCyclePages > 0 ? `
+        <div class="debt-cycle-tabs">
+          <button type="button" class="debt-cycle-tab ${olderCyclePage === 0 ? 'active' : ''}" id="matrixActiveCycleTab">
+            🔥 進行中待結算 (${visibleEvents.length})
+          </button>
+          <button type="button" class="debt-cycle-tab ${olderCyclePage > 0 ? 'active' : ''}" id="matrixHistoryCycleTab">
+            📜 歷史結清存檔 (共 ${totalCyclePages} 輪)
           </button>
         </div>
-        <div class="ledger-timeline-direction-bar">
-          <span class="direction-badge">${ledgerSortAsc ? "⏳ 歷史起點 ➔ 陸續發生 ➔ 最終狀態" : "⚡ 最新紀錄 ➔ 往前追溯 ➔ 早期歷史"}</span>
+      ` : ""}
+
+      <!-- 往來紀錄主體 -->
+      <div class="debt-detail-section">
+        <div class="debt-section-title">
+          <span class="debt-section-icon">${olderCyclePage > 0 ? '📜' : '📋'}</span>
+          <span>${olderCyclePage > 0 ? '歷史結清存檔' : '進行中往來紀錄'}</span>
+          <span class="debt-section-count">${olderCyclePage > 0 ? olderEvents.length : visibleEvents.length} 筆</span>
+          <button type="button" class="ledger-sort-toggle-btn" id="matrixLedgerSortBtn" title="切換排序方向" aria-label="切換排序方向">
+            ${ledgerSortAsc ? "⬇ 舊到新" : "⬆ 新到舊"}
+          </button>
         </div>
-        <div class="debt-expense-list">
+
+        ${olderCyclePage > 0 ? `
+          <!-- 歷史存檔步進卡片 -->
+          <div class="debt-archive-stepper-card">
+            <button type="button" class="archive-step-btn" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>← 較早一輪</button>
+            <div class="archive-step-info">
+              <span class="archive-step-title">第 ${displayRound} / ${totalCyclePages} 輪已結清紀錄</span>
+              <span class="archive-step-sub">（共 ${olderEvents.length} 筆明細 · 已結清 ✓）</span>
+            </div>
+            <button type="button" class="archive-step-btn" id="matrixCycleNextBtn" ${olderCyclePage <= 1 ? "disabled" : ""}>較新一輪 →</button>
+          </div>
+        ` : ""}
+
+        <div class="debt-expense-list ${((olderCyclePage > 0 ? olderEvents.length : visibleEvents.length) > 0) ? '' : 'is-empty'}">
   `;
 
   // ==========================================================
@@ -6102,21 +6124,7 @@ function showPairDetail(
   // 後面附上「小計：走到這裡誰欠誰多少」——不做任何歸因或調整，最後一筆
   // 的小計保證跟上面權威欠款總表一致。
   // ==========================================================
-  const renderTimelineCard = (ev, idx, total) => {
-    const isFirst = idx === 0;
-    const isLast = idx === total - 1;
-    let seqLabel = "";
-    let seqCls = "";
-    if(ledgerSortAsc){
-      if(isFirst && total > 1){ seqLabel = "🚩 起點"; seqCls = "is-start"; }
-      else if(isLast && total > 1){ seqLabel = "🏁 最新"; seqCls = "is-latest"; }
-      else { seqLabel = `#${idx + 1}`; }
-    } else {
-      if(isFirst && total > 1){ seqLabel = "✨ 最新"; seqCls = "is-latest"; }
-      else if(isLast && total > 1){ seqLabel = "📜 起點"; seqCls = "is-start"; }
-      else { seqLabel = `#${total - idx}`; }
-    }
-
+  const renderTimelineCard = (ev) => {
     if(ev.type === "expense"){
       const e = ev.expense;
       const canEditExpense = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
@@ -6132,7 +6140,7 @@ function showPairDetail(
           <div class="ledger-row ledger-row-open-expense" data-id="${e.id}">
             <div class="ledger-row-main">
               <div class="ledger-row-name">
-                <span class="ledger-seq-badge ${seqCls}">${seqLabel}</span>${escapeHtml(firstLine)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI</span>' : ""}${isExpXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}
+                ${escapeHtml(firstLine)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI</span>' : ""}${isExpXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}
               </div>
               <div class="ledger-row-date">
                 ${escapeHtml(e.expense_date || "")}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}
@@ -6169,7 +6177,7 @@ function showPairDetail(
         <div class="ledger-row" onclick="if(!event.target.closest('button')){this.closest('.ledger-row-wrap').classList.toggle('is-expanded')}">
           <div class="ledger-row-main">
             <div class="ledger-row-name">
-              <span class="ledger-seq-badge ${seqCls}">${seqLabel}</span>${(r.offset_group && !isXcurStr(r.offset_group)) ? `<span class="champion-tag">抵銷</span> ` : ""}${escapeHtml(memberById[r.from_member] || "?")} 還 ${escapeHtml(memberById[r.to_member] || "?")}${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}
+              ${(r.offset_group && !isXcurStr(r.offset_group)) ? `<span class="champion-tag">抵銷</span> ` : ""}${escapeHtml(memberById[r.from_member] || "?")} 還 ${escapeHtml(memberById[r.to_member] || "?")}${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}
             </div>
             <div class="ledger-row-date">
               ${escapeHtml(r.payment_date || "")}${formatTime(r.created_at, r.payment_date) ? " " + formatTime(r.created_at, r.payment_date) : ""}
@@ -6206,19 +6214,14 @@ function showPairDetail(
   };
 
   if(olderCyclePage > 0){
-    // 正在瀏覽某一輪已結清的舊紀錄時，這裡不重複顯示「目前」這一輪，
-    // 一次只看一輪——舊紀錄本身顯示在下面的翻頁區塊。
-    html += `
-      <div class="debt-empty-state">
-        <div class="debt-empty-icon">📜</div>
-        <div class="debt-empty-title">
-          正在查看第 ${displayRound} / ${totalCyclePages} 輪已結清的舊紀錄
-        </div>
-      </div>
-    `;
-  }else if(visibleEvents.length){
-    visibleEvents.forEach((ev, idx) => { html += renderTimelineCard(ev, idx, visibleEvents.length); });
-  }else if(remainingDebt > 0.01){
+    // 正在瀏覽歷史已結清存檔
+    if(olderEvents.length){
+      olderEvents.forEach(ev => { html += renderTimelineCard(ev); });
+    }
+  } else if(visibleEvents.length){
+    // 正在瀏覽進行中
+    visibleEvents.forEach(ev => { html += renderTimelineCard(ev); });
+  } else if(remainingDebt > 0.01){
     // 目前這個方向沒有直接的支出/還款紀錄，但金額卻不是 0——代表這筆欠款
     // 是從對方那邊的多還／溢付轉過來的，不是憑空冒出來的錯誤。
     html += `
@@ -6232,7 +6235,8 @@ function showPairDetail(
         </div>
       </div>
     `;
-  }else{
+  } else {
+    // 進行中目前已全數結清
     html += `
       <div class="debt-empty-state">
         <div class="debt-settled-stamp-wrap">
@@ -6244,6 +6248,11 @@ function showPairDetail(
             </div>
           </div>
         </div>
+        ${totalCyclePages > 0 ? `
+          <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:14px auto 0;display:block;">
+            📜 查看過往 ${totalCyclePages} 輪結清存檔
+          </button>
+        ` : ""}
       </div>
     `;
   }
@@ -6254,68 +6263,57 @@ function showPairDetail(
   `;
 
   // ==========================================================
-  // 已結清的舊週期：每一輪（一輪 = 一次歸零週期）獨立一頁，「上一輪／
-  // 下一輪」翻頁列常駐在最下面，不用先點開才看得到；olderCyclePage=0
-  // 代表還沒往前翻，只有翻頁列、沒有清單。
+  // 底部狀態與操作列
   // ==========================================================
-  if(totalCyclePages > 0){
+  if(olderCyclePage > 0){
+    // 歷史存檔底部
     html += `
-      <div class="debt-settled-history-section" id="matrixSettledHistorySection">
-        ${olderCyclePage > 0 ? `
-          <div class="debt-settled-history-list" id="matrixSettledHistoryList">
-            ${olderEvents.map((ev, idx) => renderTimelineCard(ev, idx, olderEvents.length)).join("")}
+      <div class="debt-archive-footer-card">
+        <div class="archive-settled-text">✓ 此輪帳目已全數清算歸零</div>
+        <button type="button" class="btn secondary small" id="matrixBackToActiveBtn">↩ 返回進行中待結算</button>
+      </div>
+    `;
+  } else {
+    // 進行中底部
+    if(offsetAmt > 0.01){
+      const canOffset = myMember && (debtorId === myMember.id || creditorId === myMember.id);
+      html += `
+        <div class="debt-offset-card">
+          <div class="debt-offset-text">
+            ${escapeHtml(memberById[creditorId] || "?")} 同時也欠 ${escapeHtml(memberById[debtorId] || "?")}
+            ${SYM}${formatAmt(reverseDebt)}，可以互相抵銷 ${SYM}${formatAmt(offsetAmt)}，
+            不用實際付現金。
           </div>
-        ` : ""}
-        <div class="pagination">
-          <button type="button" class="btn secondary small pagination-prev" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>← 上一輪</button>
-          <span class="pagination-info">${olderCyclePage > 0 ? `第 ${displayRound} / ${totalCyclePages} 輪` : `共 ${totalCyclePages} 輪已結清`}</span>
-          <button type="button" class="btn secondary small pagination-next" id="matrixCycleNextBtn" ${olderCyclePage <= 0 ? "disabled" : ""}>下一輪 →</button>
+          ${canOffset ? `<button type="button" id="matrixDetailOffsetBtn" class="btn secondary small">
+            一鍵抵銷 ${SYM}${formatAmt(offsetAmt)}
+          </button>` : ""}
         </div>
-      </div>
-    `;
-  }
+      `;
+    }
 
-  // ==========================================================
-  // 底部狀態
-  // ==========================================================
-  if(offsetAmt > 0.01){
-    const canOffset = myMember && (debtorId === myMember.id || creditorId === myMember.id);
-    html += `
-      <div class="debt-offset-card">
-        <div class="debt-offset-text">
-          ${escapeHtml(memberById[creditorId] || "?")} 同時也欠 ${escapeHtml(memberById[debtorId] || "?")}
-          ${SYM}${formatAmt(reverseDebt)}，可以互相抵銷 ${SYM}${formatAmt(offsetAmt)}，
-          不用實際付現金。
+    if(remainingDebt <= 0.01 && visibleEvents.length > 0){
+      html += `
+        <div class="debt-cleared">
+          <span class="debt-cleared-icon">✓</span>
+          <span>這筆債務已全部結清</span>
         </div>
-        ${canOffset ? `<button type="button" id="matrixDetailOffsetBtn" class="btn secondary small">
-          一鍵抵銷 ${SYM}${formatAmt(offsetAmt)}
-        </button>` : ""}
-      </div>
-    `;
-  }
+      `;
+    }
 
-  if(remainingDebt <= 0.01){
-    html += `
-      <div class="debt-cleared">
-        <span class="debt-cleared-icon">✓</span>
-        <span>這筆債務已全部結清</span>
-      </div>
-    `;
-  }
-
-  if(remainingDebt > 0.01){
-    html += `
-      <div class="debt-repay-action-wrap" style="display:flex;flex-direction:column;gap:8px;">
-        <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
-          💸 記錄還款（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
-        </button>
-        ${CURRENCY !== "TWD" ? `
-          <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
-            💱 以臺幣結算
+    if(remainingDebt > 0.01){
+      html += `
+        <div class="debt-repay-action-wrap" style="display:flex;flex-direction:column;gap:8px;">
+          <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
+            💸 記錄還款（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
           </button>
-        ` : ""}
-      </div>
-    `;
+          ${CURRENCY !== "TWD" ? `
+            <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
+              💱 以臺幣結算
+            </button>
+          ` : ""}
+        </div>
+      `;
+    }
   }
 
   html += `
@@ -6362,6 +6360,38 @@ function showPairDetail(
   }
 
   // ==========================================================
+  // 進行中 vs 歷史存檔 分頁切換
+  // ==========================================================
+  const activeCycleTab = document.getElementById("matrixActiveCycleTab");
+  if(activeCycleTab){
+    activeCycleTab.addEventListener("click", ()=>{
+      pairOlderCyclePageMap[pairKey] = 0;
+      showPairDetail(debtorId, creditorId, expenses, repayments, owedMatrix);
+    });
+  }
+  const historyCycleTab = document.getElementById("matrixHistoryCycleTab");
+  if(historyCycleTab){
+    historyCycleTab.addEventListener("click", ()=>{
+      pairOlderCyclePageMap[pairKey] = 1;
+      showPairDetail(debtorId, creditorId, expenses, repayments, owedMatrix);
+    });
+  }
+  const viewHistoryArchiveBtn = document.getElementById("matrixViewHistoryArchiveBtn");
+  if(viewHistoryArchiveBtn){
+    viewHistoryArchiveBtn.addEventListener("click", ()=>{
+      pairOlderCyclePageMap[pairKey] = 1;
+      showPairDetail(debtorId, creditorId, expenses, repayments, owedMatrix);
+    });
+  }
+  const backToActiveBtn = document.getElementById("matrixBackToActiveBtn");
+  if(backToActiveBtn){
+    backToActiveBtn.addEventListener("click", ()=>{
+      pairOlderCyclePageMap[pairKey] = 0;
+      showPairDetail(debtorId, creditorId, expenses, repayments, owedMatrix);
+    });
+  }
+
+  // ==========================================================
   // 已結清的舊週期：上一輪／下一輪
   // ==========================================================
   const cyclePrevBtn = document.getElementById("matrixCyclePrevBtn");
@@ -6374,7 +6404,7 @@ function showPairDetail(
   const cycleNextBtn = document.getElementById("matrixCycleNextBtn");
   if(cycleNextBtn){
     cycleNextBtn.addEventListener("click", ()=>{
-      if(olderCyclePage > 0) pairOlderCyclePageMap[pairKey] = olderCyclePage - 1; // 下一輪 = 更接近現在的一輪
+      if(olderCyclePage > 1) pairOlderCyclePageMap[pairKey] = olderCyclePage - 1; // 下一輪 = 更接近現在的一輪
       showPairDetail(debtorId, creditorId, expenses, repayments, owedMatrix);
     });
   }
