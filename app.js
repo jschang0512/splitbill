@@ -5928,20 +5928,19 @@ function showPairDetail(
   // 退回原本「debtorId 欠人用紅、被欠用灰」的預設判斷。
   const debtorName = escapeHtml(memberById[debtorId] || "?");
   const creditorName = escapeHtml(memberById[creditorId] || "?");
-  // 顏色一律以「這個頁面的 debtorId（應付方）」為準，不管登入的是誰：
-  // debtorId 欠 creditorId／debtorId 還 creditorId 用紅色（顯眼），
-  // creditorId 欠 debtorId／creditorId 還 debtorId 用灰色（不顯眼）。
-  // 若該筆事件使得欠款「減少」（如還款/抵銷沖銷），欠款膠囊轉為代表減債的綠色（is-repay）。
-  const balanceText = (fwd, rev, fwdDelta = 0, revDelta = 0) => {
+  // 顏色一律以「這個頁面的 debtorId（應付方 A）」為準：
+  // 在 A 欠 B 的頁面中，只有「A 欠 B」會依增減動態變色：
+  // 欠款增加（支出）用紅色（is-owe）、欠款減少（還款/沖銷）用綠色（is-repay）、歸零用灰色（is-owed）。
+  // 而反向的「B 欠 A」在此頁面永遠維持中性灰色（is-owed），聚焦主體。
+  const balanceText = (fwd, rev, fwdDelta = 0) => {
     if(fwd <= 0.01 && rev <= 0.01){
       return `<div class="ledger-row-balance"><span class="balance-chip is-clear">✓ 雙方此時已結清</span></div>`;
     }
     const fwdCls = fwd <= 0.01 ? "is-owed" : (fwdDelta < -0.01 ? "is-repay" : "is-owe");
-    const revCls = rev <= 0.01 ? "is-owed" : (revDelta < -0.01 ? "is-repay" : "is-owe");
 
     return `<div class="ledger-row-balance">`
       + `<span class="balance-chip ${fwdCls}"><span class="chip-names">${debtorName} 欠 ${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span>`
-      + `<span class="balance-chip ${revCls}"><span class="chip-names">${creditorName} 欠 ${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
+      + `<span class="balance-chip is-owed"><span class="chip-names">${creditorName} 欠 ${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
       + `</div>`;
   };
   // 單筆事件金額前面的正負號/顏色，改成看這筆事件實際有沒有讓 debtorId
