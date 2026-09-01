@@ -5849,6 +5849,7 @@ function showPairDetail(
   let forwardBal = 0, reverseBal = 0;
   timelineEvents.forEach(ev => {
     const beforeForward = forwardBal;
+    const beforeReverse = reverseBal;
     if(ev.type === "expense"){
       if(ev.direction === "forward") forwardBal += ev.amount;
       else reverseBal += ev.amount;
@@ -5867,6 +5868,7 @@ function showPairDetail(
     // 反方向的還款如果被反方向既有欠款完全吸收掉，debtorId 自己的欠款
     // 根本沒被動到，就不該染成紅色或綠色，維持中性。
     ev.forwardDelta = Math.round((forwardBal - beforeForward) * 100) / 100;
+    ev.reverseDelta = Math.round((reverseBal - beforeReverse) * 100) / 100;
   });
 
   // 現在才把手動互相抵銷的兩筆還款合併成「一張卡片」方便閱讀——兩邊都已
@@ -5897,7 +5899,8 @@ function showPairDetail(
       createdAt: later.createdAt,
       balanceForward: later.balanceForward,
       balanceReverse: later.balanceReverse,
-      forwardDelta: Math.round((pair.toCreditor.forwardDelta + pair.toDebtor.forwardDelta) * 100) / 100
+      forwardDelta: Math.round((pair.toCreditor.forwardDelta + pair.toDebtor.forwardDelta) * 100) / 100,
+      reverseDelta: Math.round((pair.toCreditor.reverseDelta + pair.toDebtor.reverseDelta) * 100) / 100
     };
   });
   const displayEvents = timelineEvents
@@ -5928,13 +5931,17 @@ function showPairDetail(
   // 顏色一律以「這個頁面的 debtorId（應付方）」為準，不管登入的是誰：
   // debtorId 欠 creditorId／debtorId 還 creditorId 用紅色（顯眼），
   // creditorId 欠 debtorId／creditorId 還 debtorId 用灰色（不顯眼）。
-  const balanceText = (fwd, rev) => {
+  // 若該筆事件使得欠款「減少」（如還款/抵銷沖銷），欠款膠囊轉為代表減債的綠色（is-repay）。
+  const balanceText = (fwd, rev, fwdDelta = 0, revDelta = 0) => {
     if(fwd <= 0.01 && rev <= 0.01){
       return `<div class="ledger-row-balance"><span class="balance-chip is-clear">✓ 雙方此時已結清</span></div>`;
     }
+    const fwdCls = fwd <= 0.01 ? "is-owed" : (fwdDelta < -0.01 ? "is-repay" : "is-owe");
+    const revCls = rev <= 0.01 ? "is-owed" : (revDelta < -0.01 ? "is-repay" : "is-owe");
+
     return `<div class="ledger-row-balance">`
-      + `<span class="balance-chip is-owe"><span class="chip-names">${debtorName} 欠 ${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span>`
-      + `<span class="balance-chip is-owed"><span class="chip-names">${creditorName} 欠 ${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
+      + `<span class="balance-chip ${fwdCls}"><span class="chip-names">${debtorName} 欠 ${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span>`
+      + `<span class="balance-chip ${revCls}"><span class="chip-names">${creditorName} 欠 ${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
       + `</div>`;
   };
   // 單筆事件金額前面的正負號/顏色，改成看這筆事件實際有沒有讓 debtorId
@@ -6053,24 +6060,32 @@ function showPairDetail(
       <!-- 頂部動態金流傳送條（獨立滿版置中） -->
       <div class="debt-detail-header">
         <div class="debt-flow-header-card ${remainingDebt <= 0.01 ? 'is-settled' : ''}">
+          <!-- 應付方 -->
           <div class="debt-flow-party debtor">
-            ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-md")}
-            <div class="debt-flow-party-info">
-              <span class="debt-flow-name" title="${escapeHtml(memberById[debtorId] || "")}">${escapeHtml(memberById[debtorId] || "?")}</span>
-              <span class="debt-flow-role debtor">應付</span>
+            <div class="debt-flow-avatar-wrap">
+              ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-md")}
+              <span class="debt-flow-role-badge debtor">應付</span>
             </div>
+            <span class="debt-flow-name" title="${escapeHtml(memberById[debtorId] || "")}">${escapeHtml(memberById[debtorId] || "?")}</span>
           </div>
-          <div class="debt-flow-track">
+
+          <!-- 中央金流與金額 -->
+          <div class="debt-flow-center">
+            <div class="debt-flow-arrow-track">
+              <span class="debt-flow-arrow">➔</span>
+            </div>
             <div class="debt-flow-amount-pill ${remainingDebt <= 0.01 ? 'settled' : ''}">
-              ${remainingDebt > 0.01 ? `<span>欠 ${SYM}${formatAmt(remainingDebt)}</span><span class="flow-arrow">➔</span>` : `✓ 已結清`}
+              ${remainingDebt > 0.01 ? `欠 ${SYM}${formatAmt(remainingDebt)}` : `✓ 已結清`}
             </div>
           </div>
+
+          <!-- 收款方 -->
           <div class="debt-flow-party creditor">
-            ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-md")}
-            <div class="debt-flow-party-info">
-              <span class="debt-flow-name" title="${escapeHtml(memberById[creditorId] || "")}">${escapeHtml(memberById[creditorId] || "?")}</span>
-              <span class="debt-flow-role creditor">收款</span>
+            <div class="debt-flow-avatar-wrap">
+              ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-md")}
+              <span class="debt-flow-role-badge creditor">收款</span>
             </div>
+            <span class="debt-flow-name" title="${escapeHtml(memberById[creditorId] || "")}">${escapeHtml(memberById[creditorId] || "?")}</span>
           </div>
         </div>
       </div>
@@ -6154,7 +6169,7 @@ function showPairDetail(
                 </div>
               ` : ""}
             </div>
-            ${balanceText(ev.balanceForward, ev.balanceReverse)}
+            ${balanceText(ev.balanceForward, ev.balanceReverse, ev.forwardDelta, ev.reverseDelta)}
           </div>
         </div>
       `;
@@ -6193,7 +6208,7 @@ function showPairDetail(
               </div>
             ` : ""}
           </div>
-          ${balanceText(ev.balanceForward, ev.balanceReverse)}
+          ${balanceText(ev.balanceForward, ev.balanceReverse, ev.forwardDelta, ev.reverseDelta)}
         </div>
         <div class="ledger-row-detail">
           <div class="debt-info-row">
@@ -6247,7 +6262,7 @@ function showPairDetail(
           </div>
         </div>
         ${totalCyclePages > 0 ? `
-          <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:12px auto 0;display:block;white-space:nowrap;">
+          <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:10px auto 4px;display:block;white-space:nowrap;">
             📜 歷史結清存檔 (${totalCyclePages} 輪)
           </button>
         ` : ""}

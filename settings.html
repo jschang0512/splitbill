@@ -31,7 +31,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=621"></script>
+<script src="version.js?v=625"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
@@ -377,12 +377,12 @@ if("serviceWorker" in navigator){
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
-            <div class="settings-changelog-header">✨ v621 最新更新項目：</div>
+            <div class="settings-changelog-header">✨ v625 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>往來紀錄卡片全新排版：標題與主要金額 100% 寬敞完整呈現絕不截斷</li>
-              <li>操作按鈕（✎ ✕）調整至日期列，釋放第一行頂部所有寬度</li>
-              <li>債務明細頂部「金流傳送看板」對稱式美化與漸層連接軌道</li>
-              <li>往來紀錄雙分頁架構（進行中 vs 歷史存檔）與滿版雙向欠款水位線</li>
+              <li>還款與減債明細智能著色：交易使欠款減少時，下方欠款水位膠囊同步轉為柔綠色</li>
+              <li>全站手機窄螢幕（320px~440px）自適應加固，杜絕溢出與折行破版</li>
+              <li>欠款水位線每筆佔滿整行（<440px），名字超長自動省略不推擠數字</li>
+              <li>歷史存檔翻頁步進器極窄螢幕自動緊湊化適配</li>
             </ul>
           </div>
         </div>
