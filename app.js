@@ -872,6 +872,7 @@
       const calc = existingCalcs[mId] || "";
       return `
         <div class="amt-row exp-addon-row" data-member="${mId}">
+          ${renderAvatarHTML({ id: mId, name: name }, "avatar-xs")}
           <span class="amt-row-name">${escapeHtml(name)}</span>
           <input type="number" class="amt-row-input exp-addon-input" data-member="${mId}" placeholder="個人自付 (0)" min="0" step="1" value="${val}" ${calc ? `data-calc="${escapeHtml(calc)}"` : ''}>
           <button type="button" class="amt-row-calc-btn${calc ? ' has-calc' : ''}" title="小計算機">🧮</button>
@@ -1286,6 +1287,7 @@
   // ensureXxx() 系列補選項時共用）----------
   function amtRowHTML(m){
     return `<div class="amt-row">
+        ${renderAvatarHTML(m, "avatar-xs")}
         <span class="amt-row-name">${escapeHtml(m.name)}</span>
         <input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="1">
         <button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button>
@@ -1322,6 +1324,7 @@
     div.className = "amt-row";
     div.dataset.tempEditOption = "1";
     div.innerHTML = `
+        ${renderAvatarHTML({ id: memberId, name: memberById[memberId] }, "avatar-xs")}
         <span class="amt-row-name">${escapeHtml(memberById[memberId] || "?")}</span>
         <input type="number" class="amt-row-input" data-member="${memberId}" placeholder="0" min="0" step="1">
         <button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button>`;

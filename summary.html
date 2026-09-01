@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="shared.css?v=618">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=626"></script>
+<script src="version.js?v=627"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
@@ -1806,7 +1806,7 @@ renderNavLinks();
       const payersGrid = document.getElementById("quickExpPayers");
       if(payersGrid){
         payersGrid.innerHTML = activeList.map(m =>
-          `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
+          `<div class="amt-row">${renderAvatarHTML(m, "avatar-xs")}<span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
         ).join("");
         payersGrid.querySelectorAll(".amt-row-input").forEach(inp => {
           inp.addEventListener("input", updateQuickPayerSumCheck);
@@ -1815,7 +1815,7 @@ renderNavLinks();
 
       // 平均分攤藥丸
       participantsWrap.innerHTML = activeList.map(m =>
-        `<label class="check-pill checked"><input type="checkbox" value="${m.id}" checked><span>${escapeHtml(m.name || "成員")}</span></label>`
+        `<label class="check-pill checked"><input type="checkbox" value="${m.id}" checked>${renderAvatarHTML(m, "avatar-xs")}<span class="check-pill-name">${escapeHtml(m.name || "成員")}</span></label>`
       ).join("");
       participantsWrap.querySelectorAll("input").forEach(inp =>{
         inp.addEventListener("change", ()=>{
@@ -1827,7 +1827,7 @@ renderNavLinks();
       // 自訂分攤列
       if(quickSharesCustom){
         quickSharesCustom.innerHTML = activeList.map(m =>
-          `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input quick-share-inp" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
+          `<div class="amt-row">${renderAvatarHTML(m, "avatar-xs")}<span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input quick-share-inp" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
         ).join("");
         quickSharesCustom.querySelectorAll(".quick-share-inp").forEach(inp => {
           inp.addEventListener("input", updateQuickShareSumCheck);
@@ -1859,7 +1859,7 @@ renderNavLinks();
       addonsList.querySelectorAll(".quick-addon-inp").forEach(inp => { existingValues[inp.dataset.member] = inp.value; });
 
       addonsList.innerHTML = checked.map(mId => `
-        <div class="amt-row"><span class="amt-row-name">${escapeHtml(quickMemberName(mId))}</span><input type="number" class="amt-row-input quick-addon-inp" data-member="${mId}" placeholder="0" min="0" step="1" value="${existingValues[mId] || ''}"><button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button></div>
+        <div class="amt-row">${renderAvatarHTML({ id: mId, name: quickMemberName(mId) }, "avatar-xs")}<span class="amt-row-name">${escapeHtml(quickMemberName(mId))}</span><input type="number" class="amt-row-input quick-addon-inp" data-member="${mId}" placeholder="0" min="0" step="1" value="${existingValues[mId] || ''}"><button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button></div>
       `).join("");
 
       addonsList.querySelectorAll(".quick-addon-inp").forEach(inp => {
@@ -1918,6 +1918,7 @@ renderNavLinks();
                 ${checked.map(pid => `
                   <label class="check-pill exp-shared-addon-member${item.memberIds.includes(pid) ? ' checked' : ''}">
                     <input type="checkbox" value="${pid}"${item.memberIds.includes(pid) ? " checked" : ""}>
+                    ${renderAvatarHTML({ id: pid, name: quickMemberName(pid) }, "avatar-xs")}
                     <span class="check-pill-name">${escapeHtml(quickMemberName(pid))}</span>
                   </label>
                 `).join("")}
