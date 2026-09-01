@@ -7581,14 +7581,37 @@ input#aiExpenseTime {
   width:100%;
   height:100%;
   display:block;
+  transform:rotate(-90deg);
+  transform-origin:center;
 }
 .donut-slice{
   cursor:pointer;
-  transition:stroke-width 0.2s ease, opacity 0.2s ease;
+  transform-origin:center;
+  transition:stroke-width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+             stroke 0.3s ease,
+             opacity 0.25s ease,
+             filter 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation:donutSliceSpringIn 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
-.donut-slice:hover{
-  stroke-width:26;
-  opacity:0.9;
+@keyframes donutSliceSpringIn{
+  0%{
+    opacity:0;
+    transform:scale(0.88) rotate(-20deg);
+  }
+  65%{
+    opacity:1;
+    transform:scale(1.04) rotate(4deg);
+  }
+  100%{
+    opacity:1;
+    transform:scale(1) rotate(0deg);
+  }
+}
+.donut-slice:hover,
+.donut-slice.active{
+  stroke-width:28px !important;
+  opacity:1 !important;
+  filter:drop-shadow(0 0 10px var(--slice-glow, rgba(122, 107, 158, 0.75)));
 }
 .donut-center-info{
   position:absolute;
@@ -7599,6 +7622,15 @@ input#aiExpenseTime {
   justify-content:center;
   text-align:center;
   pointer-events:none;
+  transition:transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.donut-center-info.is-pop{
+  animation:donutCenterPop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes donutCenterPop{
+  0%{ transform:scale(0.85); opacity:0.7; }
+  50%{ transform:scale(1.12); opacity:1; }
+  100%{ transform:scale(1); opacity:1; }
 }
 .donut-center-label{
   font-size:11px;
@@ -8416,6 +8448,197 @@ input#aiExpenseTime {
 .quick-split-toggle-links {
   display: inline-flex;
   gap: 10px;
+}
+
+/* ============================================================
+   🧾 記帳成功「實體收據印出 ➔ 飛入帳本」動畫
+   ============================================================ */
+.sb-receipt-spool-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1000px;
+}
+
+.sb-receipt-paper {
+  position: absolute;
+  width: 228px;
+  background: #FFFFFF;
+  color: #2D2638;
+  border-radius: 4px;
+  padding: 18px 16px 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  font-family: 'JetBrains Mono', -apple-system, BlinkMacSystemFont, monospace;
+  box-sizing: border-box;
+  transform-origin: center bottom;
+  animation: receiptSpoolAndFloat 0.75s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+/* 齒狀撕紙邊緣 (Jagged receipt tear edge) */
+.sb-receipt-paper::before,
+.sb-receipt-paper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-size: 10px 6px;
+}
+.sb-receipt-paper::before {
+  top: -6px;
+  background-image: radial-gradient(circle at 5px -1px, transparent 5px, #FFFFFF 5px);
+}
+.sb-receipt-paper::after {
+  bottom: -6px;
+  background-image: radial-gradient(circle at 5px 7px, transparent 5px, #FFFFFF 5px);
+}
+
+.sb-receipt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.22);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+.sb-receipt-store {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: #1A1523;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sb-receipt-date {
+  font-size: 9px;
+  color: #7A7289;
+}
+.sb-receipt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+}
+.sb-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sb-receipt-desc {
+  font-weight: 600;
+  max-width: 125px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2D2638;
+}
+.sb-receipt-amt {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1A1523;
+}
+.sb-receipt-meta {
+  font-size: 10px;
+  color: #7A7289;
+}
+.sb-receipt-foot {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.sb-receipt-barcode {
+  width: 88%;
+  height: 16px;
+  background: repeating-linear-gradient(
+    90deg,
+    #2D2638 0px,
+    #2D2638 2px,
+    transparent 2px,
+    transparent 4px,
+    #2D2638 4px,
+    #2D2638 6px,
+    transparent 6px,
+    transparent 8px
+  );
+  opacity: 0.8;
+}
+.sb-receipt-stamp {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #2B8A3E;
+  border: 1.5px solid #2B8A3E;
+  padding: 1px 7px;
+  border-radius: 4px;
+  transform: rotate(-6deg);
+  letter-spacing: 1px;
+  background: rgba(43, 138, 62, 0.06);
+}
+
+@keyframes receiptSpoolAndFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scaleY(0.15) scaleX(0.85);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-16px) scaleY(1.05) scaleX(1);
+  }
+  75% {
+    transform: translateY(-28px) perspective(600px) rotateX(12deg) rotateZ(-3deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-22px) perspective(600px) rotateX(8deg) rotateZ(-2deg) scale(1);
+  }
+}
+
+/* 飛入光球 (Glowing Flying Energy Orb) */
+.sb-receipt-fly-orb {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFE066 15%, #FF922B 65%, transparent 100%);
+  box-shadow: 0 0 25px 8px rgba(255, 170, 0, 0.85), 0 0 50px rgba(255, 230, 100, 0.7);
+  pointer-events: none;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  animation: orbPulse 0.35s ease-in-out infinite alternate;
+}
+@keyframes orbPulse {
+  0% { transform: scale(0.9); }
+  100% { transform: scale(1.3); filter: brightness(1.35); }
+}
+
+/* 水波漣漪動畫 */
+.sb-ledger-ripple {
+  animation: sbLedgerRipple 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes sbLedgerRipple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(122, 107, 158, 0.7);
+    transform: scale(0.97);
+  }
+  50% {
+    box-shadow: 0 0 22px 8px rgba(122, 107, 158, 0.38);
+    transform: scale(1.025);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
 }
 
 

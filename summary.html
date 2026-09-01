@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="shared.css?v=618">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=627"></script>
+<script src="version.js?v=628"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
@@ -2191,9 +2191,26 @@ renderNavLinks();
         if(error) throw error;
         localStorage.setItem("sb_last_active_currency", currency);
         closeModal();
+        const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === currency) : null;
+        const sym = curObj ? curObj.symbol : "$";
+        const firstPayerId = (payers && payers[0] && payers[0].member_id);
+        const payerName = (firstPayerId && quickMemberName(firstPayerId)) || (myMember && myMember.name) || "我";
+        const catMeta = (window.getCategoryMeta && window.getCategoryMeta(itemTitle, noteVal, cat)) || {};
+
+        if(typeof window.triggerReceiptFlyAnimation === "function"){
+          window.triggerReceiptFlyAnimation({
+            buttonEl: document.getElementById("openQuickExpenseBtn") || submitBtn,
+            desc: itemTitle || "快速記帳",
+            amount: totalAmount,
+            symbol: sym,
+            categoryIcon: catMeta.icon || "🧾",
+            payerName: payerName,
+            splitCount: (shares || []).length,
+            targetListEl: document.getElementById("allCurrenciesList") || document.querySelector(".currency-card")
+          });
+        }
+
         if(typeof showToast === "function"){
-          const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === currency) : null;
-          const sym = curObj ? curObj.symbol : "$";
           showToast("✓ 記帳成功", `${itemTitle} ${sym}${formatAmt(totalAmount)} (${currency})`);
         }
         await loadAndRenderAllBalances();

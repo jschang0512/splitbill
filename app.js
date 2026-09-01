@@ -1716,6 +1716,24 @@
         btn.classList.remove("btn-success");
         btn.textContent = "加入這筆支出";
       }, 1100);
+
+      // 觸發「實體收據印出 ➔ 飛入帳本」動畫
+      if(!wasEditing && typeof window.triggerReceiptFlyAnimation === "function"){
+        const firstPayerId = (payers && payers[0] && payers[0].member_id);
+        const payerName = (firstPayerId && memberById[firstPayerId]) || (myMember && myMember.name) || "我";
+        const catMeta = (window.getCategoryMeta && window.getCategoryMeta(itemTitle, itemNote, selectedExpCategory)) || {};
+        window.triggerReceiptFlyAnimation({
+          buttonEl: btn,
+          desc: itemTitle || "新增支出",
+          amount: amount,
+          symbol: SYM || "$",
+          categoryIcon: catMeta.icon || "🧾",
+          payerName: payerName,
+          splitCount: (shares || []).length,
+          targetListEl: document.getElementById("expenseList") || document.getElementById("tabExpenses")
+        });
+      }
+
       if(wasEditing) exitEditMode();
       const expAmtInp = document.getElementById("expAmount");
       if(expAmtInp){ expAmtInp.value = ""; clearRowCalc(expAmtInp); }
@@ -3693,13 +3711,13 @@
     const circumference = 2 * Math.PI * r;
 
     let accumulatedPct = 0;
-    const paths = catList.map((cat) => {
+    const paths = catList.map((cat, idx) => {
       const pct = cat.amount / totalAmt;
       const strokeDasharray = `${(pct * circumference).toFixed(2)} ${(circumference * (1 - pct)).toFixed(2)}`;
       const strokeDashoffset = (-accumulatedPct * circumference).toFixed(2);
       accumulatedPct += pct;
 
-      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${cat.color}" stroke-width="${strokeWidth}" stroke-dasharray="${strokeDasharray}" stroke-dashoffset="${strokeDashoffset}" class="donut-slice" data-type="${cat.type}" data-name="${escapeHtml(cat.name)}" data-icon="${cat.icon}" data-color="${cat.color}" data-amt="${formatAmt(cat.amount)}" data-pct="${(pct * 100).toFixed(1)}" data-count="${cat.count}"></circle>`;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${cat.color}" stroke-width="${strokeWidth}" stroke-dasharray="${strokeDasharray}" stroke-dashoffset="${strokeDashoffset}" class="donut-slice" data-type="${cat.type}" data-name="${escapeHtml(cat.name)}" data-icon="${cat.icon}" data-color="${cat.color}" data-amt="${formatAmt(cat.amount)}" data-pct="${(pct * 100).toFixed(1)}" data-count="${cat.count}" style="--slice-glow:${cat.color}; animation-delay:${idx * 0.05}s;"></circle>`;
     }).join("");
 
     const legendHtml = catList.map(cat => {
@@ -3726,7 +3744,7 @@
             <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${strokeWidth}"></circle>
             ${paths}
           </svg>
-          <div class="donut-center-info" id="donutCenterInfo">
+          <div class="donut-center-info is-pop" id="donutCenterInfo">
             <span class="donut-center-label">${donutScope === "my" ? "我的支出" : "全團總額"}</span>
             <span class="donut-center-amt">${SYM}${formatAmt(totalAmt)}</span>
             <span class="donut-center-sub">${catList.length} 類別</span>
@@ -3753,8 +3771,12 @@
             <span class="donut-center-amt" style="color:${cat.color}">${SYM}${formatAmt(cat.amount)}</span>
             <span class="donut-center-sub">${pct}% · 共 ${cat.count} 筆</span>
           `;
+          centerInfo.classList.remove("is-pop");
+          void centerInfo.offsetWidth;
+          centerInfo.classList.add("is-pop");
         }
         wrap.querySelectorAll(".donut-legend-item").forEach(el => el.classList.toggle("active", el.dataset.type === type));
+        wrap.querySelectorAll(".donut-slice").forEach(el => el.classList.toggle("active", el.dataset.type === type));
       };
 
       const resetCat = () => {
@@ -3767,6 +3789,7 @@
           `;
         }
         wrap.querySelectorAll(".donut-legend-item").forEach(el => el.classList.remove("active"));
+        wrap.querySelectorAll(".donut-slice").forEach(el => el.classList.remove("active"));
       };
 
       item.addEventListener("mouseenter", showCat);

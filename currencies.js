@@ -658,10 +658,122 @@ function renderAvatarHTML(memberOrName, sizeClass = "avatar-sm"){
   return `<span class="sb-avatar ${sizeClass}" title="${safeName}" data-name="${safeName}"><span class="sb-avatar-initial" style="background:${getAvatarColor(name)};">${initial}</span></span>`;
 }
 
+function triggerReceiptFlyAnimation(opts = {}){
+  const {
+    buttonEl,
+    desc = "支出項目",
+    amount = 0,
+    symbol = "$",
+    categoryIcon = "🧾",
+    payerName = "成員",
+    splitCount = 1,
+    targetListEl = null,
+    onComplete = null
+  } = opts;
+
+  const overlay = document.createElement("div");
+  overlay.className = "sb-receipt-spool-overlay";
+
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  const paper = document.createElement("div");
+  paper.className = "sb-receipt-paper";
+  paper.innerHTML = `
+    <div class="sb-receipt-head">
+      <div class="sb-receipt-store">${categoryIcon} <span>${typeof escapeHtml === "function" ? escapeHtml(desc || "新增支出") : (desc || "新增支出")}</span></div>
+      <div class="sb-receipt-date">${dateStr}</div>
+    </div>
+    <div class="sb-receipt-body">
+      <div class="sb-receipt-row">
+        <span class="sb-receipt-desc">${typeof escapeHtml === "function" ? escapeHtml(desc || "一般消費") : (desc || "一般消費")}</span>
+        <span class="sb-receipt-amt">${symbol}${typeof formatAmt === "function" ? formatAmt(amount) : amount}</span>
+      </div>
+      <div class="sb-receipt-row sb-receipt-meta">
+        <span>付款: ${typeof escapeHtml === "function" ? escapeHtml(payerName) : payerName}</span>
+        <span>${splitCount > 1 ? `${splitCount} 人分攤` : "個人專屬"}</span>
+      </div>
+    </div>
+    <div class="sb-receipt-foot">
+      <div class="sb-receipt-barcode"></div>
+      <div class="sb-receipt-stamp">✓ PAID & LOGGED</div>
+    </div>
+  `;
+
+  overlay.appendChild(paper);
+  document.body.appendChild(overlay);
+
+  if(buttonEl && typeof buttonEl.getBoundingClientRect === "function"){
+    const btnRect = buttonEl.getBoundingClientRect();
+    const paperTop = Math.max(20, Math.min(window.innerHeight - 240, btnRect.top - 120));
+    const paperLeft = Math.max(16, Math.min(window.innerWidth - 244, btnRect.left + (btnRect.width / 2) - 114));
+    paper.style.top = `${paperTop}px`;
+    paper.style.left = `${paperLeft}px`;
+  }
+
+  // 第一階段：滑出停留
+  setTimeout(() => {
+    const paperRect = paper.getBoundingClientRect();
+    const startX = paperRect.left + paperRect.width / 2;
+    const startY = paperRect.top + paperRect.height / 2;
+
+    let endX = window.innerWidth / 2;
+    let endY = window.innerHeight - 120;
+
+    const target = targetListEl || document.getElementById("expenseList") || document.getElementById("quickExpenseModal") || document.querySelector(".exp-item");
+    if(target && typeof target.getBoundingClientRect === "function"){
+      const targetRect = target.getBoundingClientRect();
+      if(targetRect.height > 0 && targetRect.width > 0){
+        endX = targetRect.left + targetRect.width / 2;
+        endY = Math.min(window.innerHeight - 80, Math.max(60, targetRect.top + 60));
+      }
+    }
+
+    paper.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease";
+    paper.style.transform = "scale(0.08) rotate(22deg)";
+    paper.style.opacity = "0";
+
+    // 第二階段：光芒能量球飛入
+    const orb = document.createElement("div");
+    orb.className = "sb-receipt-fly-orb";
+    orb.textContent = "✨";
+    orb.style.left = `${startX - 15}px`;
+    orb.style.top = `${startY - 15}px`;
+    document.body.appendChild(orb);
+
+    setTimeout(() => {
+      orb.style.transition = "all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)";
+      orb.style.left = `${endX - 15}px`;
+      orb.style.top = `${endY - 15}px`;
+      orb.style.transform = "scale(1.35)";
+
+      setTimeout(() => {
+        if(target){
+          target.classList.remove("sb-ledger-ripple");
+          void target.offsetWidth;
+          target.classList.add("sb-ledger-ripple");
+        }
+
+        orb.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+        orb.style.transform = "scale(2.2)";
+        orb.style.opacity = "0";
+
+        setTimeout(() => {
+          overlay.remove();
+          orb.remove();
+          if(typeof onComplete === "function") onComplete();
+        }, 200);
+      }, 510);
+    }, 40);
+
+  }, 820);
+}
+
 window.getCategoryIcon = getCategoryIcon;
 window.getCategoryMeta = getCategoryMeta;
 window.getAvatarColor = getAvatarColor;
 window.renderAvatarHTML = renderAvatarHTML;
+window.triggerReceiptFlyAnimation = triggerReceiptFlyAnimation;
 
 // ============================================================
 // 🎖️ 成員成就與趣味勳章系統 (Member Achievements & Badges - 跨幣別大一統)
