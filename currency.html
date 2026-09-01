@@ -163,7 +163,7 @@ if("serviceWorker" in navigator){
       <button type="button" class="app-tab active" data-tab="summary">📊 總表</button>
       <button type="button" class="app-tab" data-tab="expense">🧾 支出</button>
       <button type="button" class="app-tab" data-tab="repay">💸 還款</button>
-      <button type="button" class="app-tab" data-tab="history">📋 記錄</button>
+      <button type="button" class="app-tab" data-tab="history">📋 紀錄</button>
     </div>
 
     <!-- 1. 總表預設開啟 -->
@@ -264,7 +264,7 @@ if("serviceWorker" in navigator){
           <div class="exp-form-section-head">
             <span class="exp-form-section-icon">🍽️</span>
             <span class="exp-form-section-title">支出內容</span>
-            <button type="button" class="btn-ai-receipt exp-form-section-action" id="aiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 照片自動拆單</button>
+            <button type="button" class="btn-ai-receipt exp-form-section-action" id="aiReceiptBtn" title="拍照或上傳發票/收據自動辨識品項與拆單">📷 AI 拆單</button>
           </div>
 
           <label for="expDesc">項目 / 店名</label>
@@ -489,6 +489,30 @@ if("serviceWorker" in navigator){
             </select>
           </div>
         </div>
+
+        <!-- 🔍 歷史紀錄即時搜尋與分類 Chips -->
+        <div class="history-quick-filter-bar" id="historyQuickFilterBar">
+          <div class="history-live-search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-inp" id="historyLiveSearch" placeholder="即時搜尋項目、店家或備註...">
+            <button type="button" class="search-clear-btn hidden" id="historyLiveSearchClear" aria-label="清除搜尋">✕</button>
+          </div>
+          <div class="history-category-chips" id="historyCategoryChips">
+            <button type="button" class="history-cat-chip active" data-cat="all">全部</button>
+            <button type="button" class="history-cat-chip" data-cat="food">🍜 美食</button>
+            <button type="button" class="history-cat-chip" data-cat="drink">☕ 飲料</button>
+            <button type="button" class="history-cat-chip" data-cat="transit">🚄 交通</button>
+            <button type="button" class="history-cat-chip" data-cat="car">🚗 租車</button>
+            <button type="button" class="history-cat-chip" data-cat="flight">✈️ 機票</button>
+            <button type="button" class="history-cat-chip" data-cat="hotel">🏨 住宿</button>
+            <button type="button" class="history-cat-chip" data-cat="ticket">🎟️ 門票</button>
+            <button type="button" class="history-cat-chip" data-cat="shopping">🛍️ 購物</button>
+            <button type="button" class="history-cat-chip" data-cat="medical">💊 醫療</button>
+            <button type="button" class="history-cat-chip" data-cat="network">📶 網卡</button>
+            <button type="button" class="history-cat-chip" data-cat="general">🧾 一般</button>
+          </div>
+        </div>
+
         <div id="expenseHistory"></div>
         <div id="repaymentHistory" class="hidden"></div>
       </div>
@@ -951,11 +975,11 @@ const CURRENCY_SYMBOL = activeCurrency.symbol;
 const CURRENCY_LABEL = activeCurrency.label;
 const SHOW_CONVERSION = !!activeCurrency.convert;
 
-document.title = CURRENCY_LABEL + "區";
+document.title = "Splitbill｜" + CURRENCY_LABEL + "區";
 document.getElementById("pageEyebrow").textContent = CURRENCY;
 document.getElementById("pageH1").textContent = CURRENCY_LABEL + "區";
 document.getElementById("myBalanceLabel").textContent = "我的款項（" + CURRENCY_LABEL + "）";
-document.getElementById("expAmountLabel").textContent = "無服務費/稅 金額（" + CURRENCY_LABEL + "）";
+document.getElementById("expAmountLabel").textContent = "支出總金額（已含稅/免稅，" + CURRENCY_LABEL + "）";
 document.getElementById("repayAmountLabel").textContent = "金額（" + CURRENCY_LABEL + "）";
 
 // shownCurrencies 由 app.js 在登入後從 members.shown_currencies 填入，

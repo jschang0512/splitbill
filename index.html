@@ -36,8 +36,8 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="Ne56QZ5TZ4k1v-tJpImleVhKE59RgpkvejiYlJhe36Q" />
-<title>Splitbill 分帳系統｜智慧多人分帳與 AI 收據拆單</title>
-<meta name="description" content="Splitbill 分帳系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！">
+<title>Splitbill 帳務系統｜智慧多人分帳與 AI 收據拆單</title>
+<meta name="description" content="Splitbill 帳務系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！">
 <meta name="keywords" content="Splitbill, 分帳, 記帳, 多人分帳, AI拆單, 收據辨識, 旅遊記帳, 匯率換算, 出國分帳, 債務計算, 團體記帳">
 <meta name="author" content="Splitbill">
 <meta name="robots" content="index, follow">
@@ -46,9 +46,9 @@
 <!-- Open Graph / Facebook / Line 預覽卡片 -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://jschang0512.github.io/splitbill/">
-<meta property="og:site_name" content="Splitbill 分帳系統">
-<meta property="og:title" content="Splitbill 分帳系統｜智慧多人分帳與 AI 收據拆單">
-<meta property="og:description" content="Splitbill 分帳系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！">
+<meta property="og:site_name" content="Splitbill 帳務系統">
+<meta property="og:title" content="Splitbill 帳務系統｜智慧多人分帳與 AI 收據拆單">
+<meta property="og:description" content="Splitbill 帳務系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！">
 <meta property="og:image" content="https://jschang0512.github.io/splitbill/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
@@ -56,8 +56,8 @@
 
 <!-- Twitter Card 預覽卡片 -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Splitbill 分帳系統｜智慧多人分帳與 AI 收據拆單">
-<meta name="twitter:description" content="Splitbill 分帳系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！">
+<meta name="twitter:title" content="Splitbill 帳務系統｜智慧多人分帳與 AI 收據拆單">
+<meta name="twitter:description" content="Splitbill 帳務系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！">
 <meta name="twitter:image" content="https://jschang0512.github.io/splitbill/icon-512.png">
 
 <!-- Google 搜尋引擎標準圖示與 Favicon -->
@@ -77,10 +77,10 @@
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "Splitbill 分帳系統",
+  "name": "Splitbill 帳務系統",
   "alternateName": ["Splitbill", "Splitbill 智慧分帳記帳系統", "Splitbill App"],
   "url": "https://jschang0512.github.io/splitbill/",
-  "description": "Splitbill 分帳系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！",
+  "description": "Splitbill 帳務系統是一套流暢的多人分帳與團體記帳工具。支援 AI 拍照辨識收據拆單、多幣別記帳與匯率試算、債務關係表與一鍵還款抵銷，出遊旅行、室友合租聚餐分帳最首選！",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web, Android, iOS",
   "offers": {
@@ -217,7 +217,7 @@ if("serviceWorker" in navigator){
       <div class="login-card-title">歡迎登入</div>
 
       <div id="newAuthPane">
-        <label id="authEmailLabel">帳戶名稱或電子信箱</label>
+        <label id="authEmailLabel">帳號（使用者名稱或電子信箱）</label>
         <input type="text" id="authEmail" placeholder="使用者名稱或 you@gmail.com">
         <label id="authNameLabel" class="hidden">全域使用者名稱</label>
         <input type="text" id="authName" class="hidden" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
@@ -787,7 +787,7 @@ function removeFlashGuard(){
     // 註冊一定要真的信箱（Supabase 建帳號本來就需要），登入才能用帳戶
     // 名稱或信箱兩種都行，欄位標籤跟提示文字跟著模式換。
     const emailInp = document.getElementById("authEmail");
-    document.getElementById("authEmailLabel").textContent = isSignup ? "電子信箱" : "帳戶名稱或電子信箱";
+    document.getElementById("authEmailLabel").textContent = isSignup ? "電子信箱" : "帳號（使用者名稱或電子信箱）";
     emailInp.type = isSignup ? "email" : "text";
     emailInp.placeholder = isSignup ? "你的信箱" : "使用者名稱或 you@gmail.com";
     document.getElementById("authMsg").textContent = "";
@@ -800,7 +800,7 @@ function removeFlashGuard(){
     authForgotPwBtn.addEventListener("click", async ()=>{
       const identifier = document.getElementById("authEmail").value.trim();
       const msg = document.getElementById("authMsg");
-      if(!identifier){ msg.textContent = "請先輸入帳戶名稱或信箱"; msg.className = "msg error"; return; }
+      if(!identifier){ msg.textContent = "請先輸入使用者名稱或電子信箱"; msg.className = "msg error"; return; }
       msg.textContent = "寄送中…"; msg.className = "msg";
       const email = await resolveLoginIdentifier(identifier);
       // 查不到對應信箱時，還是顯示跟寄送成功一樣的訊息（呼應 Supabase
@@ -828,7 +828,7 @@ function removeFlashGuard(){
       const password = document.getElementById("authPassword").value;
       const msg = document.getElementById("authMsg");
       if(!identifier || !password){
-        msg.textContent = authMode === "signup" ? "請輸入信箱和密碼" : "請輸入帳戶名稱/信箱和密碼";
+        msg.textContent = authMode === "signup" ? "請輸入信箱和密碼" : "請輸入使用者名稱/電子信箱和密碼";
         msg.className = "msg error";
         return;
       }

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
@@ -216,7 +216,7 @@ if("serviceWorker" in navigator){
         <div class="exp-form-section-head">
           <span class="exp-form-section-icon">🍽️</span>
           <span class="exp-form-section-title">支出內容</span>
-          <button type="button" class="btn-ai-receipt quick-exp-ai-receipt-btn exp-form-section-action" id="quickExpAiReceiptBtn" title="拍照或上傳發票自動辨識品項與拆單">📷 AI拆單</button>
+          <button type="button" class="btn-ai-receipt quick-exp-ai-receipt-btn exp-form-section-action" id="quickExpAiReceiptBtn" title="拍照或上傳發票/收據自動辨識品項與拆單">📷 AI 拆單</button>
         </div>
 
         <!-- 幣別智慧推薦與手動切換 -->
@@ -1679,6 +1679,42 @@ renderNavLinks();
       updateQuickTaxPreview();
     });
 
+    function getQuickCurSym(){
+      const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === curSelect.value) : null;
+      return curObj ? curObj.symbol : "$";
+    }
+
+    function quickSumCheckHTML(total, sum){
+      const sym = getQuickCurSym();
+      const diff = Math.round((total - sum) * 100) / 100;
+      if(!total) return "";
+      if(Math.abs(diff) < 0.5) return `<span class="sum-ok">🎉 金額剛好分配完畢（${sym}${formatAmt(sum)}）</span>`;
+      if(diff > 0) return `<span class="sum-warn">⚠️ 尚餘 ${sym}${formatAmt(diff)} 待分配（已分配 ${sym}${formatAmt(sum)} / ${sym}${formatAmt(total)}）</span>`;
+      return `<span class="sum-warn">🚨 超出總金額 ${sym}${formatAmt(Math.abs(diff))}（已分配 ${sym}${formatAmt(sum)} / ${sym}${formatAmt(total)}）</span>`;
+    }
+
+    function updateQuickPayerSumCheck(){
+      if(quickPayerMode !== "multi") {
+        if(quickPayerSumCheck) quickPayerSumCheck.innerHTML = "";
+        return;
+      }
+      const total = (Number(amtInput.value) || 0) + (quickTaxMode === "exclusive" ? (Number(taxAmtInput ? taxAmtInput.value : 0) || 0) : 0);
+      let sum = 0;
+      document.querySelectorAll("#quickExpPayers .amt-row-input").forEach(inp => { sum += Number(inp.value) || 0; });
+      if(quickPayerSumCheck) quickPayerSumCheck.innerHTML = quickSumCheckHTML(total, sum);
+    }
+
+    function updateQuickShareSumCheck(){
+      if(quickSplitMode !== "custom"){
+        if(quickShareSumCheck) quickShareSumCheck.innerHTML = "";
+        return;
+      }
+      const subtotal = Number(amtInput.value) || 0;
+      let sum = 0;
+      document.querySelectorAll("#quickSharesCustom .quick-share-inp").forEach(inp => { sum += Number(inp.value) || 0; });
+      if(quickShareSumCheck) quickShareSumCheck.innerHTML = quickSumCheckHTML(subtotal, sum);
+    }
+
     // --- 誰付的錢：單人/多人 ---
     function setPayerMode(mode){
       quickPayerMode = mode;
@@ -1688,6 +1724,7 @@ renderNavLinks();
       paidBySelect.classList.toggle("hidden", mode === "multi");
       const payersGrid = document.getElementById("quickExpPayers");
       if(payersGrid) payersGrid.classList.toggle("hidden", mode === "single");
+      updateQuickPayerSumCheck();
     }
     modal.querySelectorAll("[data-quick-payer-mode]").forEach(btn =>{
       btn.addEventListener("click", () => setPayerMode(btn.dataset.quickPayerMode));
@@ -1704,15 +1741,25 @@ renderNavLinks();
       const quickAddonsContainer = document.getElementById("quickAddonsContainer");
       if(quickAddonsContainer) quickAddonsContainer.classList.toggle("hidden", mode !== "equal");
       if(quickSharesCustom) quickSharesCustom.classList.toggle("hidden", mode === "equal");
-      if(mode === "custom") updateQuickShareTaxWarn();
-      else {
+      if(mode === "custom") {
+        updateQuickShareTaxWarn();
+        updateQuickShareSumCheck();
+      } else {
         const warnEl = document.getElementById("quickSharesTaxWarn");
         if(warnEl) warnEl.classList.add("hidden");
+        if(quickShareSumCheck) quickShareSumCheck.innerHTML = "";
       }
     }
     modal.querySelectorAll("[data-quick-mode]").forEach(btn =>{
       btn.addEventListener("click", () => setSplitMode(btn.dataset.quickMode));
     });
+
+    if(amtInput){
+      amtInput.addEventListener("input", ()=>{
+        updateQuickPayerSumCheck();
+        updateQuickShareSumCheck();
+      });
+    }
 
     // --- 取消全選/全選 ---
     let allSelected = true;
@@ -1761,6 +1808,9 @@ renderNavLinks();
         payersGrid.innerHTML = activeList.map(m =>
           `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
         ).join("");
+        payersGrid.querySelectorAll(".amt-row-input").forEach(inp => {
+          inp.addEventListener("input", updateQuickPayerSumCheck);
+        });
       }
 
       // 平均分攤藥丸
@@ -1779,12 +1829,17 @@ renderNavLinks();
         quickSharesCustom.innerHTML = activeList.map(m =>
           `<div class="amt-row"><span class="amt-row-name">${escapeHtml(m.name||"成員")}</span><input type="number" class="amt-row-input quick-share-inp" data-member="${m.id}" placeholder="0" min="0" step="1"></div>`
         ).join("");
+        quickSharesCustom.querySelectorAll(".quick-share-inp").forEach(inp => {
+          inp.addEventListener("input", updateQuickShareSumCheck);
+        });
       }
 
       renderQuickAddonsList();
 
       allSelected = true;
       if(toggleAllBtn) toggleAllBtn.textContent = "取消全選";
+      updateQuickPayerSumCheck();
+      updateQuickShareSumCheck();
     }
 
     function quickMemberName(id){

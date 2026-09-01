@@ -265,7 +265,7 @@ if("serviceWorker" in navigator){
 
           <label>邀請碼（給朋友，讓他們加入這個群組）</label>
           <div class="settings-field-row">
-            <input type="text" id="settingsInviteCode" readonly>
+            <input type="text" id="settingsInviteCode" readonly title="點擊一鍵複製邀請碼">
             <button class="btn secondary small" id="copyInviteCodeBtn">複製</button>
           </div>
           <div class="msg" id="copyInviteCodeMsg"></div>
@@ -806,20 +806,20 @@ if(backBtn){
   }
 
   const copyInviteCodeBtn = document.getElementById("copyInviteCodeBtn");
-  if(copyInviteCodeBtn){
-    copyInviteCodeBtn.addEventListener("click", async ()=>{
-      const inviteInp = document.getElementById("settingsInviteCode");
-      const msg = document.getElementById("copyInviteCodeMsg");
-      if(!inviteInp || !inviteInp.value) return;
-      try{
-        await navigator.clipboard.writeText(inviteInp.value);
-        msg.textContent = "已複製！"; msg.className = "msg ok";
-      }catch(e){
-        inviteInp.select();
-        msg.textContent = "自動複製失敗，已幫你選取文字，手動複製即可"; msg.className = "msg error";
-      }
-    });
+  const inviteInp = document.getElementById("settingsInviteCode");
+  async function doCopyInviteCode(){
+    const msg = document.getElementById("copyInviteCodeMsg");
+    if(!inviteInp || !inviteInp.value) return;
+    try{
+      await navigator.clipboard.writeText(inviteInp.value);
+      msg.textContent = "✓ 已複製邀請碼！"; msg.className = "msg ok";
+    }catch(e){
+      inviteInp.select();
+      msg.textContent = "自動複製失敗，已幫你選取文字，手動複製即可"; msg.className = "msg error";
+    }
   }
+  if(copyInviteCodeBtn) copyInviteCodeBtn.addEventListener("click", doCopyInviteCode);
+  if(inviteInp) inviteInp.addEventListener("click", doCopyInviteCode);
 
   // ---------- 邀請碼 QR code：掃了直接開登入頁，帶著 ?join= 邀請碼，
   // 對方登入/註冊完、發現自己沒有群組時會自動幫他把邀請碼填好。----------

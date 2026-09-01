@@ -172,26 +172,44 @@ function showToast(title, body, actionLabel, actionFn){
   textEl.innerHTML = body ? `<b>${escapeHtml(title)}</b><span>${escapeHtml(body)}</span>` : `<b>${escapeHtml(title)}</b>`;
   toast.appendChild(textEl);
 
+  let autoDismissTimer = null;
+  let countdownTimer = null;
+
   const dismiss = () => {
-    clearTimeout(autoDismissTimer);
+    if(autoDismissTimer) clearTimeout(autoDismissTimer);
+    if(countdownTimer) clearInterval(countdownTimer);
     toast.classList.add("sb-toast-out");
     setTimeout(()=> toast.remove(), 250);
   };
 
   if(actionLabel && actionFn){
+    let remaining = 5;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "sb-toast-action";
-    btn.textContent = actionLabel;
+    btn.textContent = `${actionLabel} (${remaining}s)`;
     btn.addEventListener("click", ()=>{
       dismiss();
       actionFn();
     });
     toast.appendChild(btn);
+
+    const progress = document.createElement("div");
+    progress.className = "sb-toast-progress";
+    toast.appendChild(progress);
+
+    countdownTimer = setInterval(()=>{
+      remaining--;
+      if(remaining > 0){
+        btn.textContent = `${actionLabel} (${remaining}s)`;
+      } else {
+        clearInterval(countdownTimer);
+      }
+    }, 1000);
   }
 
   container.appendChild(toast);
-  const autoDismissTimer = setTimeout(dismiss, actionLabel ? 5000 : 4000);
+  autoDismissTimer = setTimeout(dismiss, actionLabel ? 5000 : 4000);
 }
 
 // ============================================================
