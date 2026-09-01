@@ -5930,15 +5930,12 @@ function showPairDetail(
   // creditorId 欠 debtorId／creditorId 還 debtorId 用灰色（不顯眼）。
   const balanceText = (fwd, rev) => {
     if(fwd <= 0.01 && rev <= 0.01){
-      return `<div class="ledger-subtotal-flow"><span class="subtotal-prefix">小計</span><span class="balance-chip is-clear">已結清</span></div>`;
+      return `<div class="ledger-row-balance"><span class="balance-chip is-clear">✓ 雙方此時已結清</span></div>`;
     }
-    if(fwd > 0.01 && rev <= 0.01){
-      return `<div class="ledger-subtotal-flow"><span class="subtotal-prefix">小計</span><span class="balance-chip is-owe"><span class="chip-direction">${debtorName}欠${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span></div>`;
-    }
-    if(rev > 0.01 && fwd <= 0.01){
-      return `<div class="ledger-subtotal-flow"><span class="subtotal-prefix">小計</span><span class="balance-chip is-credit"><span class="chip-direction">${creditorName}欠${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span></div>`;
-    }
-    return `<div class="ledger-subtotal-flow"><span class="subtotal-prefix">小計</span><span class="balance-chip is-owe"><span class="chip-direction">${debtorName}欠${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span><span class="balance-chip is-owed"><span class="chip-direction">${creditorName}欠${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span></div>`;
+    return `<div class="ledger-row-balance">`
+      + `<span class="balance-chip is-owe"><span class="chip-names">${debtorName} 欠 ${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span>`
+      + `<span class="balance-chip is-owed"><span class="chip-names">${creditorName} 欠 ${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
+      + `</div>`;
   };
   // 單筆事件金額前面的正負號/顏色，改成看這筆事件實際有沒有讓 debtorId
   // 自己的欠款（forwardBal）變動——例如反方向的還款如果被既有的反方向欠款
@@ -6085,10 +6082,10 @@ function showPairDetail(
       ${totalCyclePages > 0 ? `
         <div class="debt-cycle-tabs">
           <button type="button" class="debt-cycle-tab ${olderCyclePage === 0 ? 'active' : ''}" id="matrixActiveCycleTab">
-            🔥 進行中待結算 (${visibleEvents.length})
+            🔥 進行中 (${visibleEvents.length})
           </button>
           <button type="button" class="debt-cycle-tab ${olderCyclePage > 0 ? 'active' : ''}" id="matrixHistoryCycleTab">
-            📜 歷史結清存檔 (共 ${totalCyclePages} 輪)
+            📜 歷史存檔 (${totalCyclePages})
           </button>
         </div>
       ` : ""}
@@ -6097,7 +6094,7 @@ function showPairDetail(
       <div class="debt-detail-section">
         <div class="debt-section-title">
           <span class="debt-section-icon">${olderCyclePage > 0 ? '📜' : '📋'}</span>
-          <span>${olderCyclePage > 0 ? '歷史結清存檔' : '進行中往來紀錄'}</span>
+          <span>${olderCyclePage > 0 ? '歷史存檔' : '往來紀錄'}</span>
           <span class="debt-section-count">${olderCyclePage > 0 ? olderEvents.length : visibleEvents.length} 筆</span>
           <button type="button" class="ledger-sort-toggle-btn" id="matrixLedgerSortBtn" title="切換排序方向" aria-label="切換排序方向">
             ${ledgerSortAsc ? "⬇ 舊到新" : "⬆ 新到舊"}
@@ -6107,12 +6104,12 @@ function showPairDetail(
         ${olderCyclePage > 0 ? `
           <!-- 歷史存檔步進卡片 -->
           <div class="debt-archive-stepper-card">
-            <button type="button" class="archive-step-btn" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>← 較早一輪</button>
+            <button type="button" class="archive-step-btn" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>← 上一輪</button>
             <div class="archive-step-info">
-              <span class="archive-step-title">第 ${displayRound} / ${totalCyclePages} 輪已結清紀錄</span>
-              <span class="archive-step-sub">（共 ${olderEvents.length} 筆明細 · 已結清 ✓）</span>
+              <span class="archive-step-title">第 ${displayRound} / ${totalCyclePages} 輪</span>
+              <span class="archive-step-sub">已結清 ✓</span>
             </div>
-            <button type="button" class="archive-step-btn" id="matrixCycleNextBtn" ${olderCyclePage <= 1 ? "disabled" : ""}>較新一輪 →</button>
+            <button type="button" class="archive-step-btn" id="matrixCycleNextBtn" ${olderCyclePage <= 1 ? "disabled" : ""}>下一輪 →</button>
           </div>
         ` : ""}
 
@@ -6146,19 +6143,21 @@ function showPairDetail(
                 ${escapeHtml(e.expense_date || "")}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}
               </div>
             </div>
-            <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(ev.amount)}</div>
-            ${canEditExpense ? `
-              <div class="ledger-row-quick-actions">
-                ${isExpXcur ? `
-                  ${expXcurId ? `<button type="button" class="exp-xcur-editrate" data-xcur="${expXcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}
-                  <button type="button" class="exp-del debt-exp-del exp-xcur-restore" data-id="${e.id}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
-                ` : `
-                  <button type="button" class="exp-edit debt-exp-edit" data-id="${e.id}" title="編輯" aria-label="編輯">✎</button>
-                  <button type="button" class="exp-del debt-exp-del" data-id="${e.id}" title="刪除" aria-label="刪除">✕</button>
-                `}
-              </div>
-            ` : ""}
-            <div class="ledger-row-balance">${balanceText(ev.balanceForward, ev.balanceReverse)}</div>
+            <div class="ledger-row-right">
+              <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(ev.amount)}</div>
+              ${canEditExpense ? `
+                <div class="ledger-row-quick-actions">
+                  ${isExpXcur ? `
+                    ${expXcurId ? `<button type="button" class="exp-xcur-editrate" data-xcur="${expXcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}
+                    <button type="button" class="exp-del debt-exp-del exp-xcur-restore" data-id="${e.id}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
+                  ` : `
+                    <button type="button" class="exp-edit debt-exp-edit" data-id="${e.id}" title="編輯" aria-label="編輯">✎</button>
+                    <button type="button" class="exp-del debt-exp-del" data-id="${e.id}" title="刪除" aria-label="刪除">✕</button>
+                  `}
+                </div>
+              ` : ""}
+            </div>
+            ${balanceText(ev.balanceForward, ev.balanceReverse)}
           </div>
         </div>
       `;
@@ -6183,19 +6182,21 @@ function showPairDetail(
               ${escapeHtml(r.payment_date || "")}${formatTime(r.created_at, r.payment_date) ? " " + formatTime(r.created_at, r.payment_date) : ""}
             </div>
           </div>
-          <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(amount)}</div>
-          ${canEditRepay ? `
-            <div class="ledger-row-quick-actions">
-              ${isRepXcur ? `
-                ${repXcurId ? `<button class="exp-xcur-editrate" data-xcur="${repXcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}
-                <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"} exp-xcur-restore" data-id="${r.id}" data-group="${r.offset_group || ""}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
-              ` : `
-                ${!r.offset_group ? `<button class="exp-edit debt-repay-edit" data-id="${r.id}" title="編輯" aria-label="編輯">✎</button>` : ""}
-                <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="刪除" aria-label="刪除">✕</button>
-              `}
-            </div>
-          ` : ""}
-          <div class="ledger-row-balance">${balanceText(ev.balanceForward, ev.balanceReverse)}</div>
+          <div class="ledger-row-right">
+            <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(amount)}</div>
+            ${canEditRepay ? `
+              <div class="ledger-row-quick-actions">
+                ${isRepXcur ? `
+                  ${repXcurId ? `<button class="exp-xcur-editrate" data-xcur="${repXcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}
+                  <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"} exp-xcur-restore" data-id="${r.id}" data-group="${r.offset_group || ""}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
+                ` : `
+                  ${!r.offset_group ? `<button class="exp-edit debt-repay-edit" data-id="${r.id}" title="編輯" aria-label="編輯">✎</button>` : ""}
+                  <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="刪除" aria-label="刪除">✕</button>
+                `}
+              </div>
+            ` : ""}
+          </div>
+          ${balanceText(ev.balanceForward, ev.balanceReverse)}
         </div>
         <div class="ledger-row-detail">
           <div class="debt-info-row">
@@ -6249,8 +6250,8 @@ function showPairDetail(
           </div>
         </div>
         ${totalCyclePages > 0 ? `
-          <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:14px auto 0;display:block;">
-            📜 查看過往 ${totalCyclePages} 輪結清存檔
+          <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:12px auto 0;display:block;white-space:nowrap;">
+            📜 歷史結清存檔 (${totalCyclePages} 輪)
           </button>
         ` : ""}
       </div>
@@ -6269,8 +6270,8 @@ function showPairDetail(
     // 歷史存檔底部
     html += `
       <div class="debt-archive-footer-card">
-        <div class="archive-settled-text">✓ 此輪帳目已全數清算歸零</div>
-        <button type="button" class="btn secondary small" id="matrixBackToActiveBtn">↩ 返回進行中待結算</button>
+        <div class="archive-settled-text">✓ 此輪帳目已全數結清</div>
+        <button type="button" class="btn secondary small" id="matrixBackToActiveBtn">↩ 返回進行中</button>
       </div>
     `;
   } else {

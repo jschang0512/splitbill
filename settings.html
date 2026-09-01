@@ -31,7 +31,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=618"></script>
+<script src="version.js?v=619"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
@@ -377,11 +377,13 @@ if("serviceWorker" in navigator){
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
-            <div class="settings-changelog-header">✨ 最新更新項目：</div>
+            <div class="settings-changelog-header">✨ v619 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>修正跨幣別識別碼匹配與雙向一鍵還原機制</li>
-              <li>全面改用 App 專屬「🔔 Splitbill 通知」對話彈窗</li>
-              <li>提示文字與操作按鈕全面採用「↺ 還原」專屬符號</li>
+              <li>往來紀錄全新「進行中」與「歷史存檔」雙分頁架構</li>
+              <li>每筆交易欠款水位線滿版獨立排版，雙方金額 100% 完整呈現不遮擋</li>
+              <li>歷史紀錄新增即時關鍵字搜尋與 11 大分類 Filter Chips</li>
+              <li>刪除操作加入 5 秒浮動 Undo 復原條與平滑倒數計時</li>
+              <li>自訂分攤與多人付款新增剩餘待分配／超出即時動態提示</li>
             </ul>
           </div>
         </div>

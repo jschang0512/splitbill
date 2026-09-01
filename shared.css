@@ -2957,7 +2957,7 @@ button.dd-btn {
   gap:6px;
   margin-bottom:12px;
   background:var(--input-bg);
-  padding:4px;
+  padding:3px;
   border-radius:12px;
   border:1px solid var(--line);
 }
@@ -2966,13 +2966,15 @@ button.dd-btn {
   border:none;
   background:transparent;
   color:var(--ink-soft);
-  font-size:12px;
+  font-size:12.5px;
   font-weight:700;
-  padding:8px 10px;
-  border-radius:8px;
+  padding:7px 6px;
+  border-radius:9px;
   cursor:pointer;
   transition:all .15s ease;
   font-family:inherit;
+  white-space:nowrap;
+  text-align:center;
 }
 .debt-cycle-tab:hover{
   color:var(--ink);
@@ -2980,7 +2982,7 @@ button.dd-btn {
 .debt-cycle-tab.active{
   background:var(--paper);
   color:var(--btn-primary);
-  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+  box-shadow:0 2px 6px rgba(0,0,0,0.06);
 }
 
 /* 歷史存檔翻頁步進卡片 */
@@ -2988,11 +2990,12 @@ button.dd-btn {
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:10px 14px;
+  padding:8px 12px;
   border-radius:12px;
   background:color-mix(in srgb, var(--btn-primary) 8%, var(--paper));
   border:1px dashed color-mix(in srgb, var(--btn-primary) 25%, transparent);
-  margin-bottom:14px;
+  margin-bottom:12px;
+  gap:8px;
 }
 .archive-step-btn{
   border:1px solid var(--line);
@@ -3000,10 +3003,12 @@ button.dd-btn {
   color:var(--ink);
   font-size:11px;
   font-weight:700;
-  padding:5px 12px;
+  padding:5px 10px;
   border-radius:8px;
   cursor:pointer;
   transition:all .15s ease;
+  white-space:nowrap;
+  flex-shrink:0;
 }
 .archive-step-btn:hover:not(:disabled){
   border-color:var(--btn-primary);
@@ -3015,39 +3020,47 @@ button.dd-btn {
 }
 .archive-step-info{
   display:flex;
-  flex-direction:column;
   align-items:center;
-  gap:2px;
+  justify-content:center;
+  gap:6px;
   text-align:center;
+  flex:1;
+  min-width:0;
+  flex-wrap:nowrap;
 }
 .archive-step-title{
-  font-size:12.5px;
+  font-size:12px;
   font-weight:800;
   color:var(--ink);
+  white-space:nowrap;
 }
 .archive-step-sub{
   font-size:11px;
-  font-weight:600;
+  font-weight:700;
   color:var(--positive-text);
+  white-space:nowrap;
 }
 
 /* 歷史存檔底部卡片 */
 .debt-archive-footer-card{
-  margin-top:14px;
-  padding:14px;
+  margin-top:12px;
+  padding:10px 14px;
   text-align:center;
   border-radius:12px;
   background:var(--paper);
   border:1.5px solid var(--card-nested-border);
   display:flex;
-  flex-direction:column;
+  flex-direction:row;
   align-items:center;
+  justify-content:space-between;
   gap:8px;
+  flex-wrap:wrap;
 }
 .archive-settled-text{
-  font-size:12.5px;
+  font-size:12px;
   font-weight:700;
   color:var(--positive-text);
+  white-space:nowrap;
 }
 
 /* 往來紀錄時間軸容器與連續垂直軌道 */
@@ -3148,13 +3161,13 @@ button.dd-btn {
   grid-template-columns:1fr auto;
   grid-template-rows:auto auto;
   column-gap:10px;
-  padding:11px 12px;
+  padding:10px 12px;
   cursor:pointer;
 }
 .ledger-row-main{
-  min-width:0;
   grid-column:1;
   grid-row:1;
+  min-width:0;
 }
 .ledger-row-name{
   font-size:13.5px;
@@ -3169,34 +3182,35 @@ button.dd-btn {
   font-size:11px;
   color:var(--ink-soft);
 }
-.ledger-row-amount{
+.ledger-row-right{
   grid-column:2;
   grid-row:1;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  justify-self:end;
+  align-self:start;
+}
+.ledger-row-amount{
   font-family:"JetBrains Mono",monospace;
-  font-size:13px;
+  font-size:13.5px;
   font-weight:700;
   white-space:nowrap;
-  align-self:start;
-  justify-self:end;
+  font-variant-numeric:tabular-nums;
 }
 .ledger-row-amount.is-debit{ color:var(--negative-text); }
 .ledger-row-amount.is-credit{ color:var(--ink-soft); }
 .ledger-row-amount.is-repay{ color:var(--positive-text); }
 .ledger-row-quick-actions{
-  grid-column:2;
-  grid-row:2;
-  justify-self:end;
-  align-self:center;
-  display:flex;
+  display:inline-flex;
   align-items:center;
-  gap:6px;
-  margin-top:4px;
+  gap:4px;
 }
 .ledger-row-quick-actions button{
-  width:24px;
-  height:24px;
+  width:22px;
+  height:22px;
   padding:0;
-  border-radius:7px;
+  border-radius:6px;
   font-size:11px;
   display:inline-flex;
   align-items:center;
@@ -3216,72 +3230,64 @@ button.dd-btn {
   border-color:var(--negative-text);
   color:var(--negative-text);
 }
+
+/* 雙方欠款水位於底部滿版排開，字體與數字絕不被遮擋 */
 .ledger-row-balance{
-  grid-column:1;
+  grid-column:1 / -1;
   grid-row:2;
-  align-self:center;
-  margin-top:6px;
-  min-width:0;
+  margin-top:8px;
+  padding-top:7px;
+  border-top:1px dashed color-mix(in srgb, var(--line) 80%, transparent);
+  width:100%;
   display:flex;
+  flex-direction:row;
   flex-wrap:wrap;
-  align-items:center;
   gap:6px;
-}
-.ledger-subtotal-flow{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  flex-wrap:wrap;
-}
-.subtotal-prefix{
-  font-size:10px;
-  font-weight:700;
-  color:var(--ink-soft);
-  opacity:0.85;
-  background:color-mix(in srgb, var(--ink-soft) 10%, transparent);
-  padding:1px 6px;
-  border-radius:4px;
-  letter-spacing:0.04em;
+  align-items:stretch;
 }
 .balance-chip{
-  display:inline-flex;
+  flex:1 1 calc(50% - 6px);
+  min-width:130px;
+  display:flex;
   align-items:center;
-  gap:4px;
-  padding:2.5px 8px;
-  border-radius:999px;
-  font-size:11px;
-  font-weight:700;
-  white-space:nowrap;
-  font-variant-numeric:tabular-nums;
-  box-shadow:0 1px 3px rgba(0,0,0,.04);
-}
-.balance-chip .chip-direction{
+  justify-content:space-between;
+  gap:6px;
+  padding:4px 9px;
+  border-radius:8px;
+  font-size:11.5px;
   font-weight:600;
-  opacity:0.9;
+  box-sizing:border-box;
+}
+.balance-chip .chip-names{
+  white-space:nowrap;
+  overflow:visible;
+  opacity:0.95;
 }
 .balance-chip .chip-amt{
   font-family:"JetBrains Mono",monospace;
   font-weight:800;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+  margin-left:auto;
 }
 .balance-chip.is-owe{
-  background:color-mix(in srgb, var(--negative-text) 14%, var(--paper));
+  background:color-mix(in srgb, var(--negative-text) 12%, var(--paper));
   color:var(--negative-text);
   border:1px solid color-mix(in srgb, var(--negative-text) 24%, transparent);
 }
-.balance-chip.is-credit{
-  background:color-mix(in srgb, var(--accent-text, #3b82f6) 14%, var(--paper));
-  color:var(--accent-text, #2563eb);
-  border:1px solid color-mix(in srgb, var(--accent-text, #3b82f6) 24%, transparent);
-}
 .balance-chip.is-owed{
-  background:var(--input-bg);
+  background:color-mix(in srgb, var(--input-bg) 60%, var(--paper));
   color:var(--ink-soft);
   border:1px solid var(--line);
 }
 .balance-chip.is-clear{
-  background:color-mix(in srgb, var(--positive-text) 14%, var(--paper));
+  flex:1 1 100%;
+  justify-content:center;
+  background:color-mix(in srgb, var(--positive-text) 12%, var(--paper));
   color:var(--positive-text);
   border:1px solid color-mix(in srgb, var(--positive-text) 24%, transparent);
+  font-weight:700;
+  padding:5px 12px;
 }
 .ledger-row-detail{
   display:none;
