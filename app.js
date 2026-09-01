@@ -6052,26 +6052,23 @@ function showPairDetail(
 
       <!-- 頂部動態金流傳送條（獨立滿版置中） -->
       <div class="debt-detail-header">
-        <div class="debt-flow-header-card">
+        <div class="debt-flow-header-card ${remainingDebt <= 0.01 ? 'is-settled' : ''}">
           <div class="debt-flow-party debtor">
             ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-md")}
             <div class="debt-flow-party-info">
-              <span class="debt-flow-name">${escapeHtml(memberById[debtorId] || "?")}</span>
+              <span class="debt-flow-name" title="${escapeHtml(memberById[debtorId] || "")}">${escapeHtml(memberById[debtorId] || "?")}</span>
               <span class="debt-flow-role debtor">應付</span>
             </div>
           </div>
           <div class="debt-flow-track">
-            <div class="debt-flow-line">
-              <span class="debt-flow-pulse"></span>
-            </div>
             <div class="debt-flow-amount-pill ${remainingDebt <= 0.01 ? 'settled' : ''}">
-              ${remainingDebt > 0.01 ? `欠 ${SYM}${formatAmt(remainingDebt)}` : `✓ 已結清`}
+              ${remainingDebt > 0.01 ? `<span>欠 ${SYM}${formatAmt(remainingDebt)}</span><span class="flow-arrow">➔</span>` : `✓ 已結清`}
             </div>
           </div>
           <div class="debt-flow-party creditor">
             ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-md")}
             <div class="debt-flow-party-info">
-              <span class="debt-flow-name">${escapeHtml(memberById[creditorId] || "?")}</span>
+              <span class="debt-flow-name" title="${escapeHtml(memberById[creditorId] || "")}">${escapeHtml(memberById[creditorId] || "?")}</span>
               <span class="debt-flow-role creditor">收款</span>
             </div>
           </div>
@@ -6135,16 +6132,16 @@ function showPairDetail(
         <div class="ledger-row-wrap ${rowWrapClass(ev)}" data-id="${e.id}">
           <div class="ledger-timeline-node is-expense" title="${catMeta.icon || '🧾'} 支出">${catMeta.icon || "🧾"}</div>
           <div class="ledger-row ledger-row-open-expense" data-id="${e.id}">
-            <div class="ledger-row-main">
+            <div class="ledger-row-header">
               <div class="ledger-row-name">
                 ${escapeHtml(firstLine)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI</span>' : ""}${isExpXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}
               </div>
+              <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(ev.amount)}</div>
+            </div>
+            <div class="ledger-row-sub">
               <div class="ledger-row-date">
                 ${escapeHtml(e.expense_date || "")}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}
               </div>
-            </div>
-            <div class="ledger-row-right">
-              <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(ev.amount)}</div>
               ${canEditExpense ? `
                 <div class="ledger-row-quick-actions">
                   ${isExpXcur ? `
@@ -6174,16 +6171,16 @@ function showPairDetail(
       <div class="ledger-row-wrap ${rowWrapClass(ev)}" data-id="${r.id}">
         <div class="ledger-timeline-node is-repay" title="💸 還款">💸</div>
         <div class="ledger-row" onclick="if(!event.target.closest('button')){this.closest('.ledger-row-wrap').classList.toggle('is-expanded')}">
-          <div class="ledger-row-main">
+          <div class="ledger-row-header">
             <div class="ledger-row-name">
               ${(r.offset_group && !isXcurStr(r.offset_group)) ? `<span class="champion-tag">抵銷</span> ` : ""}${escapeHtml(memberById[r.from_member] || "?")} 還 ${escapeHtml(memberById[r.to_member] || "?")}${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}
             </div>
+            <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(amount)}</div>
+          </div>
+          <div class="ledger-row-sub">
             <div class="ledger-row-date">
               ${escapeHtml(r.payment_date || "")}${formatTime(r.created_at, r.payment_date) ? " " + formatTime(r.created_at, r.payment_date) : ""}
             </div>
-          </div>
-          <div class="ledger-row-right">
-            <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(amount)}</div>
             ${canEditRepay ? `
               <div class="ledger-row-quick-actions">
                 ${isRepXcur ? `

@@ -3157,54 +3157,61 @@ button.dd-btn {
 }
 
 .ledger-row{
-  display:grid;
-  grid-template-columns:1fr auto;
-  grid-template-rows:auto auto;
-  column-gap:10px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
   padding:10px 12px;
   cursor:pointer;
+  width:100%;
 }
-.ledger-row-main{
-  grid-column:1;
-  grid-row:1;
-  min-width:0;
+.ledger-row-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  width:100%;
 }
 .ledger-row-name{
   font-size:13.5px;
-  font-weight:600;
+  font-weight:700;
   color:var(--ink);
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.ledger-row-date{
-  margin-top:2px;
-  font-size:11px;
-  color:var(--ink-soft);
-}
-.ledger-row-right{
-  grid-column:2;
-  grid-row:1;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  justify-self:end;
-  align-self:start;
+  line-height:1.35;
+  word-break:break-word;
+  flex:1 1 auto;
+  min-width:0;
 }
 .ledger-row-amount{
   font-family:"JetBrains Mono",monospace;
-  font-size:13.5px;
-  font-weight:700;
+  font-size:14px;
+  font-weight:800;
   white-space:nowrap;
   font-variant-numeric:tabular-nums;
+  flex-shrink:0;
+  text-align:right;
+  line-height:1.35;
 }
 .ledger-row-amount.is-debit{ color:var(--negative-text); }
 .ledger-row-amount.is-credit{ color:var(--ink-soft); }
 .ledger-row-amount.is-repay{ color:var(--positive-text); }
+
+.ledger-row-sub{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  width:100%;
+  margin-top:1px;
+}
+.ledger-row-date{
+  font-size:11px;
+  color:var(--ink-soft);
+  white-space:nowrap;
+}
 .ledger-row-quick-actions{
   display:inline-flex;
   align-items:center;
   gap:4px;
+  margin-left:auto;
 }
 .ledger-row-quick-actions button{
   width:22px;
@@ -3233,9 +3240,7 @@ button.dd-btn {
 
 /* 雙方欠款水位於底部滿版排開，字體與數字絕不被遮擋 */
 .ledger-row-balance{
-  grid-column:1 / -1;
-  grid-row:2;
-  margin-top:8px;
+  margin-top:6px;
   padding-top:7px;
   border-top:1px dashed color-mix(in srgb, var(--line) 80%, transparent);
   width:100%;
@@ -7296,18 +7301,30 @@ input#aiExpenseTime {
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:10px;
   width:100%;
-  padding:12px 14px;
-  background:color-mix(in srgb, var(--paper) 60%, var(--card));
-  border:1px solid var(--line);
-  border-radius:14px;
+  padding:14px 16px;
+  background:var(--paper);
+  border:1.5px solid var(--card-nested-border);
+  border-radius:16px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.04);
+  position:relative;
+  overflow:hidden;
+}
+:root[data-theme="dark"] .debt-flow-header-card{
+  background:color-mix(in srgb, var(--card) 85%, #000);
+  border-color:rgba(255,255,255,0.08);
+  box-shadow:0 4px 16px rgba(0,0,0,0.25);
 }
 .debt-flow-party{
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:10px;
   min-width:0;
+  flex:0 1 auto;
+}
+.debt-flow-party.creditor{
+  flex-direction:row-reverse;
+  text-align:right;
 }
 .debt-flow-party-info{
   display:flex;
@@ -7316,74 +7333,97 @@ input#aiExpenseTime {
 }
 .debt-flow-name{
   font-size:14px;
-  font-weight:700;
+  font-weight:800;
   color:var(--ink);
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-  max-width:85px;
+  max-width:90px;
 }
 .debt-flow-role{
   font-size:10.5px;
-  font-weight:600;
+  font-weight:700;
   padding:1px 6px;
   border-radius:4px;
   margin-top:2px;
   width:fit-content;
+  letter-spacing:0.02em;
+}
+.debt-flow-party.creditor .debt-flow-role{
+  margin-left:auto;
 }
 .debt-flow-role.debtor{
-  background:color-mix(in srgb, var(--accent) 15%, var(--card));
-  color:var(--accent-text);
+  background:color-mix(in srgb, var(--negative-text) 12%, var(--paper));
+  color:var(--negative-text);
+  border:1px solid color-mix(in srgb, var(--negative-text) 20%, transparent);
 }
 .debt-flow-role.creditor{
-  background:color-mix(in srgb, #20c997 15%, var(--card));
-  color:#0ca678;
+  background:color-mix(in srgb, var(--positive-text) 12%, var(--paper));
+  color:var(--positive-text);
+  border:1px solid color-mix(in srgb, var(--positive-text) 20%, transparent);
 }
 .debt-flow-track{
-  flex:1;
+  flex:1 1 auto;
   display:flex;
-  flex-direction:column;
   align-items:center;
-  gap:6px;
-  padding:0 6px;
+  justify-content:center;
+  position:relative;
+  padding:0 10px;
   min-width:85px;
 }
-.debt-flow-line{
-  position:relative;
-  width:100%;
-  height:3px;
-  background:color-mix(in srgb, var(--accent) 30%, var(--line));
-  border-radius:2px;
-  overflow:hidden;
-}
-.debt-flow-pulse{
+/* 貫穿中心的精緻流向連接線 */
+.debt-flow-track::before{
+  content:'';
   position:absolute;
-  top:0;
-  left:-30%;
-  width:40%;
-  height:100%;
-  background:linear-gradient(90deg, transparent, var(--accent), transparent);
-  animation:debtFlowAnim 2s infinite linear;
-}
-@keyframes debtFlowAnim{
-  0%{ left:-40%; }
-  100%{ left:120%; }
+  left:0;
+  right:0;
+  top:50%;
+  height:1.5px;
+  background:linear-gradient(90deg, 
+    color-mix(in srgb, var(--negative-text) 35%, transparent) 0%, 
+    color-mix(in srgb, var(--btn-primary) 50%, var(--line)) 50%, 
+    color-mix(in srgb, var(--positive-text) 35%, transparent) 100%
+  );
+  transform:translateY(-50%);
+  z-index:1;
 }
 .debt-flow-amount-pill{
+  position:relative;
+  z-index:2;
   font-family:"JetBrains Mono", monospace;
-  font-size:12px;
-  font-weight:700;
-  color:var(--accent-text);
-  background:color-mix(in srgb, var(--accent) 14%, var(--card));
-  border:1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
-  padding:2px 10px;
-  border-radius:20px;
+  font-size:12.5px;
+  font-weight:800;
+  color:var(--ink);
+  background:var(--paper);
+  border:1.5px solid color-mix(in srgb, var(--btn-primary) 35%, var(--line));
+  padding:4px 12px;
+  border-radius:999px;
   white-space:nowrap;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-variant-numeric:tabular-nums;
+  transition:all .2s ease;
+}
+:root[data-theme="dark"] .debt-flow-amount-pill{
+  background:#2a2a30;
+  border-color:rgba(255,255,255,0.18);
+  box-shadow:0 2px 10px rgba(0,0,0,0.35);
+}
+.debt-flow-amount-pill .flow-arrow{
+  color:var(--btn-primary);
+  font-size:11px;
+  animation:flowPulse 1.8s infinite ease-in-out;
+}
+@keyframes flowPulse{
+  0%, 100%{ transform:translateX(0); opacity:0.6; }
+  50%{ transform:translateX(2px); opacity:1; }
 }
 .debt-flow-amount-pill.settled{
-  background:color-mix(in srgb, #20c997 14%, var(--card));
-  border-color:color-mix(in srgb, #20c997 30%, var(--line));
-  color:#0ca678;
+  background:color-mix(in srgb, var(--positive-text) 12%, var(--paper));
+  border-color:color-mix(in srgb, var(--positive-text) 30%, transparent);
+  color:var(--positive-text);
 }
 
 /* ============================================================
