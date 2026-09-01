@@ -711,14 +711,10 @@ function triggerReceiptFlyAnimation(opts = {}){
     paper.style.left = `${paperLeft}px`;
   }
 
-  // 第一階段：滑出停留
+  // 第一階段：滑出並停留展示
   setTimeout(() => {
-    const paperRect = paper.getBoundingClientRect();
-    const startX = paperRect.left + paperRect.width / 2;
-    const startY = paperRect.top + paperRect.height / 2;
-
     let endX = window.innerWidth / 2;
-    let endY = window.innerHeight - 120;
+    let endY = window.innerHeight - 100;
 
     const target = targetListEl || document.getElementById("expenseList") || document.getElementById("quickExpenseModal") || document.querySelector(".exp-item");
     if(target && typeof target.getBoundingClientRect === "function"){
@@ -729,44 +725,30 @@ function triggerReceiptFlyAnimation(opts = {}){
       }
     }
 
-    paper.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease";
-    paper.style.transform = "scale(0.08) rotate(22deg)";
+    const currentRect = paper.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
+    const deltaX = endX - currentCenterX;
+    const deltaY = endY - currentCenterY;
+
+    // 第二階段：實體收據直接優雅滑翔飛入目標帳本中（無光球）
+    paper.style.transition = "transform 0.46s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.42s ease";
+    paper.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.18) rotate(4deg)`;
     paper.style.opacity = "0";
 
-    // 第二階段：光芒能量球飛入
-    const orb = document.createElement("div");
-    orb.className = "sb-receipt-fly-orb";
-    orb.textContent = "✨";
-    orb.style.left = `${startX - 15}px`;
-    orb.style.top = `${startY - 15}px`;
-    document.body.appendChild(orb);
-
     setTimeout(() => {
-      orb.style.transition = "all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)";
-      orb.style.left = `${endX - 15}px`;
-      orb.style.top = `${endY - 15}px`;
-      orb.style.transform = "scale(1.35)";
-
+      if(target){
+        target.classList.remove("sb-ledger-ripple");
+        void target.offsetWidth;
+        target.classList.add("sb-ledger-ripple");
+      }
       setTimeout(() => {
-        if(target){
-          target.classList.remove("sb-ledger-ripple");
-          void target.offsetWidth;
-          target.classList.add("sb-ledger-ripple");
-        }
+        overlay.remove();
+        if(typeof onComplete === "function") onComplete();
+      }, 150);
+    }, 460);
 
-        orb.style.transition = "transform 0.2s ease, opacity 0.2s ease";
-        orb.style.transform = "scale(2.2)";
-        orb.style.opacity = "0";
-
-        setTimeout(() => {
-          overlay.remove();
-          orb.remove();
-          if(typeof onComplete === "function") onComplete();
-        }, 200);
-      }, 510);
-    }, 40);
-
-  }, 820);
+  }, 850);
 }
 
 window.getCategoryIcon = getCategoryIcon;
