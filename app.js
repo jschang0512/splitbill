@@ -661,6 +661,20 @@
       window.renderNavLinks();
     }
 
+    if(typeof renderDesktopSidebar === "function"){
+      renderDesktopSidebar("desktopSidebarContainer", "CURRENCY", CURRENCY, window.shownCurrencies, async (newOrder)=>{
+        window.shownCurrencies = newOrder;
+        localStorage.setItem("splitbill-shown-currencies", JSON.stringify(newOrder));
+        if(myMember && myMember.id){
+          const { error } = await sb.from("members").update({ shown_currencies: newOrder }).eq("id", myMember.id);
+          if(error) console.error("儲存幣別順序失敗：", error);
+        }
+        if(typeof window.renderNavLinks === "function") window.renderNavLinks();
+      });
+    }
+    if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
+    if(typeof initDesktopHoverInspector === "function") initDesktopHoverInspector();
+
     window.memberRows = memberRows;
     initFilterMultiSelects(memberRows);
     // 成就榜已經拆成獨立的 ES module（achievements.js），用動態 import 載入、
@@ -3010,7 +3024,383 @@
     if(isNaN(d.getTime())) return "";
     // 只有「記錄當下的日期」跟「這筆款項的日期」是同一天，才顯示時間
     // （例如補記昨天的支出，就只顯示日期；記錄當下這筆的話，時間會永久保留，
-    // 不會因為之後過了幾天再回來看就不見）。    const searchKw = liveSearchKeyword || (document.getElementById("filterKeyword") ? document.getElementById("filterKeyword").value.trim().toLowerCase() : "");
+    // 不會因為之後過了幾天再回來看就不見）。
+    const createdDate = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if(entryDate !== createdDate) return "";
+    return d.toLocaleTimeString("zh-TW", { hour:"2-digit", minute:"2-digit", hour12:false });
+  }
+
+  // ---------- 跨幣別轉移輔助函式 ----------
+  function generateUUID(){
+    if(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"){
+      return crypto.randomUUID();
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      const v = c === "x" ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function isXcurStr(str){
+    return Boolean(str && String(str).includes("xcur"));
+  }
+
+  // 跨幣別轉移的識別碼統一用 [xcur:UUID] 這種標記塞進 description/note 裡
+  // （見下面產生轉入紀錄那段），這裡從文字裡把它撈出來；舊資料可能是沒有
+  // 中括號、直接裸露 UUID 或 xcur_ 開頭的舊格式，所以還是留著備援比對。
+  function extractXcurId(str){
+    if(!str) return null;
+    const bracketMatch = String(str).match(/\[xcur[:_]([^\]]+)\]/i);
+    if(bracketMatch) return bracketMatch[1];
+    const uuidMatch = String(str).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    if(uuidMatch) return uuidMatch[0];
+    const legacyMatch = String(str).match(/xcur_[a-zA-Z0-9_-]+/);
+    return legacyMatch ? legacyMatch[0] : null;
+  }
+
+  function splitExpenseTitleAndNote(fullDesc, explicitNote){
+    const metaMatches = [];
+    const extractMeta = (s) => {
+      if(!s) return "";
+      return String(s)
+        .replace(/<!--[\s\S]*?-->/gi, (m) => { metaMatches.push(m); return ""; })
+        .replace(/AI_RECEIPT_DATA:[\s\S]*/gi, "")
+        .replace(/\s*\[xcur[:_][^\]]+\]/gi, (m) => { metaMatches.push(m.trim()); return ""; })
+        .trim();
+    };
+
+    let cleanedDesc = extractMeta(fullDesc);
+    let cleanedExplicitNote = extractMeta(explicitNote);
+
+    let title = "";
+    let note = "";
+
+    if(cleanedExplicitNote){
+      title = cleanedDesc.replace(/\(AI自動拆單\)/g, "").trim() || "支出項目";
+      note = cleanedExplicitNote;
+    } else {
+      const lines = cleanedDesc.split("\n").map(l => l.trim()).filter(Boolean);
+      let firstLine = lines[0] || "";
+      let noteLines = lines.slice(1);
+
+      // 針對舊版跨幣別格式特殊處理："日幣債務轉入 (¥5,987 匯率 0.199893)"
+      const xcurMatch = firstLine.match(/^(.*債務轉入)\s*\(([^\)]+)\)$/);
+      if(xcurMatch){
+        firstLine = xcurMatch[1].trim();
+        noteLines.unshift(xcurMatch[2].trim());
+      }
+
+      title = firstLine.replace(/\(AI自動拆單\)/g, "").trim() || "支出項目";
+      note = noteLines.join("\n").trim();
+    }
+
+    const meta = metaMatches.join(" ").trim();
+    return { title, note, meta };
+  }
+
+  function cleanXcurText(str, explicitNote){
+    const { title, note } = splitExpenseTitleAndNote(str, explicitNote);
+    return note ? `${title}\n${note}` : title;
+  }
+
+  function getFirstLineDesc(str, explicitNote){
+    return splitExpenseTitleAndNote(str, explicitNote).title;
+  }
+
+  async function handleCrossCurrencyDelete(textOrGroup, fallbackFn){
+    const uuidMatch = (textOrGroup || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    const legacyMatch = (textOrGroup || "").match(/xcur_[a-zA-Z0-9_-]+/);
+    const match = uuidMatch || legacyMatch;
+    if(!match){
+      return fallbackFn();
+    }
+    const xcurKey = match[0];
+    const ok = await sbConfirm(
+      `這是一筆「跨幣別轉移」紀錄！\n\n確定要還原此轉移嗎？\n\n還原後將會同時：\n1. 刪除原外幣的結清紀錄（恢復外幣欠款）\n2. 刪除臺幣帳本中對應的欠款紀錄\n兩邊帳本將完全恢復原狀。`,
+      "🔔 Splitbill 還原確認"
+    );
+    if(!ok) return;
+
+    // 雙向刪除：在外幣 repayments 與臺幣 expenses (比對 description 與 note)
+    const promises = [
+      sb.from("repayments").delete().ilike("note", `%${xcurKey}%`),
+      sb.from("expenses").delete().ilike("description", `%${xcurKey}%`),
+      sb.from("expenses").delete().ilike("note", `%${xcurKey}%`)
+    ];
+    if(uuidMatch){
+      promises.push(sb.from("repayments").delete().eq("offset_group", xcurKey));
+    }
+
+    const results = await Promise.all(promises);
+    const err = results.find(r => r && r.error);
+    if(err && err.error){
+      await sbAlert("還原失敗：" + err.error.message, "🔔 Splitbill 錯誤");
+      return;
+    }
+    await sbAlert("✓ 已成功還原跨幣別轉移！外幣與臺幣帳本皆已恢復原狀。", "🔔 Splitbill 通知");
+    await refreshExpenses();
+  }
+
+  // ---------- 復原刪除：直接刪除（不是延遲後才真的執行），跳出可復原的
+  // toast；按「復原」才把暫存的完整資料重新寫回去。故意不用「倒數完才
+  // 真的刪除」的做法——如果使用者在倒數期間就切頁或關分頁，計時器會被
+  // 中斷、刪除永遠不會發生，資料庫反而卡在「應刪未刪」的曖昧狀態；先
+  // 刪除、復原時用暫存資料重新 insert 回去，不管使用者何時離開，資料庫
+  // 狀態永遠是確定、乾淨的——這也是為什麼倒數期間離開頁面等同放棄復原。
+  async function deleteRowsWithUndo(table, rows, refreshFn, label){
+    const list = Array.isArray(rows) ? rows : [rows];
+    const ids = list.map(r => r.id);
+    const { error } = await sb.from(table).delete().in("id", ids);
+    if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+    await refreshFn();
+    showToast("🗑️ 已刪除", label || "", "復原", async ()=>{
+      const { error: restoreErr } = await sb.from(table).insert(list);
+      if(restoreErr){ await sbAlert("復原失敗：" + restoreErr.message, "🔔 Splitbill 錯誤"); return; }
+      await refreshFn();
+    });
+  }
+
+  let expenseById = {};
+  let lastFilteredExpenses = [];
+
+  // ---------- 🖥️ 電腦版專屬：支出紀錄多選批量操作 ----------
+  const selectedExpenseIds = new Set();
+  let currentHistoryDetailId = null;
+
+  function updateBulkToolbar(){
+    const bar = document.getElementById("historyBulkToolbar");
+    const countEl = document.getElementById("historyBulkCount");
+    if(!bar) return;
+    const n = selectedExpenseIds.size;
+    bar.classList.toggle("show", n > 0);
+    if(countEl) countEl.textContent = n;
+  }
+
+  function clearBulkSelection(){
+    selectedExpenseIds.clear();
+    document.querySelectorAll(".exp-bulk-check").forEach(cb => { cb.checked = false; });
+    document.querySelectorAll(".exp-item.bulk-selected").forEach(el => el.classList.remove("bulk-selected"));
+    updateBulkToolbar();
+  }
+
+  function wireHistoryBulkToolbar(){
+    const clearBtn = document.getElementById("historyBulkClearBtn");
+    if(clearBtn) clearBtn.addEventListener("click", clearBulkSelection);
+
+    const deleteBtn = document.getElementById("historyBulkDeleteBtn");
+    if(deleteBtn){
+      deleteBtn.addEventListener("click", async ()=>{
+        const rows = Array.from(selectedExpenseIds).map(id => expenseById[id]).filter(Boolean);
+        if(!rows.length) return;
+        const ok = await sbConfirm(`確定要刪除這 ${rows.length} 筆支出嗎？\n\n刪除後一樣可以在跳出的提示裡按「復原」救回來。`, "🔔 批次刪除確認");
+        if(!ok) return;
+        clearBulkSelection();
+        await deleteRowsWithUndo("expenses", rows, refreshExpenses, `批次刪除 ${rows.length} 筆支出`);
+      });
+    }
+
+    const catBtn = document.getElementById("historyBulkCatBtn");
+    const catWrap = document.getElementById("historyBulkCatWrap");
+    const catSelect = document.getElementById("historyBulkCatSelect");
+    if(catBtn && catWrap && catSelect){
+      enhanceSelect(catSelect);
+      catBtn.addEventListener("click", ()=>{
+        catWrap.classList.toggle("hidden");
+      });
+      catSelect.addEventListener("change", async ()=>{
+        const cat = catSelect.value;
+        const ids = Array.from(selectedExpenseIds);
+        if(!cat || !ids.length) return;
+        catBtn.disabled = true;
+        const { error } = await sb.from("expenses").update({ category: cat }).in("id", ids);
+        catBtn.disabled = false;
+        catSelect.value = "";
+        enhanceSelect(catSelect);
+        catWrap.classList.add("hidden");
+        if(error){
+          await sbAlert("批次修改類別失敗：" + error.message, "🔔 Splitbill 錯誤");
+          return;
+        }
+        const count = ids.length;
+        clearBulkSelection();
+        await refreshExpenses();
+        await sbAlert(`✓ 已將 ${count} 筆支出的類別批次更新完成`, "🔔 Splitbill 通知");
+      });
+    }
+  }
+  wireHistoryBulkToolbar();
+
+  // ---------- 🖥️ 電腦版專屬：支出紀錄清單／明細右側常駐分欄 ----------
+  // 不傳 expense 進來的話，會照目前狀態自己判斷要顯示什麼（有勾選多筆
+  // 就顯示批量摘要，否則收合成空狀態提示）——checkbox 變動、關閉按鈕
+  // 都是呼叫不帶參數的這個版本讓畫面自己校正。
+  function renderHistoryDetailPane(expense){
+    const pane = document.getElementById("historyDetailPane");
+    if(!pane) return;
+
+    if(selectedExpenseIds.size > 0){
+      currentHistoryDetailId = null;
+      const items = Array.from(selectedExpenseIds).map(id => expenseById[id]).filter(Boolean);
+      const total = items.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      pane.innerHTML = `
+        <div class="history-detail-head">
+          <div>
+            <div class="history-detail-title">已勾選 ${items.length} 筆</div>
+            <div class="history-detail-sub">批量操作模式</div>
+          </div>
+          <button type="button" class="history-detail-close" id="historyDetailCloseBtn" aria-label="關閉">✕</button>
+        </div>
+        <div class="history-detail-body">
+          <div class="history-detail-amt mono">${SYM}${formatAmt(total)}</div>
+          <div class="history-detail-section-title">已選項目</div>
+          <div class="history-detail-list">
+            ${items.map(e => {
+              const { title } = splitExpenseTitleAndNote(e.description, e.note);
+              return `<div class="history-detail-row"><span>${escapeHtml(title)}</span><span class="mono">${SYM}${formatAmt(e.amount)}</span></div>`;
+            }).join("")}
+          </div>
+        </div>
+      `;
+      pane.classList.add("open");
+      const closeBtn = document.getElementById("historyDetailCloseBtn");
+      if(closeBtn) closeBtn.addEventListener("click", clearBulkSelection);
+      return;
+    }
+
+    if(!expense){
+      currentHistoryDetailId = null;
+      pane.classList.remove("open");
+      pane.innerHTML = `
+        <div class="history-detail-empty">
+          <div class="history-detail-empty-icon">🧾</div>
+          <div>點選左側任一筆紀錄<br>就會在這裡展開明細</div>
+        </div>
+      `;
+      return;
+    }
+
+    currentHistoryDetailId = expense.id;
+    document.querySelectorAll("#expenseHistory .exp-item").forEach(rowEl => {
+      rowEl.classList.toggle("active-detail", rowEl.dataset.id === expense.id);
+    });
+
+    const { title, note } = splitExpenseTitleAndNote(expense.description, expense.note);
+    const canEdit = isExpenseParty(expense, myMember.id) || expense.created_by === myMember.id;
+    const isXcur = isXcurStr(expense.description) || isXcurStr(expense.note);
+    const xcurId = isXcur ? (extractXcurId(expense.description) || extractXcurId(expense.note)) : null;
+    const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || expense.description, expense.note, expense.category)) || { icon: "🧾", name: "一般" };
+    const payers = expense.payers || [];
+    const shares = expense.shares || [];
+    const rowHTML = (memberId, amt) => `<div class="history-detail-row"><span class="history-detail-person">${renderAvatarHTML({ id: memberId, name: memberById[memberId] }, "avatar-xs")}${escapeHtml(memberById[memberId] || "?")}</span><span class="mono">${SYM}${formatAmt(amt)}</span></div>`;
+
+    pane.innerHTML = `
+      <div class="history-detail-head">
+        <div class="history-detail-head-main">
+          <div class="history-detail-cat">${catMeta.icon}</div>
+          <div>
+            <div class="history-detail-title">${escapeHtml(title)}</div>
+            <div class="history-detail-sub">${expense.expense_date}${formatTime(expense.created_at, expense.expense_date) ? " " + formatTime(expense.created_at, expense.expense_date) : ""}</div>
+          </div>
+        </div>
+        <button type="button" class="history-detail-close" id="historyDetailCloseBtn" aria-label="關閉">✕</button>
+      </div>
+      <div class="history-detail-body">
+        <div class="history-detail-amt mono">${SYM}${formatAmt(expense.amount)}</div>
+        ${note ? `<div class="history-detail-note">📝 ${escapeHtml(note.split("\n")[0])}</div>` : ""}
+
+        <div class="history-detail-section-title">類別</div>
+        <div class="history-detail-list">
+          <div class="history-detail-row"><span>${catMeta.icon} ${escapeHtml(catMeta.name)}</span></div>
+        </div>
+
+        <div class="history-detail-section-title">付款</div>
+        <div class="history-detail-list">
+          ${payers.map(p => rowHTML(p.member_id, p.amount)).join("") || `<div class="history-detail-row"><span>—</span></div>`}
+        </div>
+
+        <div class="history-detail-section-title">應付</div>
+        <div class="history-detail-list">
+          ${shares.map(s => rowHTML(s.member_id, s.amount)).join("") || `<div class="history-detail-row"><span>—</span></div>`}
+        </div>
+      </div>
+      <div class="history-detail-actions">
+        ${canEdit ? (isXcur
+          ? `${xcurId ? `<button type="button" class="btn secondary small" id="historyDetailEditRateBtn">✎ 編輯匯率</button>` : ""}<button type="button" class="btn secondary small" id="historyDetailRestoreBtn">↺ 還原轉移</button>`
+          : `<button type="button" class="btn secondary small" id="historyDetailEditBtn">✎ 編輯</button><button type="button" class="btn secondary small" id="historyDetailDeleteBtn">🗑️ 刪除</button>`
+        ) : ""}
+        <button type="button" class="btn small" id="historyDetailViewDebtBtn">查看債務關係</button>
+      </div>
+    `;
+    pane.classList.add("open");
+
+    const closeBtn = document.getElementById("historyDetailCloseBtn");
+    if(closeBtn) closeBtn.addEventListener("click", () => renderHistoryDetailPane());
+
+    const viewDebtBtn = document.getElementById("historyDetailViewDebtBtn");
+    if(viewDebtBtn) viewDebtBtn.addEventListener("click", () => showExpenseDebtDetail(expense));
+
+    const editBtn = document.getElementById("historyDetailEditBtn");
+    if(editBtn) editBtn.addEventListener("click", () => startEditExpense(expense));
+
+    const deleteBtn = document.getElementById("historyDetailDeleteBtn");
+    if(deleteBtn) deleteBtn.addEventListener("click", async () => {
+      await deleteRowsWithUndo("expenses", expense, refreshExpenses, getFirstLineDesc(expense.description, expense.note));
+      renderHistoryDetailPane();
+    });
+
+    const editRateBtn = document.getElementById("historyDetailEditRateBtn");
+    if(editRateBtn) editRateBtn.addEventListener("click", () => {
+      if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(xcurId);
+    });
+
+    const restoreBtn = document.getElementById("historyDetailRestoreBtn");
+    if(restoreBtn) restoreBtn.addEventListener("click", () => {
+      handleCrossCurrencyDelete(expense.description || expense.note, async ()=>{
+        const { error } = await sb.from("expenses").delete().eq("id", expense.id);
+        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+        await refreshExpenses();
+        renderHistoryDetailPane();
+      });
+    });
+  }
+
+  function renderHistory(expenses){
+    const el = document.getElementById("expenseHistory");
+    if(!el) return;
+    lastFilteredExpenses = expenses;
+    if(!expenses.length){
+      el.innerHTML = cachedExpenses.length
+        ? emptyStateHTML("🔍", "沒有符合篩選條件的紀錄", "試試看調整上面的篩選條件")
+        : emptyStateHTML("🧾", "還沒有任何支出紀錄", "點上面「支出」分頁新增第一筆吧");
+      return;
+    }
+    const totalPages = Math.ceil(expenses.length / historyPageSize);
+    if(expensePage >= totalPages) expensePage = totalPages - 1;
+    if(expensePage < 0) expensePage = 0;
+    const pageItems = expenses.slice(expensePage * historyPageSize, (expensePage + 1) * historyPageSize);
+
+    expenseById = {};
+    pageItems.forEach(e => { expenseById[e.id] = e; });
+
+    // 按日期分組呈現（手帳質感）
+    const groups = [];
+    let curGroup = null;
+    pageItems.forEach(e => {
+      const d = e.expense_date || "未指定日期";
+      if(!curGroup || curGroup.date !== d){
+        curGroup = { date: d, items: [], total: 0 };
+        groups.push(curGroup);
+      }
+      curGroup.items.push(e);
+      curGroup.total += Number(e.amount) || 0;
+    });
+
+    const isDefaultDateFilter = !document.getElementById("filterFrom")?.value;
+    const twoWeekHint = isDefaultDateFilter
+      ? `<div class="history-twoweek-hint">📅 僅列出近兩週紀錄，若要尋找更早的紀錄請使用篩選功能</div>`
+      : "";
+    const searchKw = liveSearchKeyword || (document.getElementById("filterKeyword") ? document.getElementById("filterKeyword").value.trim().toLowerCase() : "");
 
     el.innerHTML = twoWeekHint + groups.map(g => {
       const dateTitle = formatDateGroupTitle(g.date);
@@ -3030,7 +3420,8 @@
         const highlightedTitle = highlightSearchMatch(title, searchKw);
         const highlightedNote = highlightSearchMatch(firstLineNote.length > 40 ? firstLineNote.slice(0, 38) + "…" : firstLineNote, searchKw);
         const highlightedAmt = highlightSearchMatch(formatAmt(e.amount), searchKw);
-        return `<div class="exp-item" data-id="${e.id}" title="點擊查看本項目的債務關係表與品項明細">
+        return `<div class="exp-item${selectedExpenseIds.has(e.id) ? " bulk-selected" : ""}" data-id="${e.id}" title="點擊查看本項目的債務關係表與品項明細">
+          <input type="checkbox" class="exp-bulk-check" data-id="${e.id}"${selectedExpenseIds.has(e.id) ? " checked" : ""} aria-label="勾選這筆支出">
           <div class="exp-cat-badge exp-cat-${catMeta.type}" title="${catMeta.name}">${icon}</div>
           <div class="exp-main">
             <div class="exp-desc">${highlightedTitle}${isAiSplit ? '<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI 拆單</span>' : ""}${isXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}</div>
@@ -3063,11 +3454,34 @@
       `;
     }).join("") + paginationHTML(expensePage, totalPages);
 
+    // 勾選清單重新渲染後，把已經不存在的舊 id 清掉（例如被刪除、或篩選
+    // 條件換了看不到了），不然批量工具列的筆數會跟畫面上實際看得到的
+    // 勾選框對不起來。
+    Array.from(selectedExpenseIds).forEach(id => { if(!expenseById[id]) selectedExpenseIds.delete(id); });
+    updateBulkToolbar();
+
     el.querySelectorAll(".exp-item").forEach(itemEl => {
+      itemEl.classList.toggle("active-detail", !selectedExpenseIds.size && itemEl.dataset.id === currentHistoryDetailId);
       itemEl.addEventListener("click", (evt) => {
-        if(evt.target.closest(".exp-actions") || evt.target.closest("button")) return;
+        if(evt.target.closest(".exp-actions") || evt.target.closest("button") || evt.target.matches(".exp-bulk-check")) return;
         const e = expenseById[itemEl.dataset.id];
-        if(e) showExpenseDebtDetail(e);
+        if(!e) return;
+        if(document.getElementById("historyWorkspace") && window.innerWidth >= 9999){
+          renderHistoryDetailPane(e);
+        } else {
+          showExpenseDebtDetail(e);
+        }
+      });
+    });
+
+    el.querySelectorAll(".exp-bulk-check").forEach(cb=>{
+      cb.addEventListener("click", (evt) => evt.stopPropagation());
+      cb.addEventListener("change", () => {
+        const id = cb.dataset.id;
+        if(cb.checked) selectedExpenseIds.add(id); else selectedExpenseIds.delete(id);
+        cb.closest(".exp-item").classList.toggle("bulk-selected", cb.checked);
+        updateBulkToolbar();
+        renderHistoryDetailPane();
       });
     });
 
@@ -3097,13 +3511,21 @@
     el.querySelectorAll(".exp-xcur-editrate").forEach(btn=>{
       btn.addEventListener("click", (e)=>{
         e.stopPropagation();
-        openXcurRateEditModal(btn.dataset.xcur);
+        if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(btn.dataset.xcur);
       });
     });
     const prevBtn = el.querySelector(".pagination-prev");
     if(prevBtn) prevBtn.addEventListener("click", ()=>{ expensePage--; renderHistory(lastFilteredExpenses); });
     const nextBtn = el.querySelector(".pagination-next");
     if(nextBtn) nextBtn.addEventListener("click", ()=>{ expensePage++; renderHistory(lastFilteredExpenses); });
+
+    // 資料重新整理後（例如即時同步收到別人新增/編輯的異動），如果右側
+    // 明細欄目前開著，用最新的資料重畫一次，不會停在舊的那一刻。
+    if(typeof renderHistoryDetailPane === "function" && document.getElementById("historyDetailPane")){
+      if(selectedExpenseIds.size > 0 || (currentHistoryDetailId && expenseById[currentHistoryDetailId])){
+        renderHistoryDetailPane(expenseById[currentHistoryDetailId]);
+      }
+    }
   }
 
   // 把「一鍵抵銷」產生的兩筆方向相反的還款（同一個 offset_group）
@@ -3262,7 +3684,7 @@
     el.querySelectorAll(".exp-xcur-editrate").forEach(btn=>{
       btn.addEventListener("click", (e)=>{
         e.stopPropagation();
-        openXcurRateEditModal(btn.dataset.xcur);
+        if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(btn.dataset.xcur);
       });
     });
     const prevBtn = el.querySelector(".pagination-prev");
@@ -3283,135 +3705,6 @@
       }
     }catch(e){}
     return dateStr;
-  }
-
-  let expenseById = {};
-  let lastFilteredExpenses = [];
-  function renderHistory(expenses){
-    const el = document.getElementById("expenseHistory");
-    if(!el) return;
-    lastFilteredExpenses = expenses;
-    if(!expenses.length){
-      el.innerHTML = cachedExpenses.length
-        ? emptyStateHTML("🔍", "沒有符合篩選條件的紀錄", "試試看調整上面的篩選條件")
-        : emptyStateHTML("🧾", "還沒有任何支出紀錄", "點上面「支出」分頁新增第一筆吧");
-      return;
-    }
-    const totalPages = Math.ceil(expenses.length / historyPageSize);
-    if(expensePage >= totalPages) expensePage = totalPages - 1;
-    if(expensePage < 0) expensePage = 0;
-    const pageItems = expenses.slice(expensePage * historyPageSize, (expensePage + 1) * historyPageSize);
-
-    expenseById = {};
-    pageItems.forEach(e => { expenseById[e.id] = e; });
-
-    // 按日期分組呈現（手帳質感）
-    const groups = [];
-    let curGroup = null;
-    pageItems.forEach(e => {
-      const d = e.expense_date || "未指定日期";
-      if(!curGroup || curGroup.date !== d){
-        curGroup = { date: d, items: [], total: 0 };
-        groups.push(curGroup);
-      }
-      curGroup.items.push(e);
-      curGroup.total += Number(e.amount) || 0;
-    });
-
-    const isDefaultDateFilter = !document.getElementById("filterFrom")?.value;
-    const twoWeekHint = isDefaultDateFilter
-      ? `<div class="history-twoweek-hint">📅 僅列出近兩週紀錄，若要尋找更早的紀錄請使用篩選功能</div>`
-      : "";
-
-    el.innerHTML = twoWeekHint + groups.map(g => {
-      const dateTitle = formatDateGroupTitle(g.date);
-      const itemsHtml = g.items.map(e => {
-        const { title, note } = splitExpenseTitleAndNote(e.description, e.note);
-        const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
-        const isXcur = isXcurStr(e.description) || isXcurStr(e.note);
-        const xcurId = isXcur ? (extractXcurId(e.description) || extractXcurId(e.note)) : null;
-        const isAiSplit = Boolean((e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細"))) || (e.note && e.note.includes("<!--AI_RECEIPT_DATA:")));
-        const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || e.description, e.note, e.category)) || { icon: "🧾", type: "general", name: "一般" };
-        const icon = catMeta.icon;
-        const payerNames = (e.payers || []).map(p => escapeHtml(memberById[p.member_id] || "?")).join("、");
-        const shareNames = (e.shares || []).map(s => escapeHtml(memberById[s.member_id] || "?")).join("、");
-        const shareAvatars = (e.shares || []).slice(0, 4).map(s => renderAvatarHTML({ id: s.member_id, name: memberById[s.member_id] }, "avatar-xs")).join("");
-        const shareMore = (e.shares || []).length > 4 ? `<span class="avatar-stack-more">+${(e.shares || []).length - 4}</span>` : "";
-        const firstLineNote = note ? note.split("\n")[0].trim() : "";
-        return `<div class="exp-item" data-id="${e.id}" title="點擊查看本項目的債務關係表與品項明細">
-          <div class="exp-cat-badge exp-cat-${catMeta.type}" title="${catMeta.name}">${icon}</div>
-          <div class="exp-main">
-            <div class="exp-desc">${escapeHtml(title)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI 拆單</span>' : ""}${isXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}</div>
-            <div class="exp-meta">
-              ${firstLineNote ? `<span class="exp-meta-line" style="color:var(--ink);font-weight:600;opacity:0.9;">📝 備註：${escapeHtml(firstLineNote.length > 40 ? firstLineNote.slice(0, 38) + "…" : firstLineNote)}</span>` : ""}
-              <span class="exp-meta-line">時間：${e.expense_date}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}（${escapeHtml(memberById[e.created_by] || "?")}）</span>
-              <span class="exp-meta-line">付款：${payerNames || "—"}</span>
-              <span class="exp-meta-line">應付：${shareNames || "—"}</span>
-            </div>
-          </div>
-          <div class="exp-right">
-            <div class="exp-amt">${SYM}${formatAmt(e.amount)}${conversionHint(e.amount)}</div>
-            ${canEdit ? `<div class="exp-actions">${isXcur ? `${xcurId ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}<button class="exp-del exp-xcur-restore" data-id="${e.id}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>` : `<button class="exp-edit" data-id="${e.id}" title="編輯">✎</button><button class="exp-del" data-id="${e.id}" title="刪除">✕</button>`}</div>` : ""}
-          </div>
-        </div>`;
-      }).join("");
-
-      return `
-        <div class="exp-date-group">
-          <div class="exp-date-group-header">
-            <div class="exp-date-group-title">📅 ${dateTitle}</div>
-            <div class="exp-date-group-badge">
-              <span class="badge-count">${g.items.length} 筆</span>
-              <span class="badge-sep">·</span>
-              <span class="badge-subtotal">當日小計 <b>${SYM}${formatAmt(g.total)}</b></span>
-            </div>
-          </div>
-          ${itemsHtml}
-        </div>
-      `;
-    }).join("") + paginationHTML(expensePage, totalPages);
-
-    el.querySelectorAll(".exp-item").forEach(itemEl => {
-      itemEl.addEventListener("click", (evt) => {
-        if(evt.target.closest(".exp-actions") || evt.target.closest("button")) return;
-        const e = expenseById[itemEl.dataset.id];
-        if(e) showExpenseDebtDetail(e);
-      });
-    });
-
-    el.querySelectorAll(".exp-del").forEach(btn=>{
-      btn.addEventListener("click", async (e)=>{
-        e.stopPropagation();
-        const exp = expenseById[btn.dataset.id];
-        const rawDesc = (exp && exp.description) || "";
-        if(isXcurStr(rawDesc)){
-          return handleCrossCurrencyDelete(rawDesc, async ()=>{
-            const { error } = await sb.from("expenses").delete().eq("id", btn.dataset.id);
-            if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
-            await refreshExpenses();
-          });
-        }
-        if(!exp) return;
-        await deleteRowsWithUndo("expenses", exp, refreshExpenses, getFirstLineDesc(exp.description, exp.note));
-      });
-    });
-    el.querySelectorAll(".exp-edit").forEach(btn=>{
-      btn.addEventListener("click", (e)=>{
-        e.stopPropagation();
-        const exp = expenseById[btn.dataset.id];
-        if(exp) startEditExpense(exp);
-      });
-    });
-    el.querySelectorAll(".exp-xcur-editrate").forEach(btn=>{
-      btn.addEventListener("click", (e)=>{
-        e.stopPropagation();
-        openXcurRateEditModal(btn.dataset.xcur);
-      });
-    });
-    const prevBtn = el.querySelector(".pagination-prev");
-    if(prevBtn) prevBtn.addEventListener("click", ()=>{ expensePage--; renderHistory(lastFilteredExpenses); });
-    const nextBtn = el.querySelector(".pagination-next");
-    if(nextBtn) nextBtn.addEventListener("click", ()=>{ expensePage++; renderHistory(lastFilteredExpenses); });
   }
 
   function fireConfetti(){
@@ -3674,15 +3967,14 @@
     renderDebtMatrix(expenses, repayments, owedForRender);
 
     // 📈 渲染電腦端 4 大 KPI 核心數據指標橫條 (Desktop KPI Strip)
-    const totalGroupSpend = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const myTotalPaid = expenses.reduce((s, e) => {
-      const p = (e.payers || []).find(x => x.member_id === (myMember && myMember.id));
-      return s + (p ? Number(p.amount || 0) : 0);
-    }, 0);
-    const unsettledRoutes = simplifyDebts(owedForRender);
-    const unsettledCount = (unsettledRoutes && unsettledRoutes.length) || 0;
-
     if(typeof renderDesktopKpiStrip === "function"){
+      const totalGroupSpend = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const myTotalPaid = expenses.reduce((s, e) => {
+        const p = (e.payers || []).find(x => x.member_id === (myMember && myMember.id));
+        return s + (p ? Number(p.amount || 0) : 0);
+      }, 0);
+      const unsettledRoutes = typeof simplifyDebts === "function" ? simplifyDebts(owedForRender) : null;
+      const unsettledCount = (unsettledRoutes && unsettledRoutes.length) || 0;
       renderDesktopKpiStrip("desktopKpiContainer", {
         totalGroupSpend,
         myTotalPaid,
@@ -5811,7 +6103,7 @@ function showExpenseDebtDetail(e){
       expDebtModalEditBtn.title = "編輯匯率";
       expDebtModalEditBtn.onclick = () => {
         modal.classList.remove("show");
-        openXcurRateEditModal(expXcurIdDetail);
+        if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(expXcurIdDetail);
       };
     } else {
       expDebtModalEditBtn.style.display = "inline-flex";
@@ -6743,6 +7035,134 @@ function showPairDetail(
   }
 
   // ==========================================================
+  // 編輯「跨幣別債務轉入」當初換算用的匯率——歷史紀錄裡帶 [xcur:UUID]
+  // 標記的支出/還款，旁邊的 ✎ 按鈕會呼叫這裡。這種轉入紀錄一次會產生
+  // 兩筆連動的紀錄（外幣帳本一筆還款結清、臺幣帳本一筆對應支出），
+  // 兩筆用同一個 xcurId 串起來（臺幣支出的 offset_group 沒有這個欄位，
+  // 是塞進 description 的 [xcur:xxx] 標記；外幣還款則是存在 offset_group
+  // 欄位），外幣原始金額不變，只重新計算、寫回臺幣那一筆的應付金額。
+  // ==========================================================
+  async function openXcurRateEditModal(xcurId){
+    if(!xcurId) return;
+    const modal = document.getElementById("xcurRateEditModal");
+    if(!modal) return;
+
+    const [{ data: expRows, error: expErr }, { data: repRows, error: repErr }] = await Promise.all([
+      sb.from("expenses").select("*").ilike("description", `%[xcur:${xcurId}]%`).limit(1),
+      sb.from("repayments").select("*").eq("offset_group", xcurId).limit(1)
+    ]);
+
+    if(expErr || repErr || !expRows || !expRows.length || !repRows || !repRows.length){
+      await sbAlert("找不到這筆跨幣別轉入的完整紀錄，可能其中一邊已經被刪除或還原過了。", "🔔 Splitbill 錯誤");
+      return;
+    }
+
+    const expRow = expRows[0];
+    const repRow = repRows[0];
+    const foreignCurrency = CURRENCIES.find(c => c.code === repRow.currency) || CURRENCIES[0];
+    const foreignAmt = Number(repRow.amount) || 0;
+    const debtorName = memberById[repRow.from_member] || "?";
+    const creditorName = memberById[repRow.to_member] || "?";
+    const existingRate = foreignAmt > 0 ? (Number(expRow.amount) || 0) / foreignAmt : 0;
+
+    const routeEl = document.getElementById("xcurRateEditRoute");
+    const origAmtEl = document.getElementById("xcurRateEditOrigAmt");
+    const ratePrefix = document.getElementById("xcurRateEditPrefix");
+    const rateInput = document.getElementById("xcurRateEditInput");
+    const resultAmtEl = document.getElementById("xcurRateEditResultAmt");
+    const fetchRateBtn = document.getElementById("xcurRateEditFetchRateBtn");
+    const saveBtn = document.getElementById("xcurRateEditSaveBtn");
+    const closeBtn = document.getElementById("xcurRateEditCloseBtn");
+
+    if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>欠</span> <b>${escapeHtml(creditorName)}</b>`;
+    if(origAmtEl) origAmtEl.textContent = `${foreignCurrency.symbol}${formatAmt(foreignAmt)} ${foreignCurrency.label}`;
+    if(ratePrefix) ratePrefix.textContent = `1 ${foreignCurrency.code} = NT$`;
+    if(rateInput) rateInput.value = existingRate > 0 ? existingRate : 1;
+
+    function updateCalculation(){
+      const r = parseFloat(rateInput.value) || 0;
+      const twdAmt = Math.round(foreignAmt * r);
+      if(resultAmtEl) resultAmtEl.textContent = `NT$ ${twdAmt.toLocaleString()}`;
+    }
+    updateCalculation();
+
+    if(rateInput) rateInput.oninput = updateCalculation;
+
+    if(fetchRateBtn){
+      fetchRateBtn.onclick = async ()=>{
+        const originalText = fetchRateBtn.textContent;
+        fetchRateBtn.disabled = true;
+        fetchRateBtn.textContent = "抓取中…";
+        const rate = await fetchRateForCurrencyCode(foreignCurrency.code);
+        fetchRateBtn.disabled = false;
+        fetchRateBtn.textContent = originalText;
+        if(rate){
+          rateInput.value = rate;
+          updateCalculation();
+        } else {
+          await sbAlert("抓取即時匯率失敗，請稍後再試或手動輸入。", "🔔 Splitbill 提醒");
+        }
+      };
+    }
+
+    if(closeBtn){
+      closeBtn.onclick = ()=>{ modal.classList.remove("show"); };
+    }
+
+    if(saveBtn){
+      saveBtn.onclick = async ()=>{
+        const r = parseFloat(rateInput.value) || 0;
+        if(r <= 0){
+          await sbAlert("匯率必須大於 0", "🔔 Splitbill 提醒");
+          return;
+        }
+        const newTwdAmt = Math.round(foreignAmt * r);
+        if(newTwdAmt <= 0){
+          await sbAlert("換算金額必須大於 0", "🔔 Splitbill 提醒");
+          return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = "儲存中…";
+
+        const newPayers = (expRow.payers || []).map(p => ({ ...p, amount: newTwdAmt }));
+        const newShares = (expRow.shares || []).map(s => ({ ...s, amount: newTwdAmt }));
+
+        const { error: updateExpErr } = await sb.from("expenses").update({
+          amount: newTwdAmt,
+          note: `${foreignCurrency.symbol}${formatAmt(foreignAmt)} 匯率 ${r}`,
+          payers: newPayers,
+          shares: newShares
+        }).eq("id", expRow.id);
+
+        if(updateExpErr){
+          await sbAlert("更新臺幣帳本失敗：" + updateExpErr.message, "🔔 Splitbill 錯誤");
+          saveBtn.disabled = false;
+          saveBtn.textContent = "儲存新匯率";
+          return;
+        }
+
+        const { error: updateRepErr } = await sb.from("repayments").update({
+          note: `轉為臺幣欠款 NT$${newTwdAmt.toLocaleString()} (匯率 ${r}) [xcur:${xcurId}]`
+        }).eq("id", repRow.id);
+
+        saveBtn.disabled = false;
+        saveBtn.textContent = "儲存新匯率";
+
+        if(updateRepErr){
+          await sbAlert("臺幣帳本已更新，但外幣端的備註更新失敗：" + updateRepErr.message + "\n\n（金額本身不受影響，只是備註文字沒同步，不影響帳務正確性）", "🔔 Splitbill 提醒");
+        }
+
+        modal.classList.remove("show");
+        await refreshExpenses();
+        await sbAlert(`✓ 已更新匯率為 ${r}，臺幣應付金額調整為 NT$${newTwdAmt.toLocaleString()}。`, "🔔 Splitbill 通知");
+      };
+    }
+
+    modal.classList.add("show");
+  }
+
+  // ==========================================================
   // 點支出列（編輯/刪除按鈕以外的地方）直接開啟完整的支出明細彈出視窗。
   // 這裡要用 addEventListener 綁在這個閉包裡呼叫 showExpenseDebtDetail，
   // 不能用 inline onclick——app.js 整份包在最外層的 IIFE 裡，inline
@@ -6800,7 +7220,7 @@ function showPairDetail(
   el.querySelectorAll(".exp-xcur-editrate").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       el.style.display = "none";
-      openXcurRateEditModal(btn.dataset.xcur);
+      if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(btn.dataset.xcur);
     });
   });
 

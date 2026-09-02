@@ -1117,15 +1117,33 @@ function getMemberBadges(memberIdOrName, expenses, repayments, membersList){
   });
 }
 
+window.BADGES_CATALOG = BADGES_CATALOG;
+window.getMemberBadges = getMemberBadges;
+
+// app.js 裡也有一份一樣的 formatAmt()，但那份是包在它自己的 IIFE 裡、
+// 外部檔案看不到——這裡單獨留一份給這個檔案自己的函式用，邏輯要跟
+// app.js 那份保持一致（不四捨五入成整數，最多顯示到小數點後兩位）。
+function formatAmt(v){
+  if(v === undefined || v === null || isNaN(v) || Math.abs(v) < 0.001) return "0";
+  const num = Number(v);
+  return num.toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
 // ============================================================
-// 🖥️ 電腦版專屬：左側固定專業導航側邊欄 (Desktop Navigation Sidebar)
+// 🗂️ 電腦版固定導航側邊欄 (Desktop Sidebar)
 // ============================================================
-function renderDesktopSidebar(targetContainerId, activePage, currentCurrencyCode, shownCurrenciesList){
+// 幣別帳本清單的顯示順序，直接照 shownCurrenciesList 陣列本身的順序排
+// （不是照 CURRENCIES 主清單的固定順序），這樣「幣別帳本」底下的項目
+// 才能拖拉調整順序、存起來下次還是同一個順序。
+// onReorder(newOrderCodes) 是選填的callback，拖放完成後會呼叫，讓呼叫端
+// （每一頁自己的 sb/myMember）決定怎麼存回資料庫——sidebar 本身不知道
+// 目前登入的是誰、要用哪個 supabase client，所以不自己直接寫資料庫。
+function renderDesktopSidebar(targetContainerId, activePage, currentCurrencyCode, shownCurrenciesList, onReorder){
   const el = document.getElementById(targetContainerId);
   if(!el) return;
 
   const shown = shownCurrenciesList || window.shownCurrencies || ["TWD"];
-  const currenciesList = CURRENCIES.filter(c => shown.includes(c.code));
+  const currenciesList = shown.map(code => CURRENCIES.find(c => c.code === code)).filter(Boolean);
   const isSummaryActive = activePage === "SUMMARY";
 
   el.innerHTML = `
@@ -1147,11 +1165,12 @@ function renderDesktopSidebar(targetContainerId, activePage, currentCurrencyCode
       </div>
 
       <div class="sb-sidebar-section-title">幣別帳本</div>
-      <div class="sb-sidebar-nav-list">
+      <div class="sb-sidebar-nav-list" id="sbSidebarCurList">
         ${currenciesList.map(c => `
-          <a href="currency.html?c=${c.code}" class="sb-sidebar-nav-item ${(!isSummaryActive && currentCurrencyCode === c.code) ? 'active' : ''}">
+          <a href="currency.html?c=${c.code}" class="sb-sidebar-nav-item sb-sidebar-draggable ${(!isSummaryActive && currentCurrencyCode === c.code) ? 'active' : ''}" draggable="true" data-code="${c.code}">
             <span>${c.flag || "💰"} ${c.label}</span>
             <span class="sb-sidebar-badge">${c.code}</span>
+            <span class="sb-sidebar-grip" title="拖拉調整順序" aria-hidden="true">⠿</span>
           </a>
         `).join("")}
       </div>
@@ -1190,7 +1209,52 @@ function renderDesktopSidebar(targetContainerId, activePage, currentCurrencyCode
       if(origLogout) origLogout.click();
     });
   }
+
+  // ---------- 幣別帳本拖拉排序 ----------
+  const curListEl = el.querySelector("#sbSidebarCurList");
+  if(curListEl){
+    let dragEl = null;
+
+    curListEl.addEventListener("dragstart", (e) => {
+      const item = e.target.closest(".sb-sidebar-draggable");
+      if(!item) return;
+      dragEl = item;
+      item.classList.add("sb-sidebar-dragging");
+      if(e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    });
+
+    curListEl.addEventListener("dragend", () => {
+      if(dragEl) dragEl.classList.remove("sb-sidebar-dragging");
+      curListEl.querySelectorAll(".sb-sidebar-drop-target").forEach(i => i.classList.remove("sb-sidebar-drop-target"));
+      dragEl = null;
+    });
+
+    curListEl.addEventListener("dragover", (e) => {
+      if(!dragEl) return;
+      e.preventDefault();
+      const item = e.target.closest(".sb-sidebar-draggable");
+      curListEl.querySelectorAll(".sb-sidebar-drop-target").forEach(i => i.classList.remove("sb-sidebar-drop-target"));
+      if(item && item !== dragEl) item.classList.add("sb-sidebar-drop-target");
+    });
+
+    curListEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const target = e.target.closest(".sb-sidebar-draggable");
+      curListEl.querySelectorAll(".sb-sidebar-drop-target").forEach(i => i.classList.remove("sb-sidebar-drop-target"));
+      if(!target || !dragEl || target === dragEl) return;
+
+      const items = Array.from(curListEl.children);
+      const dragIdx = items.indexOf(dragEl);
+      const targetIdx = items.indexOf(target);
+      if(dragIdx < targetIdx) target.after(dragEl);
+      else target.before(dragEl);
+
+      const newOrder = Array.from(curListEl.children).map(a => a.dataset.code);
+      if(typeof onReorder === "function") onReorder(newOrder);
+    });
+  }
 }
+window.renderDesktopSidebar = renderDesktopSidebar;
 
 // ============================================================
 // ⌨️ 電腦版專屬：鍵盤快捷鍵體系 (Desktop Keyboard Shortcuts)
@@ -1242,6 +1306,7 @@ function initDesktopShortcuts(){
     }
   });
 }
+window.initDesktopShortcuts = initDesktopShortcuts;
 
 // ============================================================
 // 📈 電腦版專屬：4 大 KPI 數據橫條渲染 (Desktop KPI Metrics)
@@ -1294,12 +1359,13 @@ function renderDesktopKpiStrip(containerId, stats){
     </div>
   `;
 }
+window.renderDesktopKpiStrip = renderDesktopKpiStrip;
 
 // ============================================================
 // 🔍 電腦版專屬：滑鼠懸停透視卡片 (Desktop Hover Inspector)
 // ============================================================
 function initDesktopHoverInspector(){
-  if(window.innerWidth < 960) return;
+  if(window.innerWidth < 9999) return;
   let inspector = document.getElementById("sbDesktopHoverInspector");
   if(!inspector){
     inspector = document.createElement("div");
@@ -1309,47 +1375,34 @@ function initDesktopHoverInspector(){
   }
 
   document.addEventListener("mousemove", (e) => {
-    const item = e.target.closest(".exp-item");
-    if(!item || window.innerWidth < 960){
-      inspector.classList.add("hidden");
-      return;
-    }
+    if(!inspector.classList.contains("show")) return;
+    const offset = 16;
+    let x = e.clientX + offset;
+    let y = e.clientY + offset;
+    const rect = inspector.getBoundingClientRect();
+    if(x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+    if(y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+    inspector.style.left = x + "px";
+    inspector.style.top = y + "px";
+  });
 
-    const desc = item.querySelector(".exp-desc") ? item.querySelector(".exp-desc").textContent.trim() : "";
-    const amt = item.querySelector(".exp-amt") ? item.querySelector(".exp-amt").textContent.trim() : "";
-    const meta = item.querySelector(".exp-meta") ? item.querySelector(".exp-meta").textContent.trim() : "";
-
-    if(!desc || !amt){
-      inspector.classList.add("hidden");
-      return;
-    }
-
-    inspector.innerHTML = `
-      <div class="desktop-hover-inspector-title">🔍 明細透視</div>
-      <div class="desktop-hover-inspector-row">
-        <span><b>項目</b></span>
-        <span>${desc}</span>
-      </div>
-      <div class="desktop-hover-inspector-row">
-        <span><b>金額</b></span>
-        <span style="font-weight:700;color:var(--btn-primary);">${amt}</span>
-      </div>
-      <div class="desktop-hover-inspector-breakdown">${meta}</div>
-    `;
-
-    const x = Math.min(window.innerWidth - 300, e.clientX + 16);
-    const y = Math.min(window.innerHeight - 150, e.clientY + 12);
-    inspector.style.left = `${x}px`;
-    inspector.style.top = `${y}px`;
+  document.addEventListener("mouseover", (e) => {
+    const cell = e.target.closest(".matrix-cell.has-debt, .matrix-cell.matrix-cell-settled");
+    if(!cell) return;
+    const title = cell.getAttribute("title") || "";
+    if(!title) return;
+    inspector.innerHTML = `<div class="desktop-hover-inspector-title">往來明細</div><div class="desktop-hover-inspector-row">${title}</div>`;
     inspector.classList.remove("hidden");
+    inspector.classList.add("show");
+  });
+
+  document.addEventListener("mouseout", (e) => {
+    const cell = e.target.closest(".matrix-cell.has-debt, .matrix-cell.matrix-cell-settled");
+    if(!cell) return;
+    inspector.classList.remove("show");
+    inspector.classList.add("hidden");
   });
 }
-
-window.BADGES_CATALOG = BADGES_CATALOG;
-window.getMemberBadges = getMemberBadges;
-window.renderDesktopSidebar = renderDesktopSidebar;
-window.initDesktopShortcuts = initDesktopShortcuts;
-window.renderDesktopKpiStrip = renderDesktopKpiStrip;
 window.initDesktopHoverInspector = initDesktopHoverInspector;
 
 

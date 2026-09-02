@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=618">
-<link rel="stylesheet" href="shared.css?v=618">
+<link rel="stylesheet" href="theme.css?v=648">
+<link rel="stylesheet" href="shared.css?v=648">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=618"></script>
-<script src="version.js?v=634"></script>
-<script src="shared-ui.js?v=618"></script>
-<script src="theme.js?v=618" defer></script>
-<script src="app-banner.js?v=618" defer></script>
+<script src="currencies.js?v=648"></script>
+<script src="version.js?v=648"></script>
+<script src="shared-ui.js?v=648"></script>
+<script src="theme.js?v=648" defer></script>
+<script src="app-banner.js?v=648" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -117,50 +117,52 @@ if("serviceWorker" in navigator){
 
       <!-- 🖥️ 主內容區 -->
       <div class="sb-desktop-content">
-        <div class="topbar">
-          <div class="whoami whoami-wrap" id="whoamiWrap">
-            <span id="whoamiAvatar"></span>
-            <span id="whoamiText"><b id="whoamiName"></b></span>
-          </div>
-          <div class="topbar-actions">
-            <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
-            <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
-            <button class="btn secondary small" id="logoutBtn">登出</button>
+    <div class="topbar">
+      <div class="whoami whoami-wrap" id="whoamiWrap">
+        <span id="whoamiAvatar"></span>
+        <span id="whoamiText"><b id="whoamiName"></b></span>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
+        <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
+        <button class="btn secondary small" id="logoutBtn">登出</button>
+      </div>
+    </div>
+
+    <div class="card email-reminder hidden" id="emailReminderCard">
+      <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
+      <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+    </div>
+
+    <div class="summary-grid-2">
+      <!-- 1. 我的餘額：只顯示有交易紀錄過的幣別 -->
+      <div class="card">
+        <h2>💰 我的款項</h2>
+        <div id="myAmtList">
+          <div class="my-mini-balance"><span class="skeleton skeleton-name"></span><span class="skeleton skeleton-mybalance"></span></div>
+          <div class="my-mini-balance"><span class="skeleton skeleton-name"></span><span class="skeleton skeleton-mybalance"></span></div>
+        </div>
+      </div>
+
+      <!-- 2. 淨餘額比較：長條圖，取代原本的文字總表 (在群組留言之上) -->
+      <div class="card">
+        <div class="chart-title-row">
+          <h2>📊 淨餘額比較</h2>
+          <div class="chart-gran-select" id="balanceCurrencySelect">
+            <button type="button" class="chart-gran-btn" id="balanceCurrencyBtn">
+              <span id="balanceCurrencyText"></span>
+              <span class="chart-gran-caret">▾</span>
+            </button>
+            <div class="chart-gran-menu hidden" id="balanceCurrencyMenu"></div>
           </div>
         </div>
-
-        <div class="card email-reminder hidden" id="emailReminderCard">
-          <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
-          <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+        <div id="balanceChartWrap">
+          <p class="filter-hint">載入中…</p>
         </div>
+      </div>
+    </div>
 
-        <!-- 1. 我的餘額：只顯示有交易紀錄過的幣別 -->
-        <div class="card">
-          <h2>💰 我的款項</h2>
-          <div id="myAmtList">
-            <div class="my-mini-balance"><span class="skeleton skeleton-name"></span><span class="skeleton skeleton-mybalance"></span></div>
-            <div class="my-mini-balance"><span class="skeleton skeleton-name"></span><span class="skeleton skeleton-mybalance"></span></div>
-          </div>
-        </div>
-
-        <!-- 2. 淨餘額比較：長條圖，取代原本的文字總表 (在群組留言之上) -->
-        <div class="card">
-          <div class="chart-title-row">
-            <h2>📊 淨餘額比較</h2>
-            <div class="chart-gran-select" id="balanceCurrencySelect">
-              <button type="button" class="chart-gran-btn" id="balanceCurrencyBtn">
-                <span id="balanceCurrencyText"></span>
-                <span class="chart-gran-caret">▾</span>
-              </button>
-              <div class="chart-gran-menu hidden" id="balanceCurrencyMenu"></div>
-            </div>
-          </div>
-          <div id="balanceChartWrap">
-            <p class="filter-hint">載入中…</p>
-          </div>
-        </div>
-
-        <!-- 3. 群組留言：只有同一個群組的人看得到，只能刪自己寫的 -->
+    <!-- 3. 群組留言：只有同一個群組的人看得到，只能刪自己寫的 -->
         <div class="card">
           <h2>💬 群組留言</h2>
           <textarea id="feedbackInput" placeholder="想跟這個群組的大家說什麼都可以打在這裡…" rows="3"></textarea>
@@ -182,7 +184,7 @@ if("serviceWorker" in navigator){
       <span class="quick-exp-fab-text">記一筆</span>
     </button>
 
-        <div class="app-footer" id="appFooter"></div>
+    <div class="app-footer" id="appFooter"></div>
       </div><!-- /sb-desktop-content -->
     </div><!-- /sb-desktop-app-wrapper -->
   </div><!-- /appScreen -->
@@ -411,12 +413,8 @@ let shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencie
 let showLeftMembers = localStorage.getItem("splitbill-show-left-members") !== "0";
 function renderNavLinks(){
   renderSplitbillNav("navLinks", "SUMMARY", shownCurrencies);
-  if(typeof renderDesktopSidebar === "function"){
-    renderDesktopSidebar("desktopSidebarContainer", "SUMMARY", null, shownCurrencies);
-  }
 }
 renderNavLinks();
-if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
 
 (function(){
   if(typeof window.supabase === "undefined"){
@@ -1263,6 +1261,19 @@ if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
       localStorage.setItem("splitbill-shown-currencies", JSON.stringify(shownCurrencies));
       renderNavLinks();
 
+      if(typeof renderDesktopSidebar === "function"){
+        renderDesktopSidebar("desktopSidebarContainer", "SUMMARY", null, shownCurrencies, async (newOrder)=>{
+          shownCurrencies = newOrder;
+          localStorage.setItem("splitbill-shown-currencies", JSON.stringify(newOrder));
+          if(myMember && myMember.id){
+            const { error } = await sb.from("members").update({ shown_currencies: newOrder }).eq("id", myMember.id);
+            if(error) console.error("儲存幣別順序失敗：", error);
+          }
+          renderNavLinks();
+        });
+      }
+      if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
+
       window.memberRows = memberRows;
       initAchievementsModal();
       initQuickExpenseModal();
@@ -1434,6 +1445,12 @@ if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
 
     if(openBtn) openBtn.addEventListener("click", openModal);
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
+    if(modal){
+      modal.addEventListener("click", (e) => {
+        if(e.target === modal) closeModal();
+      });
+    }
+    window.openAchievementsModal = openModal;
   }
 
   // ============================================================

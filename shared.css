@@ -8928,37 +8928,89 @@ body.dark-mode .sb-search-match {
 }
 
 /* ============================================================
-   🖥️ 4. 電腦版專屬專業工作台 (Desktop Master Workspace)
+   🖥️ 電腦版專屬排版 (Desktop Layout)
    ============================================================ */
-@media (min-width: 960px) {
+/* 側邊欄容器手機版預設整個隱藏——渲染側邊欄的 JS（renderDesktopSidebar）
+   不管螢幕寬度都會執行、把內容塞進 #desktopSidebarContainer，如果沒有
+   這條手機版規則，寬螢幕以下就會看到一整坨沒套樣式的裸連結/按鈕堆在
+   頁面最上面。手機版底下維持原本熟悉的排版，側邊欄只在桌面版出現。 */
+#desktopSidebarContainer {
+  display: none;
+}
+/* KPI 橫條容器同理：renderDesktopKpiStrip() 也是不管螢幕寬度就把內容
+   塞進 #desktopKpiContainer，手機版沒有 .desktop-kpi-grid 的樣式，
+   不隱藏就會變成四行沒排版的裸文字。 */
+#desktopKpiContainer {
+  display: none;
+}
+/* 支出紀錄的多選勾選框／批量工具列也是同一類電腦版專屬功能，手機版
+   預設隱藏，維持原本單筆點擊開明細的手勢，不用多一個勾選框搶版面。 */
+.exp-bulk-check {
+  display: none;
+}
+.history-bulk-toolbar {
+  display: none;
+}
+/* 清單／明細分欄同理：手機版維持原本點擊整列開彈出視窗的手勢，明細
+   分欄本身（包含它的「請選一筆」空狀態提示）完全不出現。 */
+.history-detail-pane {
+  display: none;
+}
+/* 電腦版排版整組先關掉，回歸跟手機版一樣的單欄版面——側邊欄/KPI橫條/
+   分欄明細這些元件跟它們的 JS 邏輯都還留著（只是斷路器斷開，css觸發
+   條件永遠不會成立），之後如果要重新打開，把這個閾值改回 960px、
+   下面 app.js/currencies.js 的 9999 兩處也一起改回 960 即可，不用
+   重新刻一次。 */
+@media (min-width: 9999px) {
+  /* 側邊欄容器直接貼齊視窗左緣、上下佔滿整個高度，比照計畫書「整個
+     高度都是側邊欄」的落地感，不再是內容區裡浮著的一塊面板。用
+     position:fixed 讓它脫離 .wrap 的置中/最大寬度限制，主內容區用
+     margin-left 讓開它的寬度即可。 */
+  #desktopSidebarContainer {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 240px;
+    z-index: 40;
+  }
+  #desktopKpiContainer {
+    display: block;
+  }
   body {
     background: color-mix(in srgb, var(--paper) 70%, #F5F3EB);
   }
   .wrap {
-    max-width: 1440px !important;
-    padding: 0 24px 40px !important;
-    margin: 0 auto;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
   .sb-desktop-app-wrapper {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    gap: 24px;
-    align-items: start;
-    margin-top: 14px;
+    display: block;
+    margin-top: 0;
+  }
+  .sb-desktop-content {
+    margin-left: 240px;
+    max-width: 1200px;
+    padding: 24px 32px 40px;
   }
 
   /* 🗂️ 側邊欄 (Sidebar) */
   .sb-desktop-sidebar {
-    position: sticky;
-    top: 20px;
+    position: static;
+    height: 100%;
+    width: 100%;
     background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 18px;
+    border: none;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
     padding: 18px 14px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    box-shadow: none;
+    overflow-y: auto;
   }
   .sb-sidebar-brand {
     display: flex;
@@ -8996,33 +9048,43 @@ body.dark-mode .sb-search-match {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 10px;
-    border-radius: 10px;
-    color: var(--ink);
-    font-size: 13.5px;
+    padding: 7px 9px;
+    border-radius: 6px;
+    color: var(--ink-soft);
+    font-size: 13px;
     font-weight: 600;
     text-decoration: none;
-    transition: all 0.15s ease;
+    transition: background 0.12s ease, color 0.12s ease;
+    position: relative;
   }
   .sb-sidebar-nav-item:hover {
-    background: color-mix(in srgb, var(--btn-primary) 10%, var(--card));
-    color: var(--btn-primary);
+    background: color-mix(in srgb, var(--btn-primary) 6%, transparent);
+    color: var(--ink);
   }
   .sb-sidebar-nav-item.active {
+    background: color-mix(in srgb, var(--btn-primary) 11%, transparent);
+    color: var(--btn-primary) !important;
+  }
+  .sb-sidebar-nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 4px;
+    bottom: 4px;
+    width: 2.5px;
     background: var(--btn-primary);
-    color: #FFFFFF !important;
   }
   .sb-sidebar-nav-item.active .sb-sidebar-badge {
-    background: rgba(255,255,255,0.22);
-    color: #FFFFFF;
+    background: color-mix(in srgb, var(--btn-primary) 20%, transparent);
+    color: var(--btn-primary);
   }
   .sb-sidebar-badge {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--btn-primary) 15%, var(--card));
-    color: var(--btn-primary);
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--btn-primary) 10%, transparent);
+    color: var(--ink-soft);
   }
   .sb-sidebar-footer {
     display: flex;
@@ -9030,6 +9092,29 @@ body.dark-mode .sb-search-match {
     gap: 6px;
     padding-top: 12px;
     border-top: 1px solid var(--line);
+  }
+
+  /* 幣別帳本拖拉排序：滑鼠移過去才顯示把手，拖動中的項目半透明，
+     放開會落在哪一個位置用上邊框標示。 */
+  .sb-sidebar-grip {
+    opacity: 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: grab;
+    margin-left: 4px;
+    transition: opacity 0.12s ease;
+  }
+  .sb-sidebar-nav-item:hover .sb-sidebar-grip {
+    opacity: 1;
+  }
+  .sb-sidebar-nav-item.active .sb-sidebar-grip {
+    color: var(--btn-primary);
+  }
+  .sb-sidebar-draggable.sb-sidebar-dragging {
+    opacity: 0.4;
+  }
+  .sb-sidebar-draggable.sb-sidebar-drop-target {
+    box-shadow: inset 0 2px 0 var(--btn-primary);
   }
 
   /* 📈 頂部 4 大 KPI 數據橫條 */
@@ -9042,17 +9127,16 @@ body.dark-mode .sb-search-match {
   .desktop-kpi-card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 14px 16px;
+    border-radius: 8px;
+    padding: 13px 15px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: none;
+    transition: border-color 0.15s ease;
   }
   .desktop-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    border-color: color-mix(in srgb, var(--btn-primary) 35%, var(--line));
   }
   .desktop-kpi-header {
     display: flex;
@@ -9072,6 +9156,8 @@ body.dark-mode .sb-search-match {
     color: var(--ink);
     letter-spacing: -0.3px;
   }
+  .desktop-kpi-val.pos{ color: var(--positive-text); }
+  .desktop-kpi-val.neg{ color: var(--negative-text); }
   .desktop-kpi-sub {
     font-size: 11px;
     color: var(--ink-soft);
@@ -9126,22 +9212,335 @@ body.dark-mode .sb-search-match {
     box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     margin-left: 6px;
   }
+
+  /* ============================================================
+     電腦版排版收斂：拿掉跟側邊欄重複的手機版頂欄／按鈕列，並讓
+     卡片內容用滿寬螢幕空間，不再維持手機版的單欄堆疊。純樣式
+     調整，不動任何 JS 邏輯／分頁切換機制（v634 那次移除的是「多
+     個分頁面板同時顯示」造成的閃爍，跟這裡「單一面板內卡片排版」
+     是兩回事，不會重蹈覆轍）。
+     ============================================================ */
+
+  /* 手機版頂欄（logo/標題/幣別分頁）已經被側邊欄取代，兩邊會顯示
+     同一組導覽，只在「這一頁本來就有側邊欄」的情況下才隱藏——用
+     :has() 判斷，登入頁等沒有側邊欄的頁面不受影響。 */
+  .wrap:has(.sb-desktop-app-wrapper) > .app-header {
+    display: none;
+  }
+
+  /* 頭像旁邊的成就榜/設定/登出（或返回）按鈕，側邊欄都已經有對應
+     功能，維持只顯示姓名/群組，畫面才不會同一件事看兩次。 */
+  .sb-desktop-content .topbar-actions {
+    display: none;
+  }
+  .sb-desktop-content .topbar {
+    margin-bottom: 18px;
+  }
+  .sb-desktop-content .topbar .whoami {
+    flex: none;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  /* 幣別頁「總表」分頁：債務趨勢圖／花費類別圖並排雙欄，債務關係
+     表資訊量大，維持獨立一整排用滿寬度。
+     注意：一定要寫成 #panelSummary.active，不能只寫 #panelSummary——
+     ID 選擇器的優先度比 .app-panel{display:none} 這種 class 選擇器高，
+     如果沒加 .active，切到「支出/還款/紀錄」分頁時，總表雖然被拿掉
+     .active，還是會被這條規則强制設成 display:grid，蓋在其他分頁上面
+     （這正是先前一次改版把整個側邊欄功能整組移除的真正原因——當時
+     診斷成「側邊欄害的」，其實是這一行 CSS 選擇器少寫了 .active）。 */
+  #panelSummary.active {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  #panelSummary > .card.card-wide {
+    grid-column: 1 / -1;
+  }
+
+  /* 圖表卡片／債務關係表：拿掉毛玻璃卡片的圓角/模糊/陰影，改用工作台
+     語彙的實體邊框、幾乎不用陰影，跟側邊欄、KPI 橫條、清單/明細分欄
+     統一成同一套視覺——只在「總表」分頁跟總覽頁的卡片生效，支出/
+     還款/紀錄分頁的表單卡片維持原本樣式不動。 */
+  #panelSummary .card,
+  .summary-grid-2 .card,
+  .sb-desktop-content > .card:has(#feedbackInput) {
+    border-radius: 10px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+  #panelSummary .card:hover,
+  .summary-grid-2 .card:hover,
+  .sb-desktop-content > .card:has(#feedbackInput):hover {
+    box-shadow: none;
+    border-color: color-mix(in srgb, var(--btn-primary) 30%, var(--card-border));
+  }
+  #panelSummary .card.card-wide {
+    border-radius: 10px;
+  }
+
+  /* 總覽頁「我的款項」／「淨餘額比較」並排雙欄，群組留言維持整排。 */
+  .summary-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+
+  /* 設定頁表單維持單欄（危險操作在同一個容器裡，不想因為改兩欄式
+     而動到既有欄位順序/誤觸風險），但寬螢幕下不用讓輸入框硬撐到
+     跟側邊欄一樣邊界，卡片本身收斂一個舒適的閱讀寬度。 */
+  .sb-desktop-content > .card:has(#settingsTabs) {
+    max-width: 720px;
+  }
+
+  /* 支出紀錄多選批量操作：勾選框只在電腦版顯示，手機版維持原本的
+     點擊整列開明細，不需要多一個勾選框搶版面。 */
+  .exp-bulk-check {
+    display: block;
+    width: 17px;
+    height: 17px;
+    margin-top: 2px;
+    flex: none;
+    accent-color: var(--btn-primary);
+    cursor: pointer;
+  }
+  .exp-item.bulk-selected {
+    border-color: var(--btn-primary);
+    background: color-mix(in srgb, var(--btn-primary) 6%, var(--paper));
+  }
+  .history-bulk-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 4px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height .16s ease, opacity .16s ease, margin .16s ease;
+  }
+  .history-bulk-toolbar.show {
+    max-height: 60px;
+    opacity: 1;
+    margin-bottom: 12px;
+  }
+  .history-bulk-count {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .history-bulk-count b {
+    color: var(--btn-primary);
+  }
+  .history-bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .history-bulk-actions .btn.danger {
+    color: var(--negative-text);
+    border-color: color-mix(in srgb, var(--negative-text) 35%, var(--line));
+  }
+  .history-bulk-cat-wrap.hidden {
+    display: none;
+  }
+
+  /* ============================================================
+     🖥️ 電腦版專屬：支出紀錄清單／明細右側常駐分欄
+     視覺語彙比照電腦版工作台提案——用實體分隔線取代卡片浮動感，
+     數字全面等寬字體，面板標題收斂成小字級，跟手機版溫暖的毛玻璃
+     卡片刻意拉開差異，但顏色一樣走現有的 --card/--ink 主題變數，
+     深淺色模式才不會另外壞掉。
+     ============================================================ */
+  .history-workspace {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--card);
+  }
+  .history-list-pane {
+    flex: 1.15;
+    min-width: 0;
+    padding: 2px;
+  }
+  .history-list-pane .exp-item {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    margin-bottom: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .history-list-pane .exp-date-group:first-child .exp-item:first-child {
+    border-top: none;
+  }
+  .history-list-pane .exp-item:hover {
+    transform: none;
+    background: color-mix(in srgb, var(--btn-primary) 5%, transparent);
+  }
+  .history-list-pane .exp-item.active-detail {
+    background: color-mix(in srgb, var(--btn-primary) 9%, transparent);
+    position: relative;
+  }
+  .history-list-pane .exp-item.active-detail::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--btn-primary);
+  }
+
+  .history-detail-pane {
+    width: 0;
+    flex: none;
+    overflow: hidden;
+    border-left: 1px solid var(--line);
+    background: color-mix(in srgb, var(--ink) 3%, var(--card));
+    transition: width 0.18s ease;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+  .history-detail-pane.open {
+    width: 340px;
+  }
+  .history-detail-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 30px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    min-width: 340px;
+  }
+  .history-detail-empty-icon {
+    font-size: 26px;
+    opacity: 0.5;
+  }
+  .history-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--line);
+    min-width: 340px;
+  }
+  .history-detail-head-main {
+    display: flex;
+    gap: 10px;
+  }
+  .history-detail-cat {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex: none;
+  }
+  .history-detail-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .history-detail-sub {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .history-detail-close {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+  }
+  .history-detail-close:hover {
+    color: var(--ink);
+  }
+  .history-detail-body {
+    padding: 16px 18px;
+    flex: 1;
+    overflow-y: auto;
+    min-width: 340px;
+  }
+  .history-detail-amt {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .history-detail-note {
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 14px;
+  }
+  .history-detail-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 14px 0 7px;
+  }
+  .history-detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .history-detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 7px 9px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    color: var(--ink);
+  }
+  .history-detail-person {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .history-detail-actions {
+    display: flex;
+    gap: 7px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+    min-width: 340px;
+  }
+  .history-detail-actions .btn {
+    flex: 1;
+  }
 }
 
-@media (max-width: 959px) {
-  .sb-desktop-sidebar {
-    display: none !important;
-  }
-  .desktop-kpi-grid {
-    display: none !important;
-  }
-  .sb-desktop-app-wrapper {
-    display: block !important;
-  }
-  .desktop-hover-inspector {
-    display: none !important;
-  }
-}
+/* ============================================================
+   End of shared.css
+   ============================================================ */
 
 
 

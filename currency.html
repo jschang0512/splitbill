@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=618">
-<link rel="stylesheet" href="shared.css?v=618">
+<link rel="stylesheet" href="theme.css?v=648">
+<link rel="stylesheet" href="shared.css?v=648">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=618"></script>
-<script src="version.js?v=634"></script>
-<script src="shared-ui.js?v=618"></script>
-<script src="theme.js?v=618" defer></script>
+<script src="currencies.js?v=648"></script>
+<script src="version.js?v=648"></script>
+<script src="shared-ui.js?v=648"></script>
+<script src="theme.js?v=648" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -122,27 +122,27 @@ if("serviceWorker" in navigator){
 
       <!-- 🖥️ 主內容區 -->
       <div class="sb-desktop-content">
-        <div class="topbar">
-          <div class="whoami whoami-wrap" id="whoamiWrap">
-            <span id="whoamiAvatar"></span>
-            <span id="whoamiText"><b id="whoamiName"></b></span>
-          </div>
-          <div class="topbar-actions">
-            <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
-            <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
-            <button class="btn secondary small" id="logoutBtn">登出</button>
-          </div>
-        </div>
+    <div class="topbar">
+      <div class="whoami whoami-wrap" id="whoamiWrap">
+        <span id="whoamiAvatar"></span>
+        <span id="whoamiText"><b id="whoamiName"></b></span>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
+        <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
+        <button class="btn secondary small" id="logoutBtn">登出</button>
+      </div>
+    </div>
 
-        <div class="card email-reminder hidden" id="emailReminderCard">
-          <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
-          <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
-        </div>
+    <div class="card email-reminder hidden" id="emailReminderCard">
+      <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
+      <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+    </div>
 
-        <!-- 📈 電腦版 4 大 KPI 核心指標橫條 -->
-        <div id="desktopKpiContainer"></div>
+    <!-- 📈 電腦版 4 大 KPI 核心指標橫條 -->
+    <div id="desktopKpiContainer"></div>
 
-        <div class="my-balance" id="myBalance">
+    <div class="my-balance" id="myBalance">
           <div class="my-balance-label" id="myBalanceLabel"></div>
           <div class="my-balance-amt" id="myBalanceAmt"><span class="skeleton skeleton-light skeleton-mybalance"></span></div>
         </div>
@@ -538,8 +538,46 @@ if("serviceWorker" in navigator){
           </div>
         </div>
 
-        <div id="expenseHistory"></div>
-        <div id="repaymentHistory" class="hidden"></div>
+        <!-- 🖥️ 電腦版專屬：多選批量操作列，只有勾選了支出紀錄才會浮出來 -->
+        <div class="history-bulk-toolbar" id="historyBulkToolbar">
+          <span class="history-bulk-count"><b id="historyBulkCount">0</b> 筆已勾選</span>
+          <button type="button" class="link-btn" id="historyBulkClearBtn">清除勾選</button>
+          <div class="history-bulk-actions">
+            <div class="select-wrap history-bulk-cat-wrap hidden" id="historyBulkCatWrap">
+              <select id="historyBulkCatSelect" class="exp-category-select">
+                <option value="" selected disabled>選一個類別套用到全部…</option>
+                <option value="general">🧾 一般支出</option>
+                <option value="food">🍜 美食餐飲</option>
+                <option value="drink">☕ 飲料甜點</option>
+                <option value="transit">🚄 大眾交通</option>
+                <option value="car">🚗 租車用油</option>
+                <option value="flight">✈️ 機票航班</option>
+                <option value="hotel">🏨 住宿溫泉</option>
+                <option value="ticket">🎟️ 門票娛樂</option>
+                <option value="shopping">🛍️ 購物藥妝</option>
+                <option value="medical">💊 醫療藥品</option>
+                <option value="network">📶 網卡通訊</option>
+              </select>
+            </div>
+            <button type="button" class="btn secondary small" id="historyBulkCatBtn">🏷️ 批次改類別</button>
+            <button type="button" class="btn secondary small danger" id="historyBulkDeleteBtn">🗑️ 批次刪除</button>
+          </div>
+        </div>
+
+        <!-- 🖥️ 電腦版專屬：清單／明細左右分欄，點一筆直接在右側展開，
+             不用再蓋一層彈出視窗擋住清單。手機版維持原本點擊開彈窗。 -->
+        <div class="history-workspace" id="historyWorkspace">
+          <div class="history-list-pane">
+            <div id="expenseHistory"></div>
+            <div id="repaymentHistory" class="hidden"></div>
+          </div>
+          <div class="history-detail-pane" id="historyDetailPane">
+            <div class="history-detail-empty">
+              <div class="history-detail-empty-icon">🧾</div>
+              <div>點選左側任一筆紀錄<br>就會在這裡展開明細</div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="card">
         <button type="button" class="btn secondary" id="exportCsvBtn">📤 匯出目前篩選結果（CSV）</button>
@@ -548,9 +586,9 @@ if("serviceWorker" in navigator){
     </div><!-- /app-panel panelHistory -->
 
     <div class="app-footer" id="appFooter"></div>
-  </div><!-- /sb-desktop-content -->
-</div><!-- /sb-desktop-app-wrapper -->
-</div><!-- /appScreen -->
+      </div><!-- /sb-desktop-content -->
+    </div><!-- /sb-desktop-app-wrapper -->
+  </div><!-- /appScreen -->
 </div><!-- /wrap -->
 
 <script>document.getElementById("appFooter").textContent = "菘. v" + APP_VERSION;</script>
@@ -1016,14 +1054,9 @@ document.getElementById("repayAmountLabel").textContent = "金額（" + CURRENCY
 window.shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || ["TWD"];
 window.renderNavLinks = function(){
   renderSplitbillNav("navLinks", CURRENCY, window.shownCurrencies);
-  if(typeof renderDesktopSidebar === "function"){
-    renderDesktopSidebar("desktopSidebarContainer", "CURRENCY", CURRENCY, window.shownCurrencies);
-  }
 };
 window.renderNavLinks();
-if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
-if(typeof initDesktopHoverInspector === "function") initDesktopHoverInspector();
 </script>
-<script src="app.js?v=618"></script>
+<script src="app.js?v=648"></script>
 </body>
 </html>

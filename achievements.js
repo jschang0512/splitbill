@@ -76,11 +76,13 @@
       modal.classList.add("show");
     }
 
-    function closeModal(){
-      modal.classList.remove("show");
-      setTimeout(()=> modal.classList.add("hidden"), 200);
-    }
-
     if(openBtn) openBtn.addEventListener("click", openModal);
     if(closeBtn) closeBtn.addEventListener("click", closeModal);
+    if(modal){
+      modal.addEventListener("click", (e) => {
+        if(e.target === modal) closeModal();
+      });
+    }
+
+    window.openAchievementsModal = openModal;
   }

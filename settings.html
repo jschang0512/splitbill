@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=618">
-<link rel="stylesheet" href="shared.css?v=618">
+<link rel="stylesheet" href="theme.css?v=648">
+<link rel="stylesheet" href="shared.css?v=648">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=618"></script>
-<script src="version.js?v=634"></script>
-<script src="shared-ui.js?v=618"></script>
-<script src="theme.js?v=618" defer></script>
-<script src="app-banner.js?v=618" defer></script>
+<script src="currencies.js?v=648"></script>
+<script src="version.js?v=648"></script>
+<script src="shared-ui.js?v=648"></script>
+<script src="theme.js?v=648" defer></script>
+<script src="app-banner.js?v=648" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -116,6 +116,12 @@ if("serviceWorker" in navigator){
   </div>
 
   <div id="appScreen">
+    <div class="sb-desktop-app-wrapper">
+      <!-- 🗂️ 電腦版固定導航側邊欄 -->
+      <div id="desktopSidebarContainer"></div>
+
+      <!-- 🖥️ 主內容區 -->
+      <div class="sb-desktop-content">
     <div class="topbar">
       <div class="whoami whoami-wrap" id="whoamiWrap">
         <span id="whoamiAvatar"></span>
@@ -358,11 +364,12 @@ if("serviceWorker" in navigator){
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
-            <div class="settings-changelog-header">✨ v634 最新更新項目：</div>
+            <div class="settings-changelog-header">✨ v635 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>徹底解決幣別帳本跳動問題：移除雙欄多面板同時顯示樣式，恢復穩定可靠的單面板分頁切換機制</li>
-              <li>移除 Service Worker 自動重整機制：避免背景快取更新時造成頁面連續刷新閃爍</li>
-              <li>保留電腦版左側導航側邊欄與頂部 4 大 KPI 數據橫條，排版穩固極致流暢</li>
+              <li>修正成就榜彈窗開啟與渲染：確保點擊頂部勳章圖示時立即載入並展示全體成就解鎖清單</li>
+              <li>深色模式背景全面統一：移除電腦版自訂色調，深色與淺色模式在所有裝置上完全一致</li>
+              <li>移除電腦版側邊欄：徹底回歸簡潔經典的頂部全功能導航，版面純粹乾淨</li>
+              <li>修復分頁切換：徹底解決切換支出、還款、紀錄時總表未隱藏的重疊問題，各分頁獨立流暢切換</li>
             </ul>
           </div>
         </div>
@@ -371,7 +378,9 @@ if("serviceWorker" in navigator){
     </div>
 
     <div class="app-footer" id="appFooter"></div>
-  </div>
+      </div><!-- /sb-desktop-content -->
+    </div><!-- /sb-desktop-app-wrapper -->
+  </div><!-- /appScreen -->
 </div>
 
 <div class="calc-modal" id="currencyModal">
@@ -1716,6 +1725,19 @@ if(backBtn){
       if(whoamiAvatarEl && myMember){
         whoamiAvatarEl.innerHTML = renderAvatarHTML(myMember, "avatar-md whoami-avatar");
       }
+
+      if(typeof renderDesktopSidebar === "function"){
+        renderDesktopSidebar("desktopSidebarContainer", "SETTINGS", null, shownCurrencies, async (newOrder)=>{
+          shownCurrencies = newOrder;
+          localStorage.setItem("splitbill-shown-currencies", JSON.stringify(newOrder));
+          if(myMember && myMember.id){
+            const { error } = await sb.from("members").update({ shown_currencies: newOrder }).eq("id", myMember.id);
+            if(error) console.error("儲存幣別順序失敗：", error);
+          }
+          renderNavLinks();
+        });
+      }
+      if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
 
       renderSettingsAvatarPreview();
 
