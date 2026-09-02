@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="shared.css?v=618">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=629"></script>
+<script src="version.js?v=631"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js" defer></script>
@@ -150,6 +150,12 @@ if("serviceWorker" in navigator){
     <div class="card email-reminder hidden" id="emailReminderCard">
       <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
       <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+    </div>
+
+    <!-- 🏔️ 頁首大型標題 (Cupertino Large Header) -->
+    <div class="sb-large-header" id="currencyLargeHeader">
+      <h1 class="sb-large-header-title" id="currencyLargeTitle">💰 幣別帳本</h1>
+      <span class="sb-large-header-sub" id="currencyLargeSub">即時分攤與結算紀錄</span>
     </div>
 
     <div class="my-balance" id="myBalance">
@@ -433,7 +439,7 @@ if("serviceWorker" in navigator){
     <div class="app-panel" id="panelHistory">
       <div class="card">
         <button type="button" class="filter-toggle-head" id="filterToggleHead">
-          <span>🔍 篩選</span>
+          <span class="filter-toggle-title">🔍 進階篩選 <span class="filter-count-badge hidden" id="filterCountBadge">0</span></span>
           <span class="chevron">▾</span>
         </button>
         <div class="filter-body" id="filterBody">
@@ -452,6 +458,26 @@ if("serviceWorker" in navigator){
           <input type="text" id="filterKeyword" placeholder="支出說明或還款備註">
 
           <div id="filterExpenseFields">
+            <label>金額區間</label>
+            <div class="filter-amt-range-row">
+              <input type="number" id="filterMinAmount" placeholder="最低金額" min="0" step="any" class="filter-amt-inp">
+              <span class="filter-amt-sep">～</span>
+              <input type="number" id="filterMaxAmount" placeholder="最高金額" min="0" step="any" class="filter-amt-inp">
+            </div>
+            <div class="filter-amt-presets" id="filterAmtPresets">
+              <button type="button" class="amt-preset-btn active" data-range="all">全部金額</button>
+              <button type="button" class="amt-preset-btn" data-range="small">&le; $500</button>
+              <button type="button" class="amt-preset-btn" data-range="medium">$500 ~ $2,000</button>
+              <button type="button" class="amt-preset-btn" data-range="large">&gt; $2,000</button>
+            </div>
+
+            <div class="filter-check-row">
+              <label class="filter-checkbox-label">
+                <input type="checkbox" id="filterHasAddonsCheck">
+                <span>🍽️ 僅看包含個人自付 / 加點品項的支出</span>
+              </label>
+            </div>
+
             <label>支出類別（可多選）</label>
             <div class="sb-multi-select" id="filterCategoryDropdown"></div>
 
@@ -469,7 +495,7 @@ if("serviceWorker" in navigator){
             <div class="sb-multi-select" id="filterRepayToDropdown"></div>
           </div>
 
-          <button type="button" class="link-btn" id="filterClearBtn">清除篩選</button>
+          <button type="button" class="link-btn" id="filterClearBtn">清除全部篩選</button>
         </div>
       </div>
       <div class="card">
@@ -490,15 +516,25 @@ if("serviceWorker" in navigator){
           </div>
         </div>
 
-        <!-- 🔍 歷史紀錄即時搜尋與分類 Chips -->
+        <!-- 🔍 歷史紀錄即時搜尋與多維度快捷 Chips -->
         <div class="history-quick-filter-bar" id="historyQuickFilterBar">
           <div class="history-live-search-wrap">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-inp" id="historyLiveSearch" placeholder="即時搜尋項目、店家或備註...">
+            <input type="text" class="search-inp" id="historyLiveSearch" placeholder="搜尋項目、店家、備註、金額或成員...">
             <button type="button" class="search-clear-btn hidden" id="historyLiveSearchClear" aria-label="清除搜尋">✕</button>
           </div>
+
+          <!-- 🎛️ 多維度複合快捷 Chips -->
+          <div class="history-multi-chips" id="historyMultiChips">
+            <button type="button" class="multi-chip" data-quick="involved">👤 與我相關</button>
+            <button type="button" class="multi-chip" data-quick="payer_me">💳 我代墊的</button>
+            <button type="button" class="multi-chip" data-quick="large">💰 大額支出 (>1,000)</button>
+            <button type="button" class="multi-chip" data-quick="addons">🍽️ 有個人自付</button>
+          </div>
+
+          <!-- 分類 Chips -->
           <div class="history-category-chips" id="historyCategoryChips">
-            <button type="button" class="history-cat-chip active" data-cat="all">全部</button>
+            <button type="button" class="history-cat-chip active" data-cat="all">全部類別</button>
             <button type="button" class="history-cat-chip" data-cat="food">🍜 美食</button>
             <button type="button" class="history-cat-chip" data-cat="drink">☕ 飲料</button>
             <button type="button" class="history-cat-chip" data-cat="transit">🚄 交通</button>
@@ -510,6 +546,12 @@ if("serviceWorker" in navigator){
             <button type="button" class="history-cat-chip" data-cat="medical">💊 醫療</button>
             <button type="button" class="history-cat-chip" data-cat="network">📶 網卡</button>
             <button type="button" class="history-cat-chip" data-cat="general">🧾 一般</button>
+          </div>
+
+          <!-- 📊 篩選即時統計資訊列 -->
+          <div class="history-result-stats hidden" id="historyResultStats">
+            <span class="stats-text" id="historyResultStatsText"></span>
+            <button type="button" class="stats-reset-btn" id="historyStatsResetBtn">重設篩選</button>
           </div>
         </div>
 
@@ -948,9 +990,10 @@ if("serviceWorker" in navigator){
   </div>
 </div>
 
-<!-- 🎖️ 成就榜彈窗 -->
-<div id="achievementsModal" class="calc-modal hidden">
+<!-- 🎖️ 成就榜彈窗 (iOS 原生 Bottom Sheet) -->
+<div id="achievementsModal" class="calc-modal sb-bottom-sheet hidden">
   <div class="calc-card achievements-modal-card">
+    <div class="sb-drag-handle"></div>
     <div class="calc-header">
       <h3>🎖️ 成就榜</h3>
       <button type="button" class="calc-close" id="achievementsCloseBtn" aria-label="關閉">✕</button>

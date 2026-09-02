@@ -751,11 +751,125 @@ function triggerReceiptFlyAnimation(opts = {}){
   }, 850);
 }
 
+function openFinancialKeypad(targetInput, onConfirm){
+  if(!targetInput) return;
+  const old = document.getElementById("sbFinancialKeypadDrawer");
+  if(old) old.remove();
+
+  const drawer = document.createElement("div");
+  drawer.id = "sbFinancialKeypadDrawer";
+  drawer.className = "sb-numpad-drawer";
+
+  let curVal = String(targetInput.value || "");
+  let expression = curVal === "0" ? "" : curVal;
+
+  const updateDisplay = () => {
+    const disp = document.getElementById("sbNumpadDisplayAmt");
+    if(disp){
+      disp.textContent = expression || "0";
+    }
+  };
+
+  drawer.innerHTML = `
+    <div class="sb-numpad-header">
+      <div class="sb-numpad-display-amt" id="sbNumpadDisplayAmt">${expression || "0"}</div>
+      <button type="button" class="sb-numpad-close-btn" id="sbNumpadCloseBtn">✕ 關閉</button>
+    </div>
+    <div class="sb-numpad-grid">
+      <button type="button" class="sb-numpad-key" data-key="7">7</button>
+      <button type="button" class="sb-numpad-key" data-key="8">8</button>
+      <button type="button" class="sb-numpad-key" data-key="9">9</button>
+      <button type="button" class="sb-numpad-key key-op" data-key="/">÷</button>
+
+      <button type="button" class="sb-numpad-key" data-key="4">4</button>
+      <button type="button" class="sb-numpad-key" data-key="5">5</button>
+      <button type="button" class="sb-numpad-key" data-key="6">6</button>
+      <button type="button" class="sb-numpad-key key-op" data-key="*">×</button>
+
+      <button type="button" class="sb-numpad-key" data-key="1">1</button>
+      <button type="button" class="sb-numpad-key" data-key="2">2</button>
+      <button type="button" class="sb-numpad-key" data-key="3">3</button>
+      <button type="button" class="sb-numpad-key key-op" data-key="-">-</button>
+
+      <button type="button" class="sb-numpad-key" data-key=".">.</button>
+      <button type="button" class="sb-numpad-key" data-key="0">0</button>
+      <button type="button" class="sb-numpad-key key-op" data-key="backspace">⌫</button>
+      <button type="button" class="sb-numpad-key key-op" data-key="+">+</button>
+
+      <button type="button" class="sb-numpad-key key-op" data-key="clear" style="grid-column: span 2; font-size:15px;">清空 C</button>
+      <button type="button" class="sb-numpad-key key-confirm" data-key="confirm" style="grid-column: span 2;">✓ 完成</button>
+    </div>
+  `;
+
+  document.body.appendChild(drawer);
+
+  const calculate = (str) => {
+    try {
+      const sanitized = str.replace(/[^0-9+\-*/.]/g, '');
+      if(!sanitized) return 0;
+      const fn = new Function(`return (${sanitized})`);
+      const res = fn();
+      return isFinite(res) ? Math.round(res * 100) / 100 : 0;
+    } catch(e) {
+      return null;
+    }
+  };
+
+  drawer.querySelectorAll(".sb-numpad-key").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.key;
+      if(key === "confirm"){
+        const finalVal = calculate(expression);
+        if(finalVal !== null){
+          targetInput.value = finalVal;
+          targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+          targetInput.dispatchEvent(new Event("change", { bubbles: true }));
+          if(onConfirm) onConfirm(finalVal);
+        }
+        drawer.remove();
+        return;
+      }
+      if(key === "clear"){
+        expression = "";
+        updateDisplay();
+        return;
+      }
+      if(key === "backspace"){
+        expression = expression.slice(0, -1);
+        updateDisplay();
+        return;
+      }
+      if(["+", "-", "*", "/"].includes(key)){
+        if(expression && !["+", "-", "*", "/"].includes(expression.slice(-1))){
+          expression += key;
+        }
+        updateDisplay();
+        return;
+      }
+      if(key === "."){
+        if(!expression.endsWith(".")){
+          expression += ".";
+        }
+        updateDisplay();
+        return;
+      }
+      expression += key;
+      updateDisplay();
+    });
+  });
+
+  const closeBtn = document.getElementById("sbNumpadCloseBtn");
+  if(closeBtn){
+    closeBtn.addEventListener("click", () => drawer.remove());
+  }
+}
+
 window.getCategoryIcon = getCategoryIcon;
 window.getCategoryMeta = getCategoryMeta;
 window.getAvatarColor = getAvatarColor;
 window.renderAvatarHTML = renderAvatarHTML;
 window.triggerReceiptFlyAnimation = triggerReceiptFlyAnimation;
+window.openFinancialKeypad = openFinancialKeypad;
 
 // ============================================================
 // 🎖️ 成員成就與趣味勳章系統 (Member Achievements & Badges - 跨幣別大一統)
