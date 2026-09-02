@@ -1117,7 +1117,239 @@ function getMemberBadges(memberIdOrName, expenses, repayments, membersList){
   });
 }
 
+// ============================================================
+// 🖥️ 電腦版專屬：左側固定專業導航側邊欄 (Desktop Navigation Sidebar)
+// ============================================================
+function renderDesktopSidebar(targetContainerId, activePage, currentCurrencyCode, shownCurrenciesList){
+  const el = document.getElementById(targetContainerId);
+  if(!el) return;
+
+  const shown = shownCurrenciesList || window.shownCurrencies || ["TWD"];
+  const currenciesList = CURRENCIES.filter(c => shown.includes(c.code));
+  const isSummaryActive = activePage === "SUMMARY";
+
+  el.innerHTML = `
+    <aside class="sb-desktop-sidebar">
+      <div class="sb-sidebar-brand">
+        <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
+          <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+          <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+          <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+        </svg>
+        <span class="sb-sidebar-brand-title">Splitbill 帳務系統</span>
+      </div>
+
+      <div class="sb-sidebar-nav-list">
+        <a href="summary.html" class="sb-sidebar-nav-item ${isSummaryActive ? 'active' : ''}">
+          <span>📊 帳務總覽</span>
+          <span class="key-shortcut-hint">1</span>
+        </a>
+      </div>
+
+      <div class="sb-sidebar-section-title">幣別帳本</div>
+      <div class="sb-sidebar-nav-list">
+        ${currenciesList.map(c => `
+          <a href="currency.html?c=${c.code}" class="sb-sidebar-nav-item ${(!isSummaryActive && currentCurrencyCode === c.code) ? 'active' : ''}">
+            <span>${c.flag || "💰"} ${c.label}</span>
+            <span class="sb-sidebar-badge">${c.code}</span>
+          </a>
+        `).join("")}
+      </div>
+
+      <div class="sb-sidebar-section-title">工具與設定</div>
+      <div class="sb-sidebar-nav-list">
+        <button type="button" class="sb-sidebar-nav-item" id="desktopOpenAchievementsBtn" style="border:none;background:transparent;cursor:pointer;width:100%;text-align:left;">
+          <span>🎖️ 成就榜</span>
+        </button>
+        <a href="settings.html" class="sb-sidebar-nav-item ${activePage === 'SETTINGS' ? 'active' : ''}">
+          <span>⚙️ 系統設定</span>
+        </a>
+      </div>
+
+      <div class="sb-sidebar-footer">
+        <button type="button" class="btn secondary small" id="desktopLogoutBtn" style="width:100%;">登出</button>
+      </div>
+    </aside>
+  `;
+
+  const achBtn = el.querySelector("#desktopOpenAchievementsBtn");
+  if(achBtn){
+    achBtn.addEventListener("click", () => {
+      const modal = document.getElementById("achievementsModal");
+      if(modal){
+        modal.classList.remove("hidden");
+        modal.classList.add("show");
+      }
+    });
+  }
+
+  const logoutBtn = el.querySelector("#desktopLogoutBtn");
+  if(logoutBtn){
+    logoutBtn.addEventListener("click", () => {
+      const origLogout = document.getElementById("logoutBtn");
+      if(origLogout) origLogout.click();
+    });
+  }
+}
+
+// ============================================================
+// ⌨️ 電腦版專屬：鍵盤快捷鍵體系 (Desktop Keyboard Shortcuts)
+// ============================================================
+function initDesktopShortcuts(){
+  if(window.sbShortcutsBound) return;
+  window.sbShortcutsBound = true;
+
+  window.addEventListener("keydown", (e) => {
+    const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+    const isInput = tag === "input" || tag === "textarea" || tag === "select" || (e.target && e.target.isContentEditable);
+
+    if(e.key === "Escape"){
+      document.querySelectorAll(".calc-modal.show, .modal.show").forEach(m => {
+        m.classList.remove("show");
+        m.classList.add("hidden");
+      });
+      const numpad = document.getElementById("sbFinancialKeypadDrawer");
+      if(numpad) numpad.remove();
+      return;
+    }
+
+    if(isInput) return;
+
+    // N or Ctrl+K / Cmd+K: Open Quick Expense
+    if((e.key === "n" || e.key === "N") || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")){
+      e.preventDefault();
+      const openQuick = document.getElementById("openQuickExpenseBtn") || document.getElementById("openExpenseModalBtn");
+      if(openQuick) openQuick.click();
+      return;
+    }
+
+    // / or Ctrl+F / Cmd+F: Focus search
+    if(e.key === "/" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f")){
+      const searchInp = document.getElementById("historySearchInput");
+      if(searchInp){
+        e.preventDefault();
+        searchInp.focus();
+        searchInp.select();
+      }
+      return;
+    }
+
+    // 1: Jump to summary
+    if(e.key === "1"){
+      if(!location.pathname.includes("summary.html")){
+        location.href = "summary.html";
+      }
+    }
+  });
+}
+
+// ============================================================
+// 📈 電腦版專屬：4 大 KPI 數據橫條渲染 (Desktop KPI Metrics)
+// ============================================================
+function renderDesktopKpiStrip(containerId, stats){
+  const el = document.getElementById(containerId);
+  if(!el || !stats) return;
+
+  const { totalGroupSpend = 0, myTotalPaid = 0, myNetBalance = 0, unsettledCount = 0, currencySymbol = "$" } = stats;
+  const netCls = myNetBalance > 0.05 ? "pos" : myNetBalance < -0.05 ? "neg" : "zero";
+  const netSign = myNetBalance > 0.05 ? "+" : "";
+
+  el.innerHTML = `
+    <div class="desktop-kpi-grid">
+      <div class="desktop-kpi-card">
+        <div class="desktop-kpi-header">
+          <span>全團總支出</span>
+          <span class="desktop-kpi-icon">💰</span>
+        </div>
+        <div class="desktop-kpi-val">${currencySymbol}${formatAmt(totalGroupSpend)}</div>
+        <div class="desktop-kpi-sub">目前群組累積總花費</div>
+      </div>
+
+      <div class="desktop-kpi-card">
+        <div class="desktop-kpi-header">
+          <span>我的總代墊</span>
+          <span class="desktop-kpi-icon">👑</span>
+        </div>
+        <div class="desktop-kpi-val">${currencySymbol}${formatAmt(myTotalPaid)}</div>
+        <div class="desktop-kpi-sub">${totalGroupSpend > 0 ? `佔全團約 ${Math.round((myTotalPaid / totalGroupSpend) * 100)}%` : '尚未有代墊紀錄'}</div>
+      </div>
+
+      <div class="desktop-kpi-card">
+        <div class="desktop-kpi-header">
+          <span>我的淨餘額</span>
+          <span class="desktop-kpi-icon">⚖️</span>
+        </div>
+        <div class="desktop-kpi-val ${netCls}">${netSign}${currencySymbol}${formatAmt(myNetBalance)}</div>
+        <div class="desktop-kpi-sub">${myNetBalance > 0.05 ? '🎉 處於應收回款狀態' : myNetBalance < -0.05 ? '💸 需分攤給其他人' : '✨ 目前已結清'}</div>
+      </div>
+
+      <div class="desktop-kpi-card">
+        <div class="desktop-kpi-header">
+          <span>待結清筆數</span>
+          <span class="desktop-kpi-icon">👥</span>
+        </div>
+        <div class="desktop-kpi-val">${unsettledCount} 筆</div>
+        <div class="desktop-kpi-sub">建議還款路徑數</div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 🔍 電腦版專屬：滑鼠懸停透視卡片 (Desktop Hover Inspector)
+// ============================================================
+function initDesktopHoverInspector(){
+  if(window.innerWidth < 960) return;
+  let inspector = document.getElementById("sbDesktopHoverInspector");
+  if(!inspector){
+    inspector = document.createElement("div");
+    inspector.id = "sbDesktopHoverInspector";
+    inspector.className = "desktop-hover-inspector hidden";
+    document.body.appendChild(inspector);
+  }
+
+  document.addEventListener("mousemove", (e) => {
+    const item = e.target.closest(".exp-item");
+    if(!item || window.innerWidth < 960){
+      inspector.classList.add("hidden");
+      return;
+    }
+
+    const desc = item.querySelector(".exp-desc") ? item.querySelector(".exp-desc").textContent.trim() : "";
+    const amt = item.querySelector(".exp-amt") ? item.querySelector(".exp-amt").textContent.trim() : "";
+    const meta = item.querySelector(".exp-meta") ? item.querySelector(".exp-meta").textContent.trim() : "";
+
+    if(!desc || !amt){
+      inspector.classList.add("hidden");
+      return;
+    }
+
+    inspector.innerHTML = `
+      <div class="desktop-hover-inspector-title">🔍 明細透視</div>
+      <div class="desktop-hover-inspector-row">
+        <span><b>項目</b></span>
+        <span>${desc}</span>
+      </div>
+      <div class="desktop-hover-inspector-row">
+        <span><b>金額</b></span>
+        <span style="font-weight:700;color:var(--btn-primary);">${amt}</span>
+      </div>
+      <div class="desktop-hover-inspector-breakdown">${meta}</div>
+    `;
+
+    const x = Math.min(window.innerWidth - 300, e.clientX + 16);
+    const y = Math.min(window.innerHeight - 150, e.clientY + 12);
+    inspector.style.left = `${x}px`;
+    inspector.style.top = `${y}px`;
+    inspector.classList.remove("hidden");
+  });
+}
+
 window.BADGES_CATALOG = BADGES_CATALOG;
 window.getMemberBadges = getMemberBadges;
+window.renderDesktopSidebar = renderDesktopSidebar;
+window.initDesktopShortcuts = initDesktopShortcuts;
+window.renderDesktopKpiStrip = renderDesktopKpiStrip;
+window.initDesktopHoverInspector = initDesktopHoverInspector;
 
 

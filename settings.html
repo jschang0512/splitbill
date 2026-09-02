@@ -31,7 +31,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=631"></script>
+<script src="version.js?v=633"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
@@ -135,12 +135,6 @@ if("serviceWorker" in navigator){
   </div>
 
   <div id="appScreen">
-    <!-- 🏔️ 頁首大型標題 (Cupertino Large Header) -->
-    <div class="sb-large-header" id="settingsLargeHeader">
-      <h1 class="sb-large-header-title">⚙️ 個人與系統設定</h1>
-      <span class="sb-large-header-sub">帳號偏好 · 群組管理 · 系統版本</span>
-    </div>
-
     <div class="topbar">
       <div class="whoami whoami-wrap" id="whoamiWrap">
         <span id="whoamiAvatar"></span>
@@ -383,13 +377,12 @@ if("serviceWorker" in navigator){
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
-            <div class="settings-changelog-header">✨ v631 最新更新項目：</div>
+            <div class="settings-changelog-header">✨ v633 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>Apple Wallet 票卡夾：總覽頁多幣別支援立體階梯微重疊卡夾與平鋪模式一鍵切換</li>
-              <li>iOS 原生 Bottom Sheet：全站彈窗升級為底部抽屜，具備頂部拖曳柄與下滑順暢關閉手勢</li>
-              <li>Cupertino Large Header：頁首大型標題隨滾動平滑縮放折疊，提供原生 App 般精緻排版</li>
-              <li>專屬金融大字鍵盤：點擊計算機開啟大按鍵數字盤，支援即時加減乘除與大拇指單手盲打</li>
-              <li>Bento Grid 便當盒儀表板：電腦與平板寬螢幕自適應雙欄多網格排版，提升空間利用率</li>
+              <li>移除重複頁面大標題：全站統一只保留單一清晰大標題，解決雙重大標題問題</li>
+              <li>修正換頁閃退問題：移除跨文件頁面自動過渡轉場，修復進入幣別帳本時的異常刷新</li>
+              <li>恢復簡約幣別款項清單：移除票卡夾模式，恢復最清晰直覺的幣別卡片呈現</li>
+              <li>修正總覽卡片層級排序：將「淨餘額比較長條圖」維持在「群組留言」之上</li>
             </ul>
           </div>
         </div>
@@ -1810,13 +1803,6 @@ if(backBtn){
   }
 
   const appScreen = document.getElementById("appScreen");
-
-  // 🏔️ 頁首大型標題動態縮放監聽 (Large Collapsing Header)
-  window.addEventListener("scroll", () => {
-    const top = window.scrollY || document.documentElement.scrollTop;
-    const largeHeader = document.getElementById("settingsLargeHeader");
-    if(largeHeader) largeHeader.classList.toggle("is-collapsed", top > 35);
-  }, { passive: true });
 
   (async function boot(){
     try {

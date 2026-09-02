@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="shared.css?v=618">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=631"></script>
+<script src="version.js?v=633"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js" defer></script>
@@ -135,48 +135,54 @@ if("serviceWorker" in navigator){
   </div>
 
   <div id="appScreen">
-    <div class="topbar">
-      <div class="whoami whoami-wrap" id="whoamiWrap">
-        <span id="whoamiAvatar"></span>
-        <span id="whoamiText"><b id="whoamiName"></b></span>
-      </div>
-      <div class="topbar-actions">
-        <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
-        <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
-        <button class="btn secondary small" id="logoutBtn">登出</button>
-      </div>
-    </div>
+    <div class="sb-desktop-app-wrapper">
+      <!-- 🗂️ 電腦版固定導航側邊欄 -->
+      <div id="desktopSidebarContainer"></div>
 
-    <div class="card email-reminder hidden" id="emailReminderCard">
-      <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
-      <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
-    </div>
+      <!-- 🖥️ 主內容區 -->
+      <div class="sb-desktop-content">
+        <div class="topbar">
+          <div class="whoami whoami-wrap" id="whoamiWrap">
+            <span id="whoamiAvatar"></span>
+            <span id="whoamiText"><b id="whoamiName"></b></span>
+          </div>
+          <div class="topbar-actions">
+            <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
+            <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
+            <button class="btn secondary small" id="logoutBtn">登出</button>
+          </div>
+        </div>
 
-    <!-- 🏔️ 頁首大型標題 (Cupertino Large Header) -->
-    <div class="sb-large-header" id="currencyLargeHeader">
-      <h1 class="sb-large-header-title" id="currencyLargeTitle">💰 幣別帳本</h1>
-      <span class="sb-large-header-sub" id="currencyLargeSub">即時分攤與結算紀錄</span>
-    </div>
+        <div class="card email-reminder hidden" id="emailReminderCard">
+          <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
+          <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+        </div>
 
-    <div class="my-balance" id="myBalance">
-      <div class="my-balance-label" id="myBalanceLabel"></div>
-      <div class="my-balance-amt" id="myBalanceAmt"><span class="skeleton skeleton-light skeleton-mybalance"></span></div>
-    </div>
+        <!-- 📈 電腦版 4 大 KPI 核心指標橫條 -->
+        <div id="desktopKpiContainer"></div>
 
-    <!-- 1. 總表在導覽列最左邊，且一進來先看到總表 -->
-    <div class="app-tabs main-app-tabs" id="mainAppTabs">
-      <div class="tab-indicator"></div>
-      <button type="button" class="app-tab active" data-tab="summary">📊 總表</button>
-      <button type="button" class="app-tab" data-tab="expense">🧾 支出</button>
-      <button type="button" class="app-tab" data-tab="repay">💸 還款</button>
-      <button type="button" class="app-tab" data-tab="history">📋 紀錄</button>
-    </div>
+        <div class="my-balance" id="myBalance">
+          <div class="my-balance-label" id="myBalanceLabel"></div>
+          <div class="my-balance-amt" id="myBalanceAmt"><span class="skeleton skeleton-light skeleton-mybalance"></span></div>
+        </div>
 
-    <!-- 1. 總表預設開啟 -->
-    <div class="app-panel active" id="panelSummary">
-      <div class="card">
-        <div class="chart-title-row">
-          <h2>📈 債務趨勢</h2>
+        <!-- 1. 總表在導覽列最左邊，且一進來先看到總表 (手機端顯示) -->
+        <div class="app-tabs main-app-tabs" id="mainAppTabs">
+          <div class="tab-indicator"></div>
+          <button type="button" class="app-tab active" data-tab="summary">📊 總表</button>
+          <button type="button" class="app-tab" data-tab="expense">🧾 支出</button>
+          <button type="button" class="app-tab" data-tab="repay">💸 還款</button>
+          <button type="button" class="app-tab" data-tab="history">📋 紀錄</button>
+        </div>
+
+        <!-- 🪟 寬螢幕左右雙欄並排工作區 (電腦端左右並排，手機端純垂直流) -->
+        <div class="desktop-dual-pane">
+          <div class="desktop-pane-left">
+            <!-- 1. 總表預設開啟 -->
+            <div class="app-panel active" id="panelSummary">
+              <div class="card">
+                <div class="chart-title-row">
+                  <h2>📈 債務趨勢</h2>
           <div class="chart-gran-select" id="chartGranSelect">
             <button type="button" class="chart-gran-btn" id="chartGranBtn">
               <span id="chartGranText">週</span>
@@ -435,7 +441,9 @@ if("serviceWorker" in navigator){
         <div class="msg" id="repayMsg"></div>
       </div>
     </div>
+  </div><!-- /desktop-pane-left -->
 
+  <div class="desktop-pane-right">
     <div class="app-panel" id="panelHistory">
       <div class="card">
         <button type="button" class="filter-toggle-head" id="filterToggleHead">
@@ -562,11 +570,15 @@ if("serviceWorker" in navigator){
         <button type="button" class="btn secondary" id="exportCsvBtn">📤 匯出目前篩選結果（CSV）</button>
         <p class="filter-hint export-hint">會匯出符合上面篩選條件的支出跟還款紀錄</p>
       </div>
-    </div>
+    </div><!-- /app-panel panelHistory -->
+  </div><!-- /desktop-pane-right -->
+</div><!-- /desktop-dual-pane -->
 
-    <div class="app-footer" id="appFooter"></div>
-  </div>
-</div>
+        <div class="app-footer" id="appFooter"></div>
+      </div><!-- /sb-desktop-content -->
+    </div><!-- /sb-desktop-app-wrapper -->
+  </div><!-- /appScreen -->
+</div><!-- /wrap -->
 
 <script>document.getElementById("appFooter").textContent = "菘. v" + APP_VERSION;</script>
 
@@ -1031,8 +1043,13 @@ document.getElementById("repayAmountLabel").textContent = "金額（" + CURRENCY
 window.shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || ["TWD"];
 window.renderNavLinks = function(){
   renderSplitbillNav("navLinks", CURRENCY, window.shownCurrencies);
+  if(typeof renderDesktopSidebar === "function"){
+    renderDesktopSidebar("desktopSidebarContainer", "CURRENCY", CURRENCY, window.shownCurrencies);
+  }
 };
 window.renderNavLinks();
+if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
+if(typeof initDesktopHoverInspector === "function") initDesktopHoverInspector();
 </script>
 <script src="app.js?v=618"></script>
 </body>

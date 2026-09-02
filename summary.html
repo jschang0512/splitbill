@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="shared.css?v=618">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=631"></script>
+<script src="version.js?v=633"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
@@ -130,44 +130,52 @@ if("serviceWorker" in navigator){
   </div>
 
   <div id="appScreen">
-    <!-- 🏔️ 頁首大型標題 -->
-    <div class="sb-large-header" id="summaryLargeHeader">
-      <h1 class="sb-large-header-title">📊 帳務總覽</h1>
-      <span class="sb-large-header-sub">跨幣別即時彙整 · 群組結算儀表板</span>
-    </div>
+    <div class="sb-desktop-app-wrapper">
+      <!-- 🗂️ 電腦版固定導航側邊欄 -->
+      <div id="desktopSidebarContainer"></div>
 
-    <div class="topbar">
-      <div class="whoami whoami-wrap" id="whoamiWrap">
-        <span id="whoamiAvatar"></span>
-        <span id="whoamiText"><b id="whoamiName"></b></span>
-      </div>
-      <div class="topbar-actions">
-        <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
-        <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
-        <button class="btn secondary small" id="logoutBtn">登出</button>
-      </div>
-    </div>
-
-    <div class="card email-reminder hidden" id="emailReminderCard">
-      <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
-      <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
-    </div>
-
-    <!-- 🍱 Bento Grid 多網格儀表板佈局 (電腦/平板雙欄，手機單欄) -->
-    <div class="bento-dashboard-grid">
-      <div class="bento-col-left">
-        <!-- 2. 我的餘額：只顯示有交易紀錄過的幣別 / 票卡夾 -->
-        <div class="card">
-          <div class="sb-wallet-header-row">
-            <h2>💰 我的款項</h2>
-            <button type="button" class="sb-wallet-toggle-btn" id="walletDeckToggleBtn">
-              <span id="walletDeckToggleIcon">💳</span>
-              <span id="walletDeckToggleText">票卡夾模式</span>
-            </button>
+      <!-- 🖥️ 主內容區 -->
+      <div class="sb-desktop-content">
+        <div class="topbar">
+          <div class="whoami whoami-wrap" id="whoamiWrap">
+            <span id="whoamiAvatar"></span>
+            <span id="whoamiText"><b id="whoamiName"></b></span>
           </div>
+          <div class="topbar-actions">
+            <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
+            <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
+            <button class="btn secondary small" id="logoutBtn">登出</button>
+          </div>
+        </div>
+
+        <div class="card email-reminder hidden" id="emailReminderCard">
+          <span class="email-reminder-text">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
+          <button type="button" class="link-btn" id="emailReminderBtn">去設定</button>
+        </div>
+
+        <!-- 1. 我的餘額：只顯示有交易紀錄過的幣別 -->
+        <div class="card">
+          <h2>💰 我的款項</h2>
           <div id="myAmtList">
             <div class="my-mini-balance"><span class="skeleton skeleton-name"></span><span class="skeleton skeleton-mybalance"></span></div>
             <div class="my-mini-balance"><span class="skeleton skeleton-name"></span><span class="skeleton skeleton-mybalance"></span></div>
+          </div>
+        </div>
+
+        <!-- 2. 淨餘額比較：長條圖，取代原本的文字總表 (在群組留言之上) -->
+        <div class="card">
+          <div class="chart-title-row">
+            <h2>📊 淨餘額比較</h2>
+            <div class="chart-gran-select" id="balanceCurrencySelect">
+              <button type="button" class="chart-gran-btn" id="balanceCurrencyBtn">
+                <span id="balanceCurrencyText"></span>
+                <span class="chart-gran-caret">▾</span>
+              </button>
+              <div class="chart-gran-menu hidden" id="balanceCurrencyMenu"></div>
+            </div>
+          </div>
+          <div id="balanceChartWrap">
+            <p class="filter-hint">載入中…</p>
           </div>
         </div>
 
@@ -186,27 +194,6 @@ if("serviceWorker" in navigator){
             <div id="feedbackList"></div>
           </div>
         </div>
-      </div>
-
-      <div class="bento-col-right">
-        <!-- 2. 淨餘額比較：長條圖，取代原本的文字總表 -->
-        <div class="card">
-          <div class="chart-title-row">
-            <h2>📊 淨餘額比較</h2>
-            <div class="chart-gran-select" id="balanceCurrencySelect">
-              <button type="button" class="chart-gran-btn" id="balanceCurrencyBtn">
-                <span id="balanceCurrencyText"></span>
-                <span class="chart-gran-caret">▾</span>
-              </button>
-              <div class="chart-gran-menu hidden" id="balanceCurrencyMenu"></div>
-            </div>
-          </div>
-          <div id="balanceChartWrap">
-            <p class="filter-hint">載入中…</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ⚡ 浮動快速記帳按鈕 -->
     <button type="button" class="quick-exp-fab" id="openQuickExpenseBtn" title="一鍵快速記帳" aria-label="一鍵快速記帳">
@@ -214,9 +201,11 @@ if("serviceWorker" in navigator){
       <span class="quick-exp-fab-text">記一筆</span>
     </button>
 
-    <div class="app-footer" id="appFooter"></div>
-  </div>
-</div>
+        <div class="app-footer" id="appFooter"></div>
+      </div><!-- /sb-desktop-content -->
+    </div><!-- /sb-desktop-app-wrapper -->
+  </div><!-- /appScreen -->
+</div><!-- /wrap -->
 
 <!-- ⚡ 一鍵快速記帳彈窗 (iOS 原生 Bottom Sheet) -->
 <div id="quickExpenseModal" class="calc-modal sb-bottom-sheet hidden">
@@ -441,8 +430,12 @@ let shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencie
 let showLeftMembers = localStorage.getItem("splitbill-show-left-members") !== "0";
 function renderNavLinks(){
   renderSplitbillNav("navLinks", "SUMMARY", shownCurrencies);
+  if(typeof renderDesktopSidebar === "function"){
+    renderDesktopSidebar("desktopSidebarContainer", "SUMMARY", null, shownCurrencies);
+  }
 }
 renderNavLinks();
+if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
 
 (function(){
   if(typeof window.supabase === "undefined"){
@@ -1062,34 +1055,6 @@ renderNavLinks();
     const activeItems = items.filter(it => !it.isSettled);
     const settledItems = items.filter(it => it.isSettled);
 
-    let isWalletDeckMode = localStorage.getItem("sb_wallet_deck_mode") === "1";
-    const walletToggleBtn = document.getElementById("walletDeckToggleBtn");
-    const walletToggleIcon = document.getElementById("walletDeckToggleIcon");
-    const walletToggleText = document.getElementById("walletDeckToggleText");
-
-    const syncWalletToggleUI = () => {
-      if(!walletToggleBtn) return;
-      walletToggleBtn.classList.toggle("active", isWalletDeckMode);
-      if(walletToggleIcon) walletToggleIcon.textContent = isWalletDeckMode ? "📋" : "💳";
-      if(walletToggleText) walletToggleText.textContent = isWalletDeckMode ? "平鋪模式" : "票卡夾模式";
-      if(list){
-        list.classList.toggle("sb-wallet-deck", isWalletDeckMode);
-        list.classList.toggle("is-stacked", isWalletDeckMode);
-      }
-    };
-
-    if(walletToggleBtn && !walletToggleBtn.dataset.bound){
-      walletToggleBtn.dataset.bound = "1";
-      walletToggleBtn.addEventListener("click", () => {
-        isWalletDeckMode = !isWalletDeckMode;
-        localStorage.setItem("sb_wallet_deck_mode", isWalletDeckMode ? "1" : "0");
-        syncWalletToggleUI();
-        if(balanceChartData) renderMyAmtList(balanceChartData);
-      });
-    }
-
-    syncWalletToggleUI();
-
     // 全部都已結清時：顯示一個清爽精緻的歡呼卡片
     if(!activeItems.length){
       list.innerHTML = `
@@ -1104,8 +1069,8 @@ renderNavLinks();
           </button>
           <div class="settled-collapse-body ${isSettledListExpanded ? '' : 'hidden'}" id="settledCollapseBody">
             <div class="settled-grid">
-              ${settledItems.map((it, idx) => `
-                <a href="currency.html?c=${it.code}" class="my-mini-balance zero mini-pill ${isWalletDeckMode ? 'currency-card' : ''}" style="${isWalletDeckMode ? `--card-index:${idx}; z-index:${idx+1};` : ''}">
+              ${settledItems.map(it => `
+                <a href="currency.html?c=${it.code}" class="my-mini-balance zero mini-pill">
                   <span>${it.meta.label}</span>
                   <span class="amt zero">已結清 ✓</span>
                 </a>
@@ -1116,8 +1081,8 @@ renderNavLinks();
       `;
     } else {
       // 有欠款/待收款幣別：高亮優先顯示
-      const activeHtml = activeItems.map((it, idx) => `
-        <a href="currency.html?c=${it.code}" class="my-mini-balance ${it.cls} ${isWalletDeckMode ? 'currency-card' : ''}" style="${isWalletDeckMode ? `--card-index:${idx}; z-index:${idx+1};` : ''}">
+      const activeHtml = activeItems.map(it => `
+        <a href="currency.html?c=${it.code}" class="my-mini-balance ${it.cls}">
           <span>${it.meta.label}</span>
           <span class="amt ${it.cls}">${it.label}</span>
         </a>
@@ -1127,7 +1092,7 @@ renderNavLinks();
       let settledHtml = "";
       if(settledItems.length === 1){
         settledHtml = `
-          <a href="currency.html?c=${settledItems[0].code}" class="my-mini-balance zero ${isWalletDeckMode ? 'currency-card' : ''}" style="${isWalletDeckMode ? `--card-index:${activeItems.length}; z-index:${activeItems.length+1};` : ''}">
+          <a href="currency.html?c=${settledItems[0].code}" class="my-mini-balance zero">
             <span>${settledItems[0].meta.label}</span>
             <span class="amt zero">${settledItems[0].label}</span>
           </a>
@@ -1141,8 +1106,8 @@ renderNavLinks();
           </button>
           <div class="settled-collapse-body ${isSettledListExpanded ? '' : 'hidden'}" id="settledCollapseBody">
             <div class="settled-grid">
-              ${settledItems.map((it, idx) => `
-                <a href="currency.html?c=${it.code}" class="my-mini-balance zero mini-pill ${isWalletDeckMode ? 'currency-card' : ''}" style="${isWalletDeckMode ? `--card-index:${activeItems.length + idx}; z-index:${activeItems.length + idx + 1};` : ''}">
+              ${settledItems.map(it => `
+                <a href="currency.html?c=${it.code}" class="my-mini-balance zero mini-pill">
                   <span>${it.meta.label}</span>
                   <span class="amt zero">已結清 ✓</span>
                 </a>
@@ -1165,13 +1130,6 @@ renderNavLinks();
       });
     }
   }
-
-  // 🏔️ 頁首大型標題動態縮放監聽 (Large Collapsing Header)
-  window.addEventListener("scroll", () => {
-    const top = window.scrollY || document.documentElement.scrollTop;
-    const largeHeader = document.getElementById("summaryLargeHeader");
-    if(largeHeader) largeHeader.classList.toggle("is-collapsed", top > 35);
-  }, { passive: true });
 
   // 🎛️ iOS 原生 Bottom Sheet 下拉手勢拖曳關閉 (Swipe-down to dismiss)
   (function initBottomSheetGestures(){

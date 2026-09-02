@@ -663,21 +663,6 @@
 
     window.memberRows = memberRows;
     initFilterMultiSelects(memberRows);
-
-    // 🏔️ 頁首大型標題與副標題更新 (Cupertino Large Header)
-    const largeTitle = document.getElementById("currencyLargeTitle");
-    const largeSub = document.getElementById("currencyLargeSub");
-    if(largeTitle && typeof CURRENCY_META !== "undefined"){
-      largeTitle.textContent = `${CURRENCY_META.flag || "💰"} ${CURRENCY_META.label} 帳本`;
-      if(largeSub) largeSub.textContent = `即時分攤與結算紀錄 · 幣別符號 ${CURRENCY_META.symbol}`;
-    }
-
-    // 🏔️ 頁首大型標題動態縮放監聽 (Large Collapsing Header)
-    window.addEventListener("scroll", () => {
-      const top = window.scrollY || document.documentElement.scrollTop;
-      const largeHeader = document.getElementById("currencyLargeHeader");
-      if(largeHeader) largeHeader.classList.toggle("is-collapsed", top > 35);
-    }, { passive: true });
     // 成就榜已經拆成獨立的 ES module（achievements.js），用動態 import 載入、
     // 不用靜態 <script> 標籤，也不用等載入順序——呼叫到才抓檔案。getState()
     // 每次都重新讀一次目前的值，不是傳當下的快照，才不會使用者點開成就榜
@@ -3687,6 +3672,25 @@
     const owedForRender = buildDebtMatrix(expenses, repayments);
     renderSettlement(expenses, repayments, owedForRender);
     renderDebtMatrix(expenses, repayments, owedForRender);
+
+    // 📈 渲染電腦端 4 大 KPI 核心數據指標橫條 (Desktop KPI Strip)
+    const totalGroupSpend = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const myTotalPaid = expenses.reduce((s, e) => {
+      const p = (e.payers || []).find(x => x.member_id === (myMember && myMember.id));
+      return s + (p ? Number(p.amount || 0) : 0);
+    }, 0);
+    const unsettledRoutes = simplifyDebts(owedForRender);
+    const unsettledCount = (unsettledRoutes && unsettledRoutes.length) || 0;
+
+    if(typeof renderDesktopKpiStrip === "function"){
+      renderDesktopKpiStrip("desktopKpiContainer", {
+        totalGroupSpend,
+        myTotalPaid,
+        myNetBalance: myAmt,
+        unsettledCount,
+        currencySymbol: SYM
+      });
+    }
   }
 
   // ==========================================================
