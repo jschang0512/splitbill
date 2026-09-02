@@ -30,33 +30,14 @@
 <link rel="stylesheet" href="shared.css?v=618">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=633"></script>
+<script src="version.js?v=634"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
-    // 這一頁「載入當下」有沒有已經被某個 SW 控制——只有原本就有在
-    // 控制、後來換了一顆新的，才算是「真的更新了」；如果這頁一開始
-    // 就還沒有 SW 控制（例如第一次連上、或剛清過資料），那接下來的
-    // controllerchange 只是「第一次接手」，不是版本更新，不用重整，
-    // 不然一般换頁瀏覽也會被誤判成改版、多閃一次載入畫面。
-    const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register("sw.js").then((reg)=>{
-      // 每次開啟都主動檢查一次，不然瀏覽器預設的背景檢查間隔可能長達
-      // 24 小時——尤其是 TWA/APK 那種很少真的整個關掉重開的情況，
-      // 使用者要等很久才會看到新版內容。新版接手後自動重新整理一次。
-      reg.update();
-      if(hadController){
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener("controllerchange", ()=>{
-          if(refreshing) return;
-          refreshing = true;
-          location.reload();
-        });
-      }
-    }).catch(()=>{});
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
   });
 }
 </script>

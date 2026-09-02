@@ -31,33 +31,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <script src="currencies.js?v=618"></script>
-<script src="version.js?v=633"></script>
+<script src="version.js?v=634"></script>
 <script src="shared-ui.js?v=618"></script>
 <script src="theme.js?v=618" defer></script>
 <script src="app-banner.js?v=618" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
-    // 這一頁「載入當下」有沒有已經被某個 SW 控制——只有原本就有在
-    // 控制、後來換了一顆新的，才算是「真的更新了」；如果這頁一開始
-    // 就還沒有 SW 控制（例如第一次連上、或剛清過資料），那接下來的
-    // controllerchange 只是「第一次接手」，不是版本更新，不用重整，
-    // 不然一般换頁瀏覽也會被誤判成改版、多閃一次載入畫面。
-    const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register("sw.js").then((reg)=>{
-      // 每次開啟都主動檢查一次，不然瀏覽器預設的背景檢查間隔可能長達
-      // 24 小時——尤其是 TWA/APK 那種很少真的整個關掉重開的情況，
-      // 使用者要等很久才會看到新版內容。新版接手後自動重新整理一次。
-      reg.update();
-      if(hadController){
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener("controllerchange", ()=>{
-          if(refreshing) return;
-          refreshing = true;
-          location.reload();
-        });
-      }
-    }).catch(()=>{});
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
   });
 }
 </script>
@@ -377,12 +358,11 @@ if("serviceWorker" in navigator){
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
-            <div class="settings-changelog-header">✨ v633 最新更新項目：</div>
+            <div class="settings-changelog-header">✨ v634 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>移除重複頁面大標題：全站統一只保留單一清晰大標題，解決雙重大標題問題</li>
-              <li>修正換頁閃退問題：移除跨文件頁面自動過渡轉場，修復進入幣別帳本時的異常刷新</li>
-              <li>恢復簡約幣別款項清單：移除票卡夾模式，恢復最清晰直覺的幣別卡片呈現</li>
-              <li>修正總覽卡片層級排序：將「淨餘額比較長條圖」維持在「群組留言」之上</li>
+              <li>徹底解決幣別帳本跳動問題：移除雙欄多面板同時顯示樣式，恢復穩定可靠的單面板分頁切換機制</li>
+              <li>移除 Service Worker 自動重整機制：避免背景快取更新時造成頁面連續刷新閃爍</li>
+              <li>保留電腦版左側導航側邊欄與頂部 4 大 KPI 數據橫條，排版穩固極致流暢</li>
             </ul>
           </div>
         </div>

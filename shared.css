@@ -9077,36 +9077,6 @@ body.dark-mode .sb-search-match {
     color: var(--ink-soft);
   }
 
-  /* 🪟 左右雙欄並排工作區 (Dual Pane) */
-  .desktop-dual-pane {
-    display: grid !important;
-    grid-template-columns: 1.15fr 0.95fr;
-    gap: 20px;
-    align-items: start;
-  }
-  .desktop-pane-left,
-  .desktop-pane-right {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .desktop-pane-right {
-    position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-  .desktop-dual-pane .app-panel {
-    display: block !important;
-  }
-  .desktop-dual-pane #panelHistory {
-    margin-top: 0;
-  }
-  .desktop-dual-pane .main-app-tabs {
-    display: none !important;
-  }
-
   /* 🔍 滑鼠懸停透視卡片 (Hover Inspector) */
   .desktop-hover-inspector {
     position: fixed;
@@ -9166,9 +9136,6 @@ body.dark-mode .sb-search-match {
     display: none !important;
   }
   .sb-desktop-app-wrapper {
-    display: block !important;
-  }
-  .desktop-dual-pane {
     display: block !important;
   }
   .desktop-hover-inspector {
