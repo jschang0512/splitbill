@@ -475,3 +475,174 @@ function showToast(title, body, actionLabel, actionFn){
     }
   });
 })();
+
+// ============================================================
+// 🔔 站內通知夾：取代原本要靠瀏覽器/系統推播權限才會動的通知機制。
+// Capacitor（原生 App）用 Google Firebase、網頁版用 Supabase 各自
+// 要另外處理推播權限，使用者常常沒開，通知等於白做——改成新增支出/
+// 還款、催款提醒都直接寫進 notifications 這張表，不管有沒有開任何
+// 系統權限都看得到。三個頁面（summary/currency/settings）登入後都呼叫
+// initNotificationBell(sb, myMember)，把小鈴鐺按鈕跟未讀數字掛到頁面
+// 上原本 topbar-actions 裡的 #notificationBellContainer。
+// ============================================================
+async function initNotificationBell(sb, myMember){
+  const container = document.getElementById("notificationBellContainer");
+  if(!container || !myMember) return;
+
+  container.innerHTML = `
+    <div class="notif-bell-wrap" id="notifBellWrap">
+      <button type="button" class="icon-btn notif-bell-btn" id="notifBellBtn" title="通知" aria-label="通知">
+        🔔<span class="notif-badge hidden" id="notifBadge">0</span>
+      </button>
+      <div class="notif-panel hidden" id="notifPanel">
+        <div class="notif-panel-head">
+          <span>通知</span>
+          <button type="button" class="link-btn" id="notifMarkAllReadBtn">全部標為已讀</button>
+        </div>
+        <div class="notif-panel-list" id="notifPanelList"></div>
+      </div>
+    </div>
+  `;
+
+  const bellBtn = document.getElementById("notifBellBtn");
+  const panel = document.getElementById("notifPanel");
+  const badge = document.getElementById("notifBadge");
+  const listEl = document.getElementById("notifPanelList");
+  const markAllBtn = document.getElementById("notifMarkAllReadBtn");
+
+  function notifTimeAgo(iso){
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if(mins < 1) return "剛剛";
+    if(mins < 60) return mins + " 分鐘前";
+    const hrs = Math.floor(mins / 60);
+    if(hrs < 24) return hrs + " 小時前";
+    const days = Math.floor(hrs / 24);
+    if(days < 7) return days + " 天前";
+    return new Date(iso).toLocaleDateString("zh-TW");
+  }
+
+  async function refreshBadge(){
+    const { count, error } = await sb
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("member_id", myMember.id)
+      .eq("is_read", false);
+    if(error){
+      // 故意不要把「查詢失敗」悄悄當成「0 則通知」處理掉——不然這張表
+      // 建錯、RLS 設錯之類的真問題，畫面上永遠只會顯示正常的 0，完全
+      // 看不出來哪裡壞了。
+      console.error("讀取通知數量失敗：", error);
+      return;
+    }
+    const n = count || 0;
+    if(badge){
+      badge.textContent = n > 99 ? "99+" : String(n);
+      badge.classList.toggle("hidden", n === 0);
+    }
+  }
+
+  async function loadList(){
+    listEl.innerHTML = `<p class="filter-hint">載入中…</p>`;
+    const { data, error } = await sb
+      .from("notifications")
+      .select("id,type,title,body,is_read,created_at")
+      .eq("member_id", myMember.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if(error){
+      console.error("讀取通知清單失敗：", error);
+      listEl.innerHTML = `<p class="filter-hint">通知載入失敗，請稍後再試</p>`;
+      return;
+    }
+    if(!data || !data.length){
+      listEl.innerHTML = `<p class="filter-hint">目前沒有任何通知</p>`;
+      return;
+    }
+    listEl.innerHTML = data.map(n => `
+      <div class="notif-item${n.is_read ? "" : " unread"}" data-id="${n.id}">
+        <div class="notif-item-main">
+          <div class="notif-item-title">${n.is_read ? "" : '<span class="notif-unread-dot"></span>'}${escapeHtml(n.title)}</div>
+          <div class="notif-item-body">${escapeHtml(n.body)}</div>
+          <div class="notif-item-time">${notifTimeAgo(n.created_at)}</div>
+        </div>
+        <button type="button" class="notif-item-del" data-id="${n.id}" title="刪除這則通知" aria-label="刪除">✕</button>
+      </div>
+    `).join("");
+    listEl.querySelectorAll(".notif-item-main").forEach(el=>{
+      el.addEventListener("click", async ()=>{
+        const item = el.closest(".notif-item");
+        if(item.classList.contains("unread")){
+          item.classList.remove("unread");
+          await sb.from("notifications").update({ is_read: true }).eq("id", item.dataset.id);
+          refreshBadge();
+        }
+      });
+    });
+    listEl.querySelectorAll(".notif-item-del").forEach(btn=>{
+      btn.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        const item = btn.closest(".notif-item");
+        const wasUnread = item.classList.contains("unread");
+        item.remove();
+        await sb.from("notifications").delete().eq("id", btn.dataset.id);
+        if(wasUnread) refreshBadge();
+        if(!listEl.querySelector(".notif-item")){
+          listEl.innerHTML = `<p class="filter-hint">目前沒有任何通知</p>`;
+        }
+      });
+    });
+  }
+
+  // 面板固定寬度 320px（窄螢幕會被 CSS 的 max-width 夾住縮小），開啟
+  // 當下才用鈴鐺按鈕實際的螢幕座標算 top/left，並且左右都留至少 12px
+  // 安全邊界，不管在哪一頁、手機還是電腦，面板都不會被切出螢幕外。
+  function positionNotifPanel(){
+    const rect = bellBtn.getBoundingClientRect();
+    const margin = 12;
+    const panelWidth = Math.min(320, window.innerWidth - margin * 2);
+    let left = rect.right - panelWidth;
+    left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
+    let top = rect.bottom + 10;
+    top = Math.min(top, window.innerHeight - 80);
+    panel.style.left = left + "px";
+    panel.style.top = top + "px";
+  }
+
+  if(bellBtn){
+    bellBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const willOpen = panel.classList.contains("hidden");
+      if(willOpen) positionNotifPanel();
+      panel.classList.toggle("hidden", !willOpen);
+      if(willOpen) loadList();
+    });
+  }
+  window.addEventListener("resize", ()=>{
+    if(!panel.classList.contains("hidden")) positionNotifPanel();
+  });
+  document.addEventListener("click", (e)=>{
+    if(!panel.classList.contains("hidden") && !panel.contains(e.target) && e.target !== bellBtn){
+      panel.classList.add("hidden");
+    }
+  });
+  if(markAllBtn){
+    markAllBtn.addEventListener("click", async ()=>{
+      await sb.from("notifications").update({ is_read: true }).eq("member_id", myMember.id).eq("is_read", false);
+      listEl.querySelectorAll(".notif-item.unread").forEach(el => el.classList.remove("unread"));
+      refreshBadge();
+    });
+  }
+
+  refreshBadge();
+
+  // 即時更新未讀數字：這個帳號一有新通知寫進來就重新算一次角標，
+  // 面板開著的話順便重畫清單，不用手動重新整理頁面才看得到。
+  sb.channel("notif-" + myMember.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `member_id=eq.${myMember.id}` }, () => {
+      refreshBadge();
+      if(!panel.classList.contains("hidden")) loadList();
+    })
+    .subscribe();
+}
+window.initNotificationBell = initNotificationBell;

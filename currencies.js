@@ -1130,6 +1130,63 @@ function formatAmt(v){
 }
 
 // ============================================================
+// 💡 債務精簡：把「A欠B、B欠C、C欠A」這種鏈狀債務，算成最少筆數的
+// 建議轉帳路徑。只是換一種「呈現」原本 owed 矩陣的方式，不是另外
+// 一套帳——算出來的每一條路徑，使用者按下去一樣是走原本「記錄還款」
+// 的表單/流程，寫進同一張 repayments 表，不會跟矩陣或既有的還款
+// 方式打架（矩陣還是唯一的真相來源，這裡只是幫忙算「最少要按幾次」）。
+//
+// 作法：先把 owed 矩陣（owed[債權人][債務人] = 金額）攤平成每個人的
+// 淨餘額（該收多少 - 該付多少），再用貪婪法——最大債權人一路跟最大
+// 債務人對沖，沖完金額較小的那筆歸零就換下一個——這是業界（例如
+// Splitwise）常見的「最少轉帳筆數」演算法，不保證找到全域最少（那是
+// NP-hard 問題），但實務上已經很接近最少、算起來也很快。
+//
+// 傳入：owed（債務矩陣）、memberIds（要納入計算的成員 id 陣列）
+// 傳回：[{ from, to, amount }]，from 是要付錢的人、to 是收錢的人。
+function simplifyDebts(owed, memberIds){
+  if(!owed || !memberIds || !memberIds.length) return [];
+
+  const balance = {};
+  memberIds.forEach(id => { balance[id] = 0; });
+  memberIds.forEach(creditorId => {
+    memberIds.forEach(debtorId => {
+      if(creditorId === debtorId) return;
+      const amt = (owed[creditorId] && owed[creditorId][debtorId]) || 0;
+      if(amt <= 0.005) return;
+      balance[creditorId] += amt;
+      balance[debtorId] -= amt;
+    });
+  });
+
+  const creditors = [];
+  const debtors = [];
+  memberIds.forEach(id => {
+    if(balance[id] > 0.05) creditors.push({ id, amt: balance[id] });
+    else if(balance[id] < -0.05) debtors.push({ id, amt: -balance[id] });
+  });
+  creditors.sort((a, b) => b.amt - a.amt);
+  debtors.sort((a, b) => b.amt - a.amt);
+
+  const routes = [];
+  let ci = 0, di = 0;
+  while(ci < creditors.length && di < debtors.length){
+    const c = creditors[ci];
+    const d = debtors[di];
+    const settleAmt = Math.min(c.amt, d.amt);
+    if(settleAmt > 0.05){
+      routes.push({ from: d.id, to: c.id, amount: Math.round(settleAmt * 100) / 100 });
+    }
+    c.amt -= settleAmt;
+    d.amt -= settleAmt;
+    if(c.amt <= 0.05) ci++;
+    if(d.amt <= 0.05) di++;
+  }
+  return routes;
+}
+window.simplifyDebts = simplifyDebts;
+
+// ============================================================
 // 🗂️ 電腦版固定導航側邊欄 (Desktop Sidebar)
 // ============================================================
 // 幣別帳本清單的顯示順序，直接照 shownCurrenciesList 陣列本身的順序排

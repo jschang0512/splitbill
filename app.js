@@ -167,6 +167,17 @@
   const MATRIX_SHOW_ONLY_MINE_KEY = "splitbill-matrix-show-only-mine";
   let matrixShowOnlyMine = localStorage.getItem(MATRIX_SHOW_ONLY_MINE_KEY) === "1";
 
+  // debtDisplayMode：群組「官方」採用的還款計算方法（存在 groups 資料表，
+  // 只有建立者能在設定頁修改），一開始先假設 "simplified"，實際值會在
+  // onLoggedIn() 裡跟群組資料一起讀回來，這個值在畫面上不會因為使用者
+  // 自己切換分頁而改變。
+  // debtViewMode：使用者「目前正在看」哪一個分頁，任何人都能自由切換
+  // 純粹是本機顯示狀態，不會寫回資料庫——只有當它跟 debtDisplayMode 不
+  // 一致時，代表使用者在看「非官方」的算法，這時候「記錄還款」相關按鈕
+  // 會變成僅供檢視，避免大家依照沒有共識的算法各自去記帳。
+  let debtDisplayMode = "simplified";
+  let debtViewMode = "simplified";
+
   // 金額格式化：不進行整數四捨五入，保留精確位數（最多2位小數）
   function formatAmt(v){
     if(v === undefined || v === null || isNaN(v) || Math.abs(v) < 0.001) return "0";
@@ -567,6 +578,20 @@
       matrixShowOnlyMine = memberRows.length > 8;
     }
 
+    // 「還款計算方法」的官方選擇是群組共用設定（只有建立者能在設定頁改），
+    // 讀不到就維持預設值 "simplified"，不影響其他功能正常運作。一開始
+    // 顯示的分頁跟著官方設定走，之後使用者自己切換分頁（debtViewMode）
+    // 不會動到 debtDisplayMode 這個官方值。
+    try{
+      const { data: groupRow } = await sb.from("groups").select("debt_display_mode").eq("id", myMember.group_id).maybeSingle();
+      if(groupRow && groupRow.debt_display_mode) debtDisplayMode = groupRow.debt_display_mode;
+    }catch(e){
+      console.warn("讀取群組還款顯示模式失敗，使用預設值：", e);
+    }
+    debtViewMode = debtDisplayMode;
+    if(typeof applyDebtModeUI === "function") applyDebtModeUI(debtViewMode);
+    if(typeof markOfficialDebtMode === "function") markOfficialDebtMode(debtDisplayMode);
+
     // 類別學習清單已經併進 refreshExpenses() 那一批平行查詢裡了（跟支出/
     // 還款/餘額一起發），這裡不用再額外呼叫一次，省一趟多餘的網路來回。
 
@@ -624,6 +649,7 @@
     }
     if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
     if(typeof initDesktopHoverInspector === "function") initDesktopHoverInspector();
+    if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
 
     window.memberRows = memberRows;
     initFilterMultiSelects(memberRows);
@@ -2284,8 +2310,7 @@
       (catLearnRows || []).forEach(row => { categoryLearningMap[row.keyword] = row.category; });
     }
 
-    applyFiltersAndRenderHistory();
-    applyFiltersAndRenderRepayments();
+    applyFiltersAndRenderBoth();
     await renderBalances(expenses, repayments, { data: balRows, error: balError });
 
     // 如果「往來紀錄」視窗目前開著（例如別人在同一時間新增/編輯了帳目），
@@ -2537,11 +2562,7 @@
 
   function getEffectiveFrom(){
     const fromEl = document.getElementById("filterFrom");
-    const from = fromEl ? fromEl.value : "";
-    if(from) return from;
-    const d = new Date();
-    d.setDate(d.getDate() - 14);
-    return d.toISOString().slice(0,10);
+    return fromEl ? fromEl.value : "";
   }
 
   function highlightSearchMatch(text, query){
@@ -2736,8 +2757,7 @@
     const el = document.getElementById(id);
     if(el){
       el.addEventListener("input", ()=>{
-        applyFiltersAndRenderHistory();
-        applyFiltersAndRenderRepayments();
+        applyFiltersAndRenderBoth();
       });
     }
   });
@@ -2749,16 +2769,14 @@
     minAmtInp.addEventListener("input", ()=>{
       filterMinAmountVal = minAmtInp.value ? Number(minAmtInp.value) : null;
       document.querySelectorAll("#filterAmtPresets .amt-preset-btn").forEach(b => b.classList.toggle("active", b.dataset.range === "all" && !minAmtInp.value && !maxAmtInp.value));
-      applyFiltersAndRenderHistory();
-      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderBoth();
     });
   }
   if(maxAmtInp){
     maxAmtInp.addEventListener("input", ()=>{
       filterMaxAmountVal = maxAmtInp.value ? Number(maxAmtInp.value) : null;
       document.querySelectorAll("#filterAmtPresets .amt-preset-btn").forEach(b => b.classList.toggle("active", b.dataset.range === "all" && !minAmtInp.value && !maxAmtInp.value));
-      applyFiltersAndRenderHistory();
-      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderBoth();
     });
   }
 
@@ -2789,8 +2807,7 @@
         if(minAmtInp) minAmtInp.value = "2000";
         if(maxAmtInp) maxAmtInp.value = "";
       }
-      applyFiltersAndRenderHistory();
-      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderBoth();
     });
   });
 
@@ -2803,8 +2820,22 @@
     });
   }
 
-  // 🎛️ 多維度快捷 Chips 事件綁定
-  document.querySelectorAll("#historyMultiChips .multi-chip").forEach(chip => {
+  // 兩邊清單都要重算，但共用的統計列文字最後會被「後執行的那個函式」蓋
+  // 過去——所以統一由這個函式決定順序，讓目前看得到的那個 tab 排在最後
+  // 執行，畫面上的統計列文字才會跟目前顯示的清單一致。
+  function applyFiltersAndRenderBoth(){
+    const isExpActive = document.querySelector('.history-type-btn[data-history-type="expense"]')?.classList.contains("active");
+    if(isExpActive){
+      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderHistory();
+    } else {
+      applyFiltersAndRenderHistory();
+      applyFiltersAndRenderRepayments();
+    }
+  }
+
+  // 🎛️ 多維度快捷 Chips 事件綁定（常駐區的「與我相關」+ 進階篩選區的其餘 Chips）
+  document.querySelectorAll(".multi-chip").forEach(chip => {
     chip.addEventListener("click", ()=>{
       const quick = chip.dataset.quick;
       if(activeMultiFilters.has(quick)){
@@ -2814,8 +2845,7 @@
         activeMultiFilters.add(quick);
         chip.classList.add("active");
       }
-      applyFiltersAndRenderHistory();
-      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderBoth();
     });
   });
 
@@ -2826,8 +2856,7 @@
     liveSearchInp.addEventListener("input", ()=>{
       liveSearchKeyword = liveSearchInp.value.trim().toLowerCase();
       if(liveSearchClear) liveSearchClear.classList.toggle("hidden", !liveSearchKeyword);
-      applyFiltersAndRenderHistory();
-      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderBoth();
     });
   }
   if(liveSearchClear){
@@ -2835,8 +2864,7 @@
       if(liveSearchInp) liveSearchInp.value = "";
       liveSearchKeyword = "";
       liveSearchClear.classList.add("hidden");
-      applyFiltersAndRenderHistory();
-      applyFiltersAndRenderRepayments();
+      applyFiltersAndRenderBoth();
     });
   }
   document.querySelectorAll("#historyCategoryChips .history-cat-chip").forEach(chip => {
@@ -2864,14 +2892,13 @@
     if(maxAmtInp) maxAmtInp.value = "";
     if(addonsCheck) addonsCheck.checked = false;
     document.querySelectorAll("#filterAmtPresets .amt-preset-btn").forEach(c => c.classList.toggle("active", c.dataset.range === "all"));
-    document.querySelectorAll("#historyMultiChips .multi-chip").forEach(c => c.classList.remove("active"));
+    document.querySelectorAll(".multi-chip").forEach(c => c.classList.remove("active"));
     document.querySelectorAll("#historyCategoryChips .history-cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === "all"));
     Object.keys(multiSelectStates).forEach(k => {
       multiSelectStates[k] = [];
     });
     initFilterMultiSelects();
-    applyFiltersAndRenderHistory();
-    applyFiltersAndRenderRepayments();
+    applyFiltersAndRenderBoth();
   }
 
   const filterClearBtn = document.getElementById("filterClearBtn");
@@ -3346,13 +3373,9 @@
       curGroup.total += Number(e.amount) || 0;
     });
 
-    const isDefaultDateFilter = !document.getElementById("filterFrom")?.value;
-    const twoWeekHint = isDefaultDateFilter
-      ? `<div class="history-twoweek-hint">📅 僅列出近兩週紀錄，若要尋找更早的紀錄請使用篩選功能</div>`
-      : "";
     const searchKw = liveSearchKeyword || (document.getElementById("filterKeyword") ? document.getElementById("filterKeyword").value.trim().toLowerCase() : "");
 
-    el.innerHTML = twoWeekHint + groups.map(g => {
+    el.innerHTML = groups.map(g => {
       const dateTitle = formatDateGroupTitle(g.date);
       const itemsHtml = g.items.map(e => {
         const { title, note } = splitExpenseTitleAndNote(e.description, e.note);
@@ -3853,6 +3876,176 @@
     });
   }
 
+  // ==========================================================
+  // 催款提醒：呼叫 send_debt_reminder 這支資料庫 RPC，直接寫一筆進
+  // notifications 表給欠錢的人看（節流判斷交給後端 RPC，同一組人同一個
+  // 幣別 24 小時內只能提醒一次）。矩陣明細彈窗跟「最簡還款法」建議路徑
+  // 兩邊的「提醒對方」按鈕共用這一份邏輯，只是按鈕本身的顯示/隱藏各自
+  // 判斷（見 showPairDetail 的 canRemind、renderDebtSuggestions 的
+  // canRemind）。
+  // ==========================================================
+  async function sendDebtReminderFromBtn(btn){
+    const debtorId = btn.dataset.debtor;
+    const creditorId = btn.dataset.creditor;
+    const amt = Number(btn.dataset.amt) || 0;
+
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "傳送中…";
+
+    const { data, error } = await sb.rpc("send_debt_reminder", {
+      p_debtor_member_id: debtorId,
+      p_amount: amt,
+      p_currency: CURRENCY
+    });
+
+    btn.disabled = false;
+    btn.textContent = originalText;
+
+    if(error){
+      console.error("提醒發送失敗：", error);
+      await sbAlert("提醒發送失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
+      return;
+    }
+    if(data === "THROTTLED"){
+      await sbAlert("這筆債務 24 小時內已經提醒過了，晚點再試試看。", "🔔 Splitbill 提醒");
+      return;
+    }
+    if(data === "FORBIDDEN"){
+      await sbAlert("提醒發送失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
+      return;
+    }
+
+    // 站內通知已經寫進去了（上面 RPC 保證的那條路），這裡再「順便」
+    // 呼叫一次推播，純加分——刻意不 await、不管成不成功都不影響
+    // 使用者看到的「已提醒」結果，對方沒開推播權限也完全沒差。
+    sb.functions.invoke("send-reminder", {
+      body: { debtorMemberId: debtorId, creditorMemberId: creditorId, amount: amt, currency: CURRENCY }
+    }).catch(()=>{});
+
+    await sbAlert(`✓ 已提醒 ${memberById[debtorId] || "對方"}！`, "🔔 Splitbill 通知");
+  }
+
+  // ==========================================================
+  // 💡 建議還款路徑：把 simplifyDebts() 算出來的最少轉帳筆數，畫成
+  // 債務關係表上方的一張卡片。每一條路徑按「記錄還款」，走的是跟矩陣
+  // 明細彈窗裡「記錄還款」按鈕完全一樣的流程（跳到還款分頁、帶入
+  // 付款人/收款人/金額），不是另外一套邏輯，寫進去的還款一樣會反映
+  // 回矩陣跟這裡本身（下次 refreshExpenses 重新算就會跟著更新/消失）。
+  // ==========================================================
+  function renderDebtSuggestions(owed, memberIds){
+    const listEl = document.getElementById("debtSuggestList");
+    if(!listEl) return;
+
+    const routes = (typeof simplifyDebts === "function") ? simplifyDebts(owed, memberIds) : [];
+    if(!routes.length){
+      listEl.innerHTML = `<p class="filter-hint">🎉 目前帳務已經全部結清，沒有需要還款的地方</p>`;
+      return;
+    }
+    // 群組還沒把「最簡還款法」設成官方採用的計算方法時，這裡的「記錄
+    // 還款」按鈕改成僅供檢視，「提醒對方」按鈕則直接不顯示——避免大家
+    // 依照沒有共識的算法各自記帳、提醒別人，跟群組實際在用的方法對不
+    // 起來。
+    const isOfficial = debtDisplayMode === "simplified";
+    const myId = myMember && myMember.id;
+    listEl.innerHTML = routes.map(r => {
+      const canRemind = isOfficial && myId && r.to === myId && r.from !== myId;
+      return `
+      <div class="debt-suggest-row">
+        <span class="debt-suggest-route">
+          ${renderAvatarHTML({ id: r.from, name: memberById[r.from] }, "avatar-xs")}
+          <b>${escapeHtml(memberById[r.from] || "?")}</b>
+          <span class="debt-suggest-arrow">→</span>
+          ${renderAvatarHTML({ id: r.to, name: memberById[r.to] }, "avatar-xs")}
+          <b>${escapeHtml(memberById[r.to] || "?")}</b>
+        </span>
+        <span class="debt-suggest-amt">${SYM}${formatAmt(r.amount)}</span>
+        <div class="debt-suggest-btn-group">
+          <button type="button" class="btn secondary small debt-suggest-repay-btn" data-from="${r.from}" data-to="${r.to}" data-amt="${r.amount}"${isOfficial ? "" : ' disabled title="這不是群組目前採用的還款計算方法，僅供檢視——只有建立者能在設定頁切換"'}>${isOfficial ? "記錄還款" : "👁️ 僅供檢視"}</button>
+          ${canRemind ? `<button type="button" class="btn secondary small debt-suggest-remind-btn" data-debtor="${r.from}" data-creditor="${r.to}" data-amt="${r.amount}">🔔 提醒對方</button>` : ""}
+        </div>
+      </div>
+    `;
+    }).join("");
+
+    listEl.querySelectorAll(".debt-suggest-remind-btn").forEach(btn => {
+      btn.addEventListener("click", () => sendDebtReminderFromBtn(btn));
+    });
+
+    listEl.querySelectorAll(".debt-suggest-repay-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const fromId = btn.dataset.from;
+        const toId = btn.dataset.to;
+        const amt = btn.dataset.amt;
+
+        const repayTabBtn = document.querySelector('.app-tab[data-tab="repay"]');
+        if(repayTabBtn) repayTabBtn.click();
+
+        const repayFromEl = document.getElementById("repayFrom");
+        const repayToEl = document.getElementById("repayTo");
+        const repayAmountEl = document.getElementById("repayAmount");
+        if(repayFromEl) repayFromEl.value = fromId;
+        if(repayToEl) repayToEl.value = toId;
+        if(repayAmountEl) repayAmountEl.value = amt;
+        if(repayFromEl) enhanceSelect(repayFromEl);
+        if(repayToEl) enhanceSelect(repayToEl);
+
+        setTimeout(()=>{
+          if(repayAmountEl){
+            repayAmountEl.scrollIntoView({ behavior:"smooth", block:"center" });
+            repayAmountEl.focus();
+          }
+        }, 150);
+      });
+    });
+  }
+
+  // 「最簡還款法」跟「逐筆債務表」現在合併成同一張卡片，用頂端的切換
+  // 按鈕決定顯示哪一個 pane；只看跟我相關/複製結算清單/匯出圖片這幾個
+  // 動作都是算自「逐筆債務表」的原始資料，切到「最簡還款法」時一併收起
+  // 來，避免點了卻不知道是套用在畫面上看不到的那份資料。
+  function applyDebtModeUI(mode){
+    const suggestPane = document.getElementById("debtSuggestPane");
+    const matrixPane = document.getElementById("debtMatrixPane");
+    const headerActions = document.getElementById("matrixHeaderActions");
+    const isSimplified = mode === "simplified";
+    if(suggestPane) suggestPane.classList.toggle("hidden", !isSimplified);
+    if(matrixPane) matrixPane.classList.toggle("hidden", isSimplified);
+    if(headerActions) headerActions.classList.toggle("hidden", isSimplified);
+    document.querySelectorAll("#debtModeToggle .debt-mode-btn").forEach(btn=>{
+      btn.classList.toggle("active", btn.dataset.debtMode === mode);
+    });
+  }
+
+  // 「目前正在看哪一個」（debtViewMode，切分頁就會變）跟「群組實際採用
+  // 哪一個」（debtDisplayMode，只有建立者能在設定頁改）是兩件事，光靠
+  // 切換鈕的 active 狀態容易搞混——這裡在採用中的按鈕上加一個固定的
+  // 「✓ 使用中」徽章，不會因為切分頁而移動，同時把上面的提示文字也改成
+  // 直接講白：目前採用的是哪一種。只有在 debtDisplayMode 改變時才需要
+  // 重算一次（群組資料一開始讀回來、或設定頁改了之後回來這裡才會變），
+  // 不用每次切換檢視分頁都重跑。
+  function markOfficialDebtMode(mode){
+    document.querySelectorAll("#debtModeToggle .debt-mode-btn").forEach(btn => {
+      const isOfficialBtn = btn.dataset.debtMode === mode;
+      let badge = btn.querySelector(".debt-mode-official-badge");
+      if(isOfficialBtn){
+        if(!badge){
+          badge = document.createElement("span");
+          badge.className = "debt-mode-official-badge";
+          badge.textContent = "✓ 使用中";
+          btn.appendChild(badge);
+        }
+      } else if(badge){
+        badge.remove();
+      }
+    });
+    const hintEl = document.querySelector(".debt-mode-shared-hint");
+    if(hintEl){
+      const label = mode === "detailed" ? "🧮 逐筆債務表" : "💡 最簡還款法";
+      hintEl.textContent = `👥 群組共用設定，目前採用「${label}」，僅建群人可在設定頁修改`;
+    }
+  }
+
   // 每人淨餘額改成呼叫資料庫的 member_balances() 函式算，不在前端重算，
   // 跟總覽頁共用同一份邏輯，不會有算法不一致的風險。
   async function renderBalances(expenses, repayments, preFetchedBalances){
@@ -3915,6 +4108,8 @@
     const owedForRender = buildDebtMatrix(expenses, repayments);
     renderSettlement(expenses, repayments, owedForRender);
     renderDebtMatrix(expenses, repayments, owedForRender);
+    renderDebtSuggestions(owedForRender, memberRows.map(m => m.id));
+    applyDebtModeUI(debtViewMode);
 
     // 📈 渲染電腦端 4 大 KPI 核心數據指標橫條 (Desktop KPI Strip)
     if(typeof renderDesktopKpiStrip === "function"){
@@ -3923,7 +4118,7 @@
         const p = (e.payers || []).find(x => x.member_id === (myMember && myMember.id));
         return s + (p ? Number(p.amount || 0) : 0);
       }, 0);
-      const unsettledRoutes = typeof simplifyDebts === "function" ? simplifyDebts(owedForRender) : null;
+      const unsettledRoutes = typeof simplifyDebts === "function" ? simplifyDebts(owedForRender, memberRows.map(m => m.id)) : null;
       const unsettledCount = (unsettledRoutes && unsettledRoutes.length) || 0;
       renderDesktopKpiStrip("desktopKpiContainer", {
         totalGroupSpend,
@@ -4981,6 +5176,21 @@ function renderDebtMatrix(
     });
 
 }
+
+// ==========================================================
+// 「最簡還款法」／「逐筆債務表」切換——這裡只是切換使用者「目前正在
+// 看」哪一個分頁（debtViewMode），純本機顯示狀態，不會寫回資料庫。
+// 官方採用哪一種（debtDisplayMode）只有建立者能在設定頁修改；兩者不
+// 一致時，該分頁的「記錄還款」按鈕會在渲染時被標成僅供檢視。
+// ==========================================================
+document.querySelectorAll("#debtModeToggle .debt-mode-btn").forEach(btn => {
+  btn.addEventListener("click", ()=>{
+    const mode = btn.dataset.debtMode;
+    if(!mode || mode === debtViewMode) return;
+    debtViewMode = mode;
+    applyDebtModeUI(mode);
+  });
+});
 
 // ==========================================================
 // 債務關係表：只看跟我相關 / 完整矩陣 切換
@@ -6659,14 +6869,19 @@ function showPairDetail(
     }
 
     if(remainingDebt > 0.01){
-      const canRemind = myMember && creditorId === myMember.id && debtorId !== myMember.id;
+      // 逐筆債務表不是群組官方採用的計算方法時，這裡的記錄還款／臺幣結算
+      // 一律鎖成僅供檢視，「提醒對方」直接不顯示，理由跟「最簡還款法」
+      // 那邊的按鈕一樣。
+      const isOfficial = debtDisplayMode === "detailed";
+      const disabledAttr = isOfficial ? "" : ' disabled title="這不是群組目前採用的還款計算方法，僅供檢視——只有建立者能在設定頁切換"';
+      const canRemind = isOfficial && myMember && creditorId === myMember.id && debtorId !== myMember.id;
       html += `
         <div class="debt-repay-action-wrap" style="display:flex;flex-direction:column;gap:8px;">
-          <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
-            💸 記錄還款（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
+          <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}"${disabledAttr}>
+            💸 ${isOfficial ? "記錄還款" : "僅供檢視"}（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
           </button>
           ${CURRENCY !== "TWD" ? `
-            <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
+            <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}"${disabledAttr}>
               💱 以臺幣結算
             </button>
           ` : ""}
@@ -6990,52 +7205,11 @@ function showPairDetail(
     };
   }
 
-  // ==========================================================
-  // 催款提醒：呼叫 send-reminder 這支 Edge Function，推播給欠錢的人。
-  // 只有債權人（欠款表裡的「該收」那一方）自己看得到這顆按鈕，節流
-  // 判斷交給後端（同一組人 24 小時內只能提醒一次），前端這裡只負責
-  // 呼叫跟把後端回應翻成看得懂的訊息。
-  // ==========================================================
+  // 催款提醒：只有債權人（欠款表裡的「該收」那一方）自己看得到這顆
+  // 按鈕，實際發送邏輯是跟「最簡還款法」建議路徑共用的 sendDebtReminderFromBtn()。
   const remindBtn = document.getElementById("matrixDetailRemindBtn");
   if(remindBtn){
-    remindBtn.onclick = async ()=>{
-      const debtorId = remindBtn.dataset.debtor;
-      const creditorId = remindBtn.dataset.creditor;
-      const amt = Number(remindBtn.dataset.amt) || 0;
-
-      const originalText = remindBtn.textContent;
-      remindBtn.disabled = true;
-      remindBtn.textContent = "傳送中…";
-
-      const { data, error } = await sb.functions.invoke("send-reminder", {
-        body: {
-          debtorMemberId: debtorId,
-          creditorMemberId: creditorId,
-          amount: amt,
-          currency: CURRENCY
-        }
-      });
-
-      remindBtn.disabled = false;
-      remindBtn.textContent = originalText;
-
-      if(error){
-        let errCode = "";
-        try{
-          const body = await error.context?.json?.();
-          errCode = (body && body.error) || "";
-        }catch(e){}
-        if(errCode === "THROTTLED"){
-          await sbAlert("這筆債務 24 小時內已經提醒過了，晚點再試試看。", "🔔 Splitbill 提醒");
-        } else {
-          console.error("提醒發送失敗：", error);
-          await sbAlert("提醒發送失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
-        }
-        return;
-      }
-
-      await sbAlert(`✓ 已提醒 ${memberById[debtorId] || "對方"}！`, "🔔 Splitbill 通知");
-    };
+    remindBtn.onclick = () => sendDebtReminderFromBtn(remindBtn);
   }
 
   // ==========================================================

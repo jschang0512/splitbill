@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=650">
-<link rel="stylesheet" href="shared.css?v=650">
+<link rel="stylesheet" href="theme.css?v=666">
+<link rel="stylesheet" href="shared.css?v=666">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=650"></script>
-<script src="version.js?v=650"></script>
-<script src="shared-ui.js?v=650"></script>
-<script src="theme.js?v=650" defer></script>
-<script src="app-banner.js?v=650" defer></script>
+<script src="currencies.js?v=666"></script>
+<script src="version.js?v=666"></script>
+<script src="shared-ui.js?v=666"></script>
+<script src="theme.js?v=666" defer></script>
+<script src="app-banner.js?v=666" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -128,6 +128,7 @@ if("serviceWorker" in navigator){
         <span id="whoamiText"><b id="whoamiName"></b></span>
       </div>
       <div class="topbar-actions">
+        <div id="notificationBellContainer"></div>
         <button type="button" class="btn secondary small" id="backBtn">‹ 返回</button>
       </div>
     </div>
@@ -245,6 +246,14 @@ if("serviceWorker" in navigator){
             <button class="btn secondary small" id="saveGroupNameBtn">儲存</button>
           </div>
           <div class="msg" id="groupNameMsg"></div>
+
+          <label>還款計算方法<button type="button" class="info-btn" data-info-for="infoDebtMode" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoDebtMode">「最簡還款法」算出最少轉帳次數的建議路徑；「逐筆債務表」列出每個人之間實際的欠款金額。任何成員都能在總表頁自由切換查看兩種算法，但這裡選的是大家實際記帳依據的方法，只有建立者能修改——沒被選中的那個分頁，「記錄還款」按鈕會變成僅供檢視。</p>
+          <div class="debt-mode-toggle" id="settingsDebtModeToggle">
+            <button type="button" class="debt-mode-btn" data-debt-mode="simplified">💡 最簡還款法</button>
+            <button type="button" class="debt-mode-btn" data-debt-mode="detailed">🧮 逐筆債務表</button>
+          </div>
+          <div class="msg" id="debtModeMsg"></div>
         </div>
 
         <div class="settings-group">
@@ -364,12 +373,14 @@ if("serviceWorker" in navigator){
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
-            <div class="settings-changelog-header">✨ v635 最新更新項目：</div>
+            <div class="settings-changelog-header" id="settingsChangelogHeader">✨ 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>修正成就榜彈窗開啟與渲染：確保點擊頂部勳章圖示時立即載入並展示全體成就解鎖清單</li>
-              <li>深色模式背景全面統一：移除電腦版自訂色調，深色與淺色模式在所有裝置上完全一致</li>
-              <li>移除電腦版側邊欄：徹底回歸簡潔經典的頂部全功能導航，版面純粹乾淨</li>
-              <li>修復分頁切換：徹底解決切換支出、還款、紀錄時總表未隱藏的重疊問題，各分頁獨立流暢切換</li>
+              <li>新增站內通知：帳目異動、催款提醒都會出現在鈴鐺圖示，未讀有清楚的提示點</li>
+              <li>新增「最簡還款法」建議：總表自動算出最少轉帳次數就能讓大家全部結清，一鍵記錄還款、提醒對方</li>
+              <li>還款計算方法（最簡還款法／逐筆債務表）改成由建立者在設定頁統一決定，避免大家各自看到不同結果</li>
+              <li>歷史紀錄不再只顯示近兩週，篩選選項也精簡收進「進階篩選」收合區，畫面更乾淨</li>
+              <li>新增跨幣別轉入的匯率可以事後編輯</li>
+              <li>修正成就榜彈窗無法關閉的問題</li>
             </ul>
           </div>
         </div>
@@ -476,6 +487,7 @@ if("serviceWorker" in navigator){
 <script>
 document.getElementById("appFooter").textContent = "菘. v" + APP_VERSION;
 document.getElementById("settingsVerNum").textContent = "ver. " + APP_VERSION;
+document.getElementById("settingsChangelogHeader").textContent = "✨ v" + APP_VERSION + " 最新更新項目：";
 </script>
 
 <script>
@@ -689,7 +701,7 @@ if(backBtn){
     const sel = document.getElementById("settingsGroupSelect");
     const inviteInp = document.getElementById("settingsInviteCode");
     if(!sel || !myMember) return;
-    const { data } = await sb.from("members").select("group_id, groups(name, invite_code, created_by)").eq("user_id", currentUser.id).is("left_at", null);
+    const { data } = await sb.from("members").select("group_id, groups(name, invite_code, created_by, debt_display_mode)").eq("user_id", currentUser.id).is("left_at", null);
     myGroups = data || [];
     sel.innerHTML = myGroups.map(r =>
       `<option value="${r.group_id}"${r.group_id === myMember.group_id ? " selected" : ""}>${escapeHtml((r.groups && r.groups.name) || "?")}</option>`
@@ -704,6 +716,15 @@ if(backBtn){
     const manageSection = document.getElementById("groupManageSection");
     if(manageSection) manageSection.classList.toggle("hidden", !isCreator);
     if(isCreator) await renderGroupMemberManageList();
+
+    // 還款計算方法：任何人都看得到目前群組官方選哪一個，但只有建立者
+    // 能實際點擊切換（其他人看到的是鎖住、僅供檢視的狀態）。
+    const debtMode = (activeRow && activeRow.groups && activeRow.groups.debt_display_mode) || "simplified";
+    document.querySelectorAll("#settingsDebtModeToggle .debt-mode-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.debtMode === debtMode);
+      btn.disabled = !isCreator;
+      btn.title = isCreator ? "" : "只有建立者能更改這個設定";
+    });
   }
 
   async function renderGroupMemberManageList(){
@@ -763,6 +784,18 @@ if(backBtn){
       await renderSettingsGroupSection();
     });
   }
+
+  document.querySelectorAll("#settingsDebtModeToggle .debt-mode-btn").forEach(btn => {
+    btn.addEventListener("click", async ()=>{
+      if(btn.disabled || btn.classList.contains("active")) return;
+      const msg = document.getElementById("debtModeMsg");
+      msg.textContent = "儲存中…"; msg.className = "msg";
+      const { error } = await sb.rpc("set_debt_display_mode", { p_group_id: myMember.group_id, p_mode: btn.dataset.debtMode });
+      if(error){ msg.textContent = "儲存失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      msg.textContent = "已更新！"; msg.className = "msg ok";
+      await renderSettingsGroupSection();
+    });
+  });
 
   const copyInviteCodeBtn = document.getElementById("copyInviteCodeBtn");
   const inviteInp = document.getElementById("settingsInviteCode");
@@ -1707,6 +1740,7 @@ if(backBtn){
         });
       }
       if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
+      if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
 
       renderSettingsAvatarPreview();
 

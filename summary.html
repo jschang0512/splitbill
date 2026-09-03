@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=650">
-<link rel="stylesheet" href="shared.css?v=650">
+<link rel="stylesheet" href="theme.css?v=666">
+<link rel="stylesheet" href="shared.css?v=666">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=650"></script>
-<script src="version.js?v=650"></script>
-<script src="shared-ui.js?v=650"></script>
-<script src="theme.js?v=650" defer></script>
-<script src="app-banner.js?v=650" defer></script>
+<script src="currencies.js?v=666"></script>
+<script src="version.js?v=666"></script>
+<script src="shared-ui.js?v=666"></script>
+<script src="theme.js?v=666" defer></script>
+<script src="app-banner.js?v=666" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -123,6 +123,7 @@ if("serviceWorker" in navigator){
         <span id="whoamiText"><b id="whoamiName"></b></span>
       </div>
       <div class="topbar-actions">
+        <div id="notificationBellContainer"></div>
         <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
         <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
         <button class="btn secondary small" id="logoutBtn">登出</button>
@@ -1225,6 +1226,7 @@ renderNavLinks();
         });
       }
       if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
+      if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
 
       window.memberRows = memberRows;
       initAchievementsModal();

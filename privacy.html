@@ -23,10 +23,10 @@
 <meta name="theme-color" content="#7A6B9E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=650">
-<link rel="stylesheet" href="shared.css?v=650">
-<script src="version.js?v=650"></script>
-<script src="theme.js?v=650" defer></script>
+<link rel="stylesheet" href="theme.css?v=666">
+<link rel="stylesheet" href="shared.css?v=666">
+<script src="version.js?v=666"></script>
+<script src="theme.js?v=666" defer></script>
 <script src="app-banner.js" defer></script>
 </head>
 <body>
@@ -52,7 +52,7 @@
   </div>
 
   <div class="card legal-card">
-    <div class="legal-updated">最後更新：2026 年 8 月 31 日</div>
+    <div class="legal-updated">最後更新：2026 年 9 月 4 日</div>
 
     <p>Splitbill（帳務系統）是一套專為朋友、旅遊夥伴或小群體記帳、分攤共同開銷所設計之工具。本文件詳細說明在使用本服務（包含 Web 網頁版、PWA 與 Android App 原生應用程式）時，我們如何收集、使用、保護及共享相關資料。</p>
 
@@ -63,6 +63,7 @@
       <li><b>發票與收據影像（選用）：</b>當你使用「📷 AI 照片自動拆單」功能時，當次拍攝或選取之收據發票圖片僅於記憶體中進行影像前處理與單次辨識，絕不留存、亦不任意公開或用於模型訓練。</li>
       <li><b>定位資訊（選用）：</b>開啟「總覽」頁或「快速記帳」時，若瀏覽器/裝置允許定位，系統會自動取得一次性地理座標，透過第三方地圖服務（OpenStreetMap Nominatim）反查所在國家與城市，藉此推薦適合的記帳幣別、或在您移動到不同國家時提醒您。座標本身不會回傳或保存於我方伺服器，僅將反查後的國家代碼與城市名稱存放於裝置本機（localStorage）。</li>
       <li><b>群組留言與互動：</b>於「群組留言板」發布之內容僅限同一群組之成員可見。</li>
+      <li><b>站內通知紀錄：</b>當群組內有人新增／編輯支出或還款、或使用「提醒對方」催款功能時，系統會產生一筆通知紀錄（含通知類型、標題、內容文字、已讀／未讀狀態），僅提供給該筆通知對應的接收者本人查看，其他成員無法看見；使用者可隨時將通知標為已讀或刪除。催款提醒功能會記錄同一組債權人／債務人上一次提醒的時間，用以限制 24 小時內僅能提醒一次，避免騷擾。</li>
       <li><b>通知推播識別碼：</b>若開啟即時推播，系統會儲存瀏覽器 Web Push 或 Android Firebase Cloud Messaging (FCM) 提供之加密 Token，僅在群組帳務異動時發送通知。</li>
       <li><b>裝置本機偏好：</b>深色/淺色主題模式、當前幣別顯示設定等，僅儲存於使用者裝置本機（localStorage），不上傳伺服器。</li>
     </ul>

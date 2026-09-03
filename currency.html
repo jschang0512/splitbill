@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=650">
-<link rel="stylesheet" href="shared.css?v=650">
+<link rel="stylesheet" href="theme.css?v=666">
+<link rel="stylesheet" href="shared.css?v=666">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=650"></script>
-<script src="version.js?v=650"></script>
-<script src="shared-ui.js?v=650"></script>
-<script src="theme.js?v=650" defer></script>
+<script src="currencies.js?v=666"></script>
+<script src="version.js?v=666"></script>
+<script src="shared-ui.js?v=666"></script>
+<script src="theme.js?v=666" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -128,6 +128,7 @@ if("serviceWorker" in navigator){
         <span id="whoamiText"><b id="whoamiName"></b></span>
       </div>
       <div class="topbar-actions">
+        <div id="notificationBellContainer"></div>
         <button type="button" class="icon-btn" id="openAchievementsModalBtn" title="成就榜" aria-label="成就榜">🎖️</button>
         <a class="icon-btn" id="settingsBtn" href="settings.html" title="設定" aria-label="設定">⚙️</a>
         <button class="btn secondary small" id="logoutBtn">登出</button>
@@ -218,25 +219,38 @@ if("serviceWorker" in navigator){
       </div>
 
       <div class="card card-wide">
-        <div class="matrix-header-row">
-          <h2>🧮 債務關係表</h2>
-          <div class="matrix-header-actions">
-            <button type="button" class="copy-settle-btn" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
-              <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
-            </button>
-            <button type="button" class="copy-settle-btn" id="copySettlementBtn" title="複製結算清單至剪貼簿">
-              <span>📋 複製結算清單</span>
-            </button>
-            <button type="button" class="copy-settle-btn" id="exportSettlementImgBtn" title="匯出結算圖片">
-              <span>🖼️ 匯出圖片</span>
-            </button>
+        <div class="debt-mode-toggle-wrap">
+          <div class="debt-mode-toggle" id="debtModeToggle">
+            <button type="button" class="debt-mode-btn active" data-debt-mode="simplified">💡 最簡還款法</button>
+            <button type="button" class="debt-mode-btn" data-debt-mode="detailed">🧮 逐筆債務表</button>
           </div>
+          <p class="debt-mode-shared-hint">👥 群組共用設定，還款計算方法僅供建群人設定</p>
         </div>
-        <p class="filter-hint summary-hint">1. 點擊格子可以看債務紀錄<br>2. 若分攤過程產生餘數將隨機分配</p>
-        <div class="matrix-scroll">
-          <table class="debt-matrix" id="debtMatrix"></table>
+
+        <div class="matrix-header-actions" id="matrixHeaderActions">
+          <button type="button" class="copy-settle-btn" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
+            <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
+          </button>
+          <button type="button" class="copy-settle-btn" id="copySettlementBtn" title="複製結算清單至剪貼簿">
+            <span>📋 複製結算清單</span>
+          </button>
+          <button type="button" class="copy-settle-btn" id="exportSettlementImgBtn" title="匯出結算圖片">
+            <span>🖼️ 匯出圖片</span>
+          </button>
         </div>
-        <div id="matrixDetail"></div>
+
+        <div id="debtSuggestPane">
+          <p class="filter-hint debt-suggest-hint">這幾筆轉帳可以讓大家的帳全部結清，不用照著逐筆債務表一筆一筆對</p>
+          <div id="debtSuggestList"></div>
+        </div>
+
+        <div id="debtMatrixPane" class="hidden">
+          <p class="filter-hint summary-hint">1. 點擊格子可以看債務紀錄<br>2. 若分攤過程產生餘數將隨機分配</p>
+          <div class="matrix-scroll">
+            <table class="debt-matrix" id="debtMatrix"></table>
+          </div>
+          <div id="matrixDetail"></div>
+        </div>
       </div>
     </div>
 
@@ -440,7 +454,30 @@ if("serviceWorker" in navigator){
           <label>關鍵字</label>
           <input type="text" id="filterKeyword" placeholder="支出說明或還款備註">
 
+          <label>快速篩選</label>
+          <div class="history-multi-chips" id="filterQuickChips">
+            <button type="button" class="multi-chip" data-quick="payer_me">💳 我代墊的</button>
+            <button type="button" class="multi-chip" data-quick="large">💰 大額支出 (&gt;1,000)</button>
+            <button type="button" class="multi-chip" data-quick="addons">🍽️ 有個人自付</button>
+          </div>
+
           <div id="filterExpenseFields">
+            <label>分類快捷</label>
+            <div class="history-category-chips" id="historyCategoryChips">
+              <button type="button" class="history-cat-chip active" data-cat="all">全部類別</button>
+              <button type="button" class="history-cat-chip" data-cat="food">🍜 美食</button>
+              <button type="button" class="history-cat-chip" data-cat="drink">☕ 飲料</button>
+              <button type="button" class="history-cat-chip" data-cat="transit">🚄 交通</button>
+              <button type="button" class="history-cat-chip" data-cat="car">🚗 租車</button>
+              <button type="button" class="history-cat-chip" data-cat="flight">✈️ 機票</button>
+              <button type="button" class="history-cat-chip" data-cat="hotel">🏨 住宿</button>
+              <button type="button" class="history-cat-chip" data-cat="ticket">🎟️ 門票</button>
+              <button type="button" class="history-cat-chip" data-cat="shopping">🛍️ 購物</button>
+              <button type="button" class="history-cat-chip" data-cat="medical">💊 醫療</button>
+              <button type="button" class="history-cat-chip" data-cat="network">📶 網卡</button>
+              <button type="button" class="history-cat-chip" data-cat="general">🧾 一般</button>
+            </div>
+
             <label>金額區間</label>
             <div class="filter-amt-range-row">
               <input type="number" id="filterMinAmount" placeholder="最低金額" min="0" step="any" class="filter-amt-inp">
@@ -474,7 +511,7 @@ if("serviceWorker" in navigator){
             <label>誰還錢（可多選）</label>
             <div class="sb-multi-select" id="filterRepayFromDropdown"></div>
 
-            <label>誰欠錢 / 誰收錢（可多選）</label>
+            <label>誰收錢（可多選）</label>
             <div class="sb-multi-select" id="filterRepayToDropdown"></div>
           </div>
 
@@ -507,28 +544,9 @@ if("serviceWorker" in navigator){
             <button type="button" class="search-clear-btn hidden" id="historyLiveSearchClear" aria-label="清除搜尋">✕</button>
           </div>
 
-          <!-- 🎛️ 多維度複合快捷 Chips -->
+          <!-- 🎛️ 常駐快捷 Chip：其餘篩選已收進「進階篩選」 -->
           <div class="history-multi-chips" id="historyMultiChips">
             <button type="button" class="multi-chip" data-quick="involved">👤 與我相關</button>
-            <button type="button" class="multi-chip" data-quick="payer_me">💳 我代墊的</button>
-            <button type="button" class="multi-chip" data-quick="large">💰 大額支出 (>1,000)</button>
-            <button type="button" class="multi-chip" data-quick="addons">🍽️ 有個人自付</button>
-          </div>
-
-          <!-- 分類 Chips -->
-          <div class="history-category-chips" id="historyCategoryChips">
-            <button type="button" class="history-cat-chip active" data-cat="all">全部類別</button>
-            <button type="button" class="history-cat-chip" data-cat="food">🍜 美食</button>
-            <button type="button" class="history-cat-chip" data-cat="drink">☕ 飲料</button>
-            <button type="button" class="history-cat-chip" data-cat="transit">🚄 交通</button>
-            <button type="button" class="history-cat-chip" data-cat="car">🚗 租車</button>
-            <button type="button" class="history-cat-chip" data-cat="flight">✈️ 機票</button>
-            <button type="button" class="history-cat-chip" data-cat="hotel">🏨 住宿</button>
-            <button type="button" class="history-cat-chip" data-cat="ticket">🎟️ 門票</button>
-            <button type="button" class="history-cat-chip" data-cat="shopping">🛍️ 購物</button>
-            <button type="button" class="history-cat-chip" data-cat="medical">💊 醫療</button>
-            <button type="button" class="history-cat-chip" data-cat="network">📶 網卡</button>
-            <button type="button" class="history-cat-chip" data-cat="general">🧾 一般</button>
           </div>
 
           <!-- 📊 篩選即時統計資訊列 -->
@@ -1057,6 +1075,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=650"></script>
+<script src="app.js?v=666"></script>
 </body>
 </html>
