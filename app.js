@@ -6659,6 +6659,7 @@ function showPairDetail(
     }
 
     if(remainingDebt > 0.01){
+      const canRemind = myMember && creditorId === myMember.id && debtorId !== myMember.id;
       html += `
         <div class="debt-repay-action-wrap" style="display:flex;flex-direction:column;gap:8px;">
           <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
@@ -6667,6 +6668,11 @@ function showPairDetail(
           ${CURRENCY !== "TWD" ? `
             <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
               💱 以臺幣結算
+            </button>
+          ` : ""}
+          ${canRemind ? `
+            <button type="button" class="btn secondary small" id="matrixDetailRemindBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
+              🔔 提醒對方
             </button>
           ` : ""}
         </div>
@@ -6981,6 +6987,54 @@ function showPairDetail(
         };
       }
       twdSettleModal.classList.add("show");
+    };
+  }
+
+  // ==========================================================
+  // 催款提醒：呼叫 send-reminder 這支 Edge Function，推播給欠錢的人。
+  // 只有債權人（欠款表裡的「該收」那一方）自己看得到這顆按鈕，節流
+  // 判斷交給後端（同一組人 24 小時內只能提醒一次），前端這裡只負責
+  // 呼叫跟把後端回應翻成看得懂的訊息。
+  // ==========================================================
+  const remindBtn = document.getElementById("matrixDetailRemindBtn");
+  if(remindBtn){
+    remindBtn.onclick = async ()=>{
+      const debtorId = remindBtn.dataset.debtor;
+      const creditorId = remindBtn.dataset.creditor;
+      const amt = Number(remindBtn.dataset.amt) || 0;
+
+      const originalText = remindBtn.textContent;
+      remindBtn.disabled = true;
+      remindBtn.textContent = "傳送中…";
+
+      const { data, error } = await sb.functions.invoke("send-reminder", {
+        body: {
+          debtorMemberId: debtorId,
+          creditorMemberId: creditorId,
+          amount: amt,
+          currency: CURRENCY
+        }
+      });
+
+      remindBtn.disabled = false;
+      remindBtn.textContent = originalText;
+
+      if(error){
+        let errCode = "";
+        try{
+          const body = await error.context?.json?.();
+          errCode = (body && body.error) || "";
+        }catch(e){}
+        if(errCode === "THROTTLED"){
+          await sbAlert("這筆債務 24 小時內已經提醒過了，晚點再試試看。", "🔔 Splitbill 提醒");
+        } else {
+          console.error("提醒發送失敗：", error);
+          await sbAlert("提醒發送失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
+        }
+        return;
+      }
+
+      await sbAlert(`✓ 已提醒 ${memberById[debtorId] || "對方"}！`, "🔔 Splitbill 通知");
     };
   }
 
