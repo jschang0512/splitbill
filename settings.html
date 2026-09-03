@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=648">
-<link rel="stylesheet" href="shared.css?v=648">
+<link rel="stylesheet" href="theme.css?v=649">
+<link rel="stylesheet" href="shared.css?v=649">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=648"></script>
-<script src="version.js?v=648"></script>
-<script src="shared-ui.js?v=648"></script>
-<script src="theme.js?v=648" defer></script>
-<script src="app-banner.js?v=648" defer></script>
+<script src="currencies.js?v=649"></script>
+<script src="version.js?v=649"></script>
+<script src="shared-ui.js?v=649"></script>
+<script src="theme.js?v=649" defer></script>
+<script src="app-banner.js?v=649" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -565,47 +565,16 @@ if(backBtn){
   }
   // escapeHtml() / showToast() / enhanceSelect() 移到全站共用的 shared-ui.js 了。
 
+  // 實際抓資料的邏輯統一放在 shared-ui.js 的 loadGroupMembers()，
+  // summary.html/currency.html/settings.html 三邊共用同一份（這裡原本
+  // 少了 my_group_id 抓不到時的復原機制，統一之後一起補上了），這裡
+  // 只負責把結果存進這個檔案自己的變數。
   async function loadMembers(){
-    let activeGroupId = null;
-    if(currentUser){
-      try{
-        const { data: gid } = await sb.rpc("my_group_id");
-        activeGroupId = gid;
-      }catch(e){
-        console.warn("讀取目前群組失敗：", e);
-      }
-    }
-    try{
-      let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
-      if(activeGroupId) query = query.eq("group_id", activeGroupId);
-      const { data, error } = await query;
-      if(error || !data || data.length === 0){
-        const { data: allUserMembers } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").eq("user_id", currentUser.id);
-        MEMBERS = allUserMembers || [];
-      } else {
-        MEMBERS = data || [];
-      }
-    }catch(e){
-      console.error("讀取成員清單異常：", e);
-      MEMBERS = [];
-    }
-    MEMBERS.forEach(m=>{
-      if(m.avatar_url){
-        localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
-        if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
-      } else {
-        localStorage.removeItem("sb_avatar_" + m.id);
-        if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
-      }
-      m.accountName = m.name;
-      if(m.nickname) m.name = m.nickname;
-      // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
-      // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
-    });
-    memberById = {};
-    MEMBERS.forEach(m => memberById[m.id] = m.name);
-    myMember = currentUser ? (MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) || MEMBERS.find(m => m.user_id === currentUser.id)) : null;
-    memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
+    const result = await loadGroupMembers(sb, currentUser, showLeftMembers);
+    MEMBERS = result.MEMBERS;
+    memberById = result.memberById;
+    myMember = result.myMember;
+    memberRows = result.memberRows;
   }
 
   // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()

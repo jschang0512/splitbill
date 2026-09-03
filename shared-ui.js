@@ -96,6 +96,86 @@ function refreshLoginTime(){
   localStorage.setItem(LOGIN_TIME_KEY, String(Date.now()));
 }
 
+// ---------- 成員名單：summary.html / currency.html(app.js) / settings.html
+// 原本各自維護一份幾乎一樣的「抓目前群組成員」邏輯，三邊分開改很容易
+// 漏掉其中一邊（settings.html 那份就曾經漏了 my_group_id 抓不到時的
+// 復原機制）。統一成這一份共用函式，各頁的 loadMembers() 只留自己要
+// 把結果存進哪些變數的那幾行。
+//
+// 回傳 { MEMBERS, memberById, myMember, memberRows }：
+// - MEMBERS：目前群組（或這個帳號能看到）的完整成員陣列，name 欄位
+//   已經套用暱稱覆蓋、accountName 保留原始帳號姓名。
+// - memberById：{ 成員id: 顯示名稱 } 查詢表。
+// - myMember：目前登入帳號在這批成員裡對應的那一筆（優先找還在群組
+//   內的，找不到才退而求其次抓已退出的那筆），沒登入或找不到則 null。
+// - memberRows：依 showLeftMembers 決定要不要把已退出成員也算進去。
+async function loadGroupMembers(sb, currentUser, showLeftMembers){
+  let activeGroupId = null;
+  if(currentUser){
+    try {
+      const { data: gid, error: gidError } = await sb.rpc("my_group_id");
+      if(!gidError && gid) activeGroupId = gid;
+    } catch(e){}
+
+    // 如果 my_group_id 沒抓到，從 members 表查出此 user_id 的第一筆啟用群組，
+    // 順便把這次查到的結果存回去給下次用（不用等它回來，等了只是白白多卡
+    // 一趟網路來回）。
+    if(!activeGroupId){
+      try {
+        const { data: userMembers } = await sb.from("members")
+          .select("id,user_id,group_id,name,nickname,email,shown_currencies,left_at,account_deleted_at,groups(name)")
+          .eq("user_id", currentUser.id)
+          .is("left_at", null)
+          .limit(1);
+        if(userMembers && userMembers.length > 0){
+          activeGroupId = userMembers[0].group_id;
+          sb.rpc("set_active_group", { p_group_id: activeGroupId }).catch(()=>{});
+        }
+      } catch(e){}
+    }
+  }
+
+  let MEMBERS = [];
+  try {
+    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+    if(activeGroupId) query = query.eq("group_id", activeGroupId);
+    const { data, error } = await query;
+    if(error){
+      console.error("讀取群組成員失敗：", error);
+      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+      MEMBERS = fallbackData || [];
+    } else {
+      MEMBERS = data || [];
+    }
+  } catch(e){
+    console.error("讀取 members 異常：", e);
+    MEMBERS = [];
+  }
+
+  MEMBERS.forEach(m=>{
+    if(m.avatar_url){
+      localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
+      if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
+    } else {
+      localStorage.removeItem("sb_avatar_" + m.id);
+      if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
+    }
+    m.accountName = m.name; // 保留帳號原始姓名（不含暱稱/標籤），設定頁「姓名」欄位要用
+    if(m.nickname) m.name = m.nickname; // 這個群組如果有另外設定暱稱，畫面上一律優先顯示暱稱
+    // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
+    // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
+  });
+
+  const memberById = {};
+  MEMBERS.forEach(m => memberById[m.id] = m.name);
+  const myMember = currentUser
+    ? (MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) || MEMBERS.find(m => m.user_id === currentUser.id))
+    : null;
+  const memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
+
+  return { MEMBERS, memberById, myMember, memberRows };
+}
+
 // ---------- 全站統一的自訂下拉選單：外觀跟債務趨勢圖的日/週/月/年選單一致。
 // 把真正的 <select> 包一層視覺隱藏起來當資料來源，.value/innerHTML/dataset
 // 這些既有邏輯完全不用改；每次選項或值有變動，呼叫 enhanceSelect(選到的

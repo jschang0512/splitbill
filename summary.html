@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=648">
-<link rel="stylesheet" href="shared.css?v=648">
+<link rel="stylesheet" href="theme.css?v=649">
+<link rel="stylesheet" href="shared.css?v=649">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=648"></script>
-<script src="version.js?v=648"></script>
-<script src="shared-ui.js?v=648"></script>
-<script src="theme.js?v=648" defer></script>
-<script src="app-banner.js?v=648" defer></script>
+<script src="currencies.js?v=649"></script>
+<script src="version.js?v=649"></script>
+<script src="shared-ui.js?v=649"></script>
+<script src="theme.js?v=649" defer></script>
+<script src="app-banner.js?v=649" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -507,63 +507,15 @@ renderNavLinks();
   function isRealEmail(email){
     return !!email && !email.endsWith("@splitbill.local");
   }
+  // 實際抓資料的邏輯統一放在 shared-ui.js 的 loadGroupMembers()，
+  // summary.html/currency.html/settings.html 三邊共用同一份，這裡只
+  // 負責把結果存進這個檔案自己的變數。
   async function loadMembers(){
-    let activeGroupId = null;
-    if(currentUser){
-      try {
-        const { data: gid, error: gidError } = await sb.rpc("my_group_id");
-        if(!gidError && gid) activeGroupId = gid;
-      } catch(e){}
-
-      // 如果 my_group_id 沒抓到，從 members 表查出此 user_id 的第一筆啟用群組
-      if(!activeGroupId){
-        try {
-          const { data: userMembers } = await sb.from("members")
-            .select("id,user_id,group_id,name,nickname,email,shown_currencies,left_at,account_deleted_at,groups(name)")
-            .eq("user_id", currentUser.id)
-            .is("left_at", null)
-            .limit(1);
-          if(userMembers && userMembers.length > 0){
-            activeGroupId = userMembers[0].group_id;
-            try { await sb.rpc("set_active_group", { p_group_id: activeGroupId }); } catch(e){}
-          }
-        } catch(e){}
-      }
-    }
-
-    try {
-      let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
-      if(activeGroupId) query = query.eq("group_id", activeGroupId);
-      const { data, error } = await query;
-      if(error){
-        console.error("讀取群組成員失敗：", error);
-        const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
-        MEMBERS = fallbackData || [];
-      } else {
-        MEMBERS = data || [];
-      }
-    } catch(e){
-      console.error("讀取 members 異常：", e);
-      MEMBERS = [];
-    }
-
-    MEMBERS.forEach(m=>{
-      if(m.avatar_url){
-        localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
-        if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
-      } else {
-        localStorage.removeItem("sb_avatar_" + m.id);
-        if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
-      }
-      m.accountName = m.name;
-      if(m.nickname) m.name = m.nickname;
-      // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
-      // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
-    });
-    memberById = {};
-    MEMBERS.forEach(m => memberById[m.id] = m.name);
-    myMember = currentUser ? (MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) || MEMBERS.find(m => m.user_id === currentUser.id)) : null;
-    memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
+    const result = await loadGroupMembers(sb, currentUser, showLeftMembers);
+    MEMBERS = result.MEMBERS;
+    memberById = result.memberById;
+    myMember = result.myMember;
+    memberRows = result.memberRows;
   }
 
   // LOGIN_TIME_KEY/SESSION_DURATION_MS/isSessionExpired()/refreshLoginTime()

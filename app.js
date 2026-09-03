@@ -253,65 +253,15 @@
   function isRealEmail(email){
     return !!email && !email.endsWith("@splitbill.local");
   }
+  // 實際抓資料的邏輯統一放在 shared-ui.js 的 loadGroupMembers()，
+  // summary.html/currency.html/settings.html 三邊共用同一份，這裡只
+  // 負責把結果存進這個檔案自己的變數。
   async function loadMembers(){
-    let activeGroupId = null;
-    if(currentUser){
-      try {
-        const { data: gid, error: gidError } = await sb.rpc("my_group_id");
-        if(!gidError && gid) activeGroupId = gid;
-      } catch(e){}
-
-      // 如果 my_group_id 沒抓到，從 members 表查出此 user_id 的第一筆啟用群組
-      if(!activeGroupId){
-        try {
-          const { data: userMembers } = await sb.from("members")
-            .select("id,user_id,group_id,name,nickname,email,shown_currencies,left_at,account_deleted_at,groups(name)")
-            .eq("user_id", currentUser.id)
-            .is("left_at", null)
-            .limit(1);
-          if(userMembers && userMembers.length > 0){
-            activeGroupId = userMembers[0].group_id;
-            // 只是把這次查到的結果順便存起來給下次用，不影響這次要不要往下
-            // 進行，不用等它回來——等了只是白白多卡一趟網路來回。
-            sb.rpc("set_active_group", { p_group_id: activeGroupId }).catch(()=>{});
-          }
-        } catch(e){}
-      }
-    }
-
-    try {
-      let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
-      if(activeGroupId) query = query.eq("group_id", activeGroupId);
-      const { data, error } = await query;
-      if(error){
-        console.error("讀取群組成員失敗：", error);
-        const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
-        MEMBERS = fallbackData || [];
-      } else {
-        MEMBERS = data || [];
-      }
-    } catch(e){
-      console.error("讀取 members 異常：", e);
-      MEMBERS = [];
-    }
-
-    MEMBERS.forEach(m=>{
-      if(m.avatar_url){
-        localStorage.setItem("sb_avatar_" + m.id, m.avatar_url);
-        if(m.user_id) localStorage.setItem("sb_avatar_" + m.user_id, m.avatar_url);
-      } else {
-        localStorage.removeItem("sb_avatar_" + m.id);
-        if(m.user_id) localStorage.removeItem("sb_avatar_" + m.user_id);
-      }
-      m.accountName = m.name; // 保留帳號原始姓名（不含暱稱/標籤），設定頁「姓名」欄位要用
-      if(m.nickname) m.name = m.nickname; // 這個群組如果有另外設定暱稱，畫面上一律優先顯示暱稱
-      // 退出/銷毀的「(退出)」「(銷毀)」後綴現在由資料庫 trigger 直接寫進 nickname，
-      // 這裡不用再疊加一次，不然會變成「(銷毀) (銷毀)」。
-    });
-    memberById = {};
-    MEMBERS.forEach(m => memberById[m.id] = m.name);
-    myMember = currentUser ? (MEMBERS.find(m => m.user_id === currentUser.id && !m.left_at) || MEMBERS.find(m => m.user_id === currentUser.id)) : null;
-    memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
+    const result = await loadGroupMembers(sb, currentUser, showLeftMembers);
+    MEMBERS = result.MEMBERS;
+    memberById = result.memberById;
+    myMember = result.myMember;
+    memberRows = result.memberRows;
   }
 
   function emailToName(email){
