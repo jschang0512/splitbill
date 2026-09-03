@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=666">
-<link rel="stylesheet" href="shared.css?v=666">
+<link rel="stylesheet" href="theme.css?v=672">
+<link rel="stylesheet" href="shared.css?v=672">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=666"></script>
-<script src="version.js?v=666"></script>
-<script src="shared-ui.js?v=666"></script>
-<script src="theme.js?v=666" defer></script>
+<script src="currencies.js?v=672"></script>
+<script src="version.js?v=672"></script>
+<script src="shared-ui.js?v=672"></script>
+<script src="theme.js?v=672" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -218,34 +218,46 @@ if("serviceWorker" in navigator){
         </div>
       </div>
 
-      <div class="card card-wide">
-        <div class="debt-mode-toggle-wrap">
-          <div class="debt-mode-toggle" id="debtModeToggle">
-            <button type="button" class="debt-mode-btn active" data-debt-mode="simplified">💡 最簡還款法</button>
-            <button type="button" class="debt-mode-btn" data-debt-mode="detailed">🧮 逐筆債務表</button>
+      <div class="card card-wide debt-settlement-master-card">
+        <div class="debt-card-header">
+          <div class="debt-segmented-control" id="debtModeToggle">
+            <button type="button" class="debt-segment-btn active" data-debt-mode="simplified">
+              <span class="debt-segment-icon">💡</span>
+              <span class="debt-segment-label">最佳化結算</span>
+            </button>
+            <button type="button" class="debt-segment-btn" data-debt-mode="detailed">
+              <span class="debt-segment-icon">🧮</span>
+              <span class="debt-segment-label">逐筆債務表</span>
+            </button>
           </div>
-          <p class="debt-mode-shared-hint">👥 群組共用設定，還款計算方法僅供建群人設定</p>
+          
+          <div class="debt-mode-status-row">
+            <div class="debt-mode-notice-pill" id="debtModeNoticePill">
+              <span class="debt-mode-status-dot"></span>
+              <span id="debtModeStatusText" class="debt-mode-shared-hint">👥 目前採用「💡 最佳化結算」• 僅建群者可修改</span>
+            </div>
+          </div>
         </div>
 
-        <div class="matrix-header-actions" id="matrixHeaderActions">
-          <button type="button" class="copy-settle-btn" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
-            <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
-          </button>
-          <button type="button" class="copy-settle-btn" id="copySettlementBtn" title="複製結算清單至剪貼簿">
-            <span>📋 複製結算清單</span>
-          </button>
-          <button type="button" class="copy-settle-btn" id="exportSettlementImgBtn" title="匯出結算圖片">
-            <span>🖼️ 匯出圖片</span>
-          </button>
+        <!-- 💡 最佳化結算：直接展示現代 Fintech 轉帳流向卡片清單 -->
+        <div id="debtSuggestPane" class="debt-pane-content">
+          <div id="debtSuggestList" class="debt-suggest-flow-list"></div>
         </div>
 
-        <div id="debtSuggestPane">
-          <p class="filter-hint debt-suggest-hint">這幾筆轉帳可以讓大家的帳全部結清，不用照著逐筆債務表一筆一筆對</p>
-          <div id="debtSuggestList"></div>
-        </div>
-
-        <div id="debtMatrixPane" class="hidden">
-          <p class="filter-hint summary-hint">1. 點擊格子可以看債務紀錄<br>2. 若分攤過程產生餘數將隨機分配</p>
+        <!-- 🧮 逐筆債務表：專屬操作按鈕 + 完整成員對帳熱圖矩陣與點擊明細 -->
+        <div id="debtMatrixPane" class="debt-pane-content hidden">
+          <div class="debt-matrix-toolbar" id="debtMatrixToolbar">
+            <button type="button" class="btn-tool-pill" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
+              <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
+            </button>
+            <button type="button" class="btn-tool-pill copy-settle-btn" id="copySettlementBtn" title="複製逐筆債務清單至剪貼簿">
+              <span>📋 複製逐筆清單</span>
+            </button>
+            <button type="button" class="btn-tool-pill copy-settle-btn" id="exportSettlementImgBtn" title="匯出矩陣圖">
+              <span>🖼️ 匯出矩陣圖</span>
+            </button>
+          </div>
+          <p class="filter-hint summary-hint">💡 點擊儲存格可查看詳細借貸紀錄，餘數由系統自動分攤分配</p>
           <div class="matrix-scroll">
             <table class="debt-matrix" id="debtMatrix"></table>
           </div>
@@ -1075,6 +1087,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=666"></script>
+<script src="app.js?v=672"></script>
 </body>
 </html>

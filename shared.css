@@ -3604,104 +3604,488 @@ button.dd-btn {
   font-size:12px;
 }
 
-.debt-mode-toggle-wrap{
-  margin-bottom:12px;
+/* ============================================================
+   💎 建議結算路徑 / 最簡還款法與債務矩陣（全新 Fintech 旗艦手機/桌面雙適配）
+   ============================================================ */
+
+.debt-settlement-master-card {
+  position: relative;
+  overflow: hidden;
+  padding: 16px 14px;
 }
-.debt-mode-toggle{
-  display:flex;
-  align-items:center;
-  width:100%;
-  gap:3px;
-  padding:3px;
-  border-radius:999px;
-  background:rgba(0, 0, 0, 0.06);
-  border:1px solid var(--line);
+
+/* 頂部 Header & Segmented Control */
+.debt-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
 }
-:root[data-theme="dark"] .debt-mode-toggle{
-  background:rgba(0, 0, 0, 0.35);
-  border:1px solid rgba(255, 255, 255, 0.1);
+
+.debt-segmented-control {
+  display: flex;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper));
+  border: 1px solid var(--line);
+  padding: 3px;
+  border-radius: 12px;
+  gap: 3px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.debt-mode-toggle .debt-mode-btn{
-  flex:1;
-  background:transparent;
-  border:1px solid transparent;
-  border-radius:999px;
-  padding:9px 12px;
-  font-size:13.5px;
-  font-weight:700;
-  color:var(--ink-soft);
-  text-align:center;
-  cursor:pointer;
-  font-family:"Noto Sans TC",sans-serif;
-  transition:all .18s ease;
+
+:root[data-theme="dark"] .debt-segmented-control {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.debt-mode-toggle .debt-mode-btn:active{ transform:scale(.96); }
-.debt-mode-toggle .debt-mode-btn:not(.active):hover{ background:rgba(0,0,0,.06); color:var(--ink); }
-:root[data-theme="dark"] .debt-mode-toggle .debt-mode-btn:not(.active):hover{ background:rgba(255,255,255,.08); color:#FFFFFF; }
-.debt-mode-toggle .debt-mode-btn.active{
-  background:linear-gradient(135deg, var(--logo-grad-a), var(--btn-primary)) !important;
-  color:#FFFFFF !important;
-  box-shadow:0 3px 10px rgba(122,107,158,.35) !important;
+
+.debt-segment-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  touch-action: manipulation;
+  white-space: nowrap;
+  min-width: 0;
 }
-.debt-mode-toggle .debt-mode-btn:disabled{ cursor:default; }
-.debt-mode-toggle .debt-mode-btn:disabled:not(.active){ opacity:.55; }
-.debt-mode-toggle .debt-mode-btn:disabled:not(.active):hover{ background:transparent; color:var(--ink-soft); }
-.debt-mode-official-badge{
-  display:inline-block;
-  margin-left:6px;
-  padding:1px 6px;
-  border-radius:999px;
-  border:1px solid currentColor;
-  font-size:9.5px;
-  font-weight:700;
-  letter-spacing:.02em;
-  opacity:.85;
-  vertical-align:middle;
+
+.debt-segment-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
 }
-.debt-mode-shared-hint{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:4px;
-  margin:8px 2px 0;
-  font-size:11.5px;
-  color:var(--ink-soft);
-  text-align:center;
+
+.debt-segment-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
 }
-.debt-suggest-hint{
-  margin:2px 0 12px;
-  font-size:12px;
+
+.debt-segment-btn:hover:not(.active) {
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.04);
 }
-.debt-suggest-row{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-  padding:10px 12px;
-  border-radius:11px;
-  background:color-mix(in srgb, var(--btn-primary) 7%, var(--card));
-  border:1px solid color-mix(in srgb, var(--btn-primary) 18%, var(--line));
+
+:root[data-theme="dark"] .debt-segment-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.06);
 }
-.debt-suggest-row + .debt-suggest-row{ margin-top:8px; }
-.debt-suggest-route{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  font-size:13px;
-  color:var(--ink);
-  flex:1;
-  min-width:0;
+
+.debt-segment-btn.active {
+  background: linear-gradient(135deg, var(--logo-grad-a), var(--btn-primary)) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 3px 10px rgba(114, 97, 150, 0.35) !important;
 }
-.debt-suggest-arrow{ color:var(--ink-soft); font-weight:700; }
-.debt-suggest-amt{
-  font-family:"JetBrains Mono",monospace;
-  font-weight:700;
-  font-size:13.5px;
-  color:var(--negative-text);
-  flex:none;
+
+/* 狀態徽章 */
+.debt-mode-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  margin: 2px 0;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
 }
-.debt-suggest-btn-group{ display:flex; flex-wrap:wrap; gap:8px; flex:none; }
-.debt-suggest-repay-btn, .debt-suggest-remind-btn{ flex:none; }
+
+.debt-mode-notice-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--card));
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.debt-mode-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #248A46;
+  box-shadow: 0 0 6px rgba(36, 138, 70, 0.6);
+  flex-shrink: 0;
+}
+
+/* 🧮 逐筆債務表專屬操作工具列 */
+.debt-matrix-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.btn-tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.btn-tool-pill:hover {
+  background: color-mix(in srgb, var(--btn-primary) 12%, var(--card));
+  color: var(--btn-primary);
+  border-color: color-mix(in srgb, var(--btn-primary) 30%, var(--line));
+}
+
+.btn-tool-pill.active {
+  background: var(--btn-primary);
+  color: #FFFFFF;
+  border-color: var(--btn-primary);
+}
+
+/* 個人結算智慧提示橫條 */
+.debt-my-summary-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--btn-primary) 10%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 22%, var(--line));
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  line-height: 1.4;
+}
+
+.debt-my-summary-banner.is-owing {
+  background: color-mix(in srgb, #C53A54 10%, var(--card));
+  border-color: color-mix(in srgb, #C53A54 25%, var(--line));
+}
+
+.debt-my-summary-banner.is-receiving {
+  background: color-mix(in srgb, #248A46 10%, var(--card));
+  border-color: color-mix(in srgb, #248A46 25%, var(--line));
+}
+
+.debt-my-summary-banner.is-balanced {
+  background: color-mix(in srgb, #726196 10%, var(--card));
+  border-color: color-mix(in srgb, #726196 22%, var(--line));
+}
+
+/* 轉帳卡片清單 */
+.debt-suggest-flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* 單張轉帳流向卡片 (Mobile First Fintech Design) */
+.debt-flow-card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.debt-flow-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+/* 當這張卡片是我要付錢時 */
+.debt-flow-card.is-my-debt {
+  background: color-mix(in srgb, #C53A54 4%, var(--card));
+  border: 1.5px solid color-mix(in srgb, #C53A54 42%, var(--line));
+  box-shadow: 0 3px 12px rgba(197, 58, 84, 0.08);
+}
+
+/* 當這張卡片是我要收錢時 */
+.debt-flow-card.is-my-credit {
+  background: color-mix(in srgb, #248A46 4%, var(--card));
+  border: 1.5px solid color-mix(in srgb, #248A46 42%, var(--line));
+  box-shadow: 0 3px 12px rgba(36, 138, 70, 0.08);
+}
+
+/* 頂部：付款人 ➔ 收款人 流向列 */
+.debt-flow-path {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.debt-party {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.debt-party.debt-party-to {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.debt-party.debt-party-to .debt-party-meta {
+  align-items: flex-end;
+}
+
+.debt-party.debt-party-to .debt-party-avatar {
+  order: 2;
+}
+
+.debt-party-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.debt-party-avatar .avatar {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.debt-me-mini-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -3px;
+  background: var(--btn-primary);
+  color: #FFFFFF;
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 3.5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--card);
+  line-height: 1;
+}
+
+.debt-party-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.debt-party-role {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.debt-party-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.member-tag-left {
+  font-size: 9.5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+/* 轉帳連接箭頭 */
+.debt-flow-arrow-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--btn-primary) 12%, var(--card));
+  color: var(--btn-primary);
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* 中間：金額與狀態展示列 */
+.debt-flow-middle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--btn-primary) 4%, transparent);
+  border-radius: 10px;
+}
+
+:root[data-theme="dark"] .debt-flow-middle {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.debt-flow-status-tag {
+  font-size: 11.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tag-pay-out {
+  color: var(--negative-text);
+  font-weight: 700;
+}
+
+.tag-receive-in {
+  color: var(--positive-text);
+  font-weight: 700;
+}
+
+.tag-neutral {
+  color: var(--ink-soft);
+}
+
+.debt-flow-amount-block {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.debt-flow-amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--negative-text);
+  letter-spacing: -0.3px;
+}
+
+.debt-flow-twd-hint {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+/* 底部：操作按鈕列 (大拇指觸控友善) */
+.debt-flow-footer {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.debt-flow-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.btn-flow-action {
+  flex: 1 1 0;
+  min-height: 36px !important;
+  padding: 6px 12px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.btn-pay-primary {
+  background: linear-gradient(135deg, var(--logo-grad-a), var(--btn-primary)) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(114, 97, 150, 0.3) !important;
+}
+
+.btn-pay-primary:hover, .btn-pay-primary:active {
+  filter: brightness(1.08);
+}
+
+.btn-repay-secondary {
+  background: var(--card) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.btn-repay-secondary:hover, .btn-repay-secondary:active {
+  background: color-mix(in srgb, var(--btn-primary) 12%, var(--card)) !important;
+  color: var(--btn-primary) !important;
+}
+
+.btn-remind {
+  background: color-mix(in srgb, #D97706 12%, var(--card)) !important;
+  color: #D97706 !important;
+  border: 1px solid color-mix(in srgb, #D97706 30%, transparent) !important;
+}
+
+.btn-remind:hover, .btn-remind:active {
+  background: color-mix(in srgb, #D97706 20%, var(--card)) !important;
+}
+
+/* 全部結清慶祝卡片 */
+.debt-all-settled-card {
+  padding: 20px 14px;
+  text-align: center;
+  background: color-mix(in srgb, var(--positive-text) 6%, var(--card));
+  border: 1px dashed color-mix(in srgb, var(--positive-text) 25%, var(--line));
+  border-radius: 14px;
+}
+
+.debt-all-settled-icon {
+  font-size: 32px;
+  margin-bottom: 6px;
+}
+
+.debt-all-settled-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.debt-all-settled-desc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
 
 .debt-offset-card{
   margin-top:var(--sp-5);
@@ -3723,7 +4107,9 @@ button.dd-btn {
   padding-top:14px;
   border-top:1px solid var(--line);
 }
-.btn-repay-direct{
+.btn-repay-direct,
+.btn-twd-settle,
+.btn-remind-direct{
   display:flex;
   align-items:center;
   justify-content:center;
@@ -3732,14 +4118,17 @@ button.dd-btn {
   padding:12px 18px;
   font-size:13.5px;
   font-weight:700;
-  border-radius:999px;
+  border-radius:14px;
   margin-top:0;
   cursor:pointer;
+  transition:all .18s ease;
+}
+
+.btn-repay-direct{
   background:linear-gradient(135deg, #7A6B9E, #5B4A94);
   color:#FFFFFF !important;
   border:none;
   box-shadow:0 4px 14px rgba(122,107,158,.3);
-  transition:all .18s ease;
 }
 .btn-repay-direct:hover{
   background:linear-gradient(135deg, #8B7BB0, #6C5AA6);
@@ -3750,11 +4139,24 @@ button.dd-btn {
   transform:scale(.98);
 }
 
+.btn-remind-direct{
+  background:color-mix(in srgb, #D97706 12%, var(--card));
+  color:#D97706 !important;
+  border:1px solid color-mix(in srgb, #D97706 30%, transparent);
+}
+.btn-remind-direct:hover{
+  background:color-mix(in srgb, #D97706 20%, var(--card));
+  transform:translateY(-1px);
+}
+.btn-remind-direct:active{
+  transform:scale(.98);
+}
+
 @media(max-width:600px){
   .debt-detail-panel{ padding:15px; border-radius:15px; }
   .debt-detail-title{ font-size:16px; }
   .debt-expense-amount{ font-size:14px; }
-  .btn-repay-direct{ font-size:13px; padding:11px 14px; }
+  .btn-repay-direct, .btn-twd-settle, .btn-remind-direct{ font-size:13px; padding:11px 14px; }
 }
 
 .login-apk-download-link{
@@ -3894,16 +4296,9 @@ button.dd-btn {
    TWD Settlement Modal & Buttons
    ============================================================ */
 .btn-twd-settle{
-  font-size:13px;
-  font-weight:600;
-  padding:10px 14px;
-  border-radius:12px;
   background:color-mix(in srgb, var(--btn-primary) 12%, var(--card));
   border:1.5px solid color-mix(in srgb, var(--btn-primary) 32%, var(--line));
   color:var(--ink);
-  transition:all .18s ease;
-  cursor:pointer;
-  width:100%;
 }
 .btn-twd-settle:hover{
   background:color-mix(in srgb, var(--btn-primary) 20%, var(--card));

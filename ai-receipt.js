@@ -508,6 +508,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(meta && meta.type !== "general"){
           updateAiCategoryUI(meta.type);
         }
+        // 店名輸入框改了，下面「金額組成明細」預覽裡的「🏪 店家：」那行
+        // 也要跟著重畫，不然會停在 AI 剛辨識出來那一刻的舊店名。
+        updateCalculationsAndBadges();
       });
     }
 

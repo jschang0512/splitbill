@@ -3938,34 +3938,84 @@
     if(!listEl) return;
 
     const routes = (typeof simplifyDebts === "function") ? simplifyDebts(owed, memberIds) : [];
+    window.cachedSimplifiedRouteCount = routes.length;
+    const myId = myMember && myMember.id;
+    const isOfficial = debtDisplayMode === "simplified";
+
     if(!routes.length){
-      listEl.innerHTML = `<p class="filter-hint">🎉 目前帳務已經全部結清，沒有需要還款的地方</p>`;
+      listEl.innerHTML = `
+        <div class="debt-all-settled-card">
+          <div class="debt-all-settled-icon">🎉</div>
+          <div class="debt-all-settled-title">全團帳務已完全結清！</div>
+          <div class="debt-all-settled-desc">目前沒有任何未結款項，大家都不互欠囉 ✨</div>
+        </div>
+      `;
       return;
     }
-    // 群組還沒把「最簡還款法」設成官方採用的計算方法時，這裡的「記錄
-    // 還款」按鈕改成僅供檢視，「提醒對方」按鈕則直接不顯示——避免大家
-    // 依照沒有共識的算法各自記帳、提醒別人，跟群組實際在用的方法對不
-    // 起來。
-    const isOfficial = debtDisplayMode === "simplified";
-    const myId = myMember && myMember.id;
+
     listEl.innerHTML = routes.map(r => {
-      const canRemind = isOfficial && myId && r.to === myId && r.from !== myId;
+      const isFromMe = myId && r.from === myId;
+      const isToMe = myId && r.to === myId;
+      const canRemind = isOfficial && isToMe && !isFromMe;
+      
+      const debtorName = memberById[r.from] || "某成員";
+      const creditorName = memberById[r.to] || "某成員";
+      const debtorObj = memberRows.find(m => m.id === r.from) || { id: r.from, name: debtorName };
+      const creditorObj = memberRows.find(m => m.id === r.to) || { id: r.to, name: creditorName };
+      const debtorLeft = debtorObj.left_at ? `<span class="member-tag-left">已退出</span>` : "";
+      const creditorLeft = creditorObj.left_at ? `<span class="member-tag-left">已退出</span>` : "";
+      const twdHint = conversionHintText(r.amount);
+
       return `
-      <div class="debt-suggest-row">
-        <span class="debt-suggest-route">
-          ${renderAvatarHTML({ id: r.from, name: memberById[r.from] }, "avatar-xs")}
-          <b>${escapeHtml(memberById[r.from] || "?")}</b>
-          <span class="debt-suggest-arrow">→</span>
-          ${renderAvatarHTML({ id: r.to, name: memberById[r.to] }, "avatar-xs")}
-          <b>${escapeHtml(memberById[r.to] || "?")}</b>
-        </span>
-        <span class="debt-suggest-amt">${SYM}${formatAmt(r.amount)}</span>
-        <div class="debt-suggest-btn-group">
-          <button type="button" class="btn secondary small debt-suggest-repay-btn" data-from="${r.from}" data-to="${r.to}" data-amt="${r.amount}"${isOfficial ? "" : ' disabled title="這不是群組目前採用的還款計算方法，僅供檢視——只有建立者能在設定頁切換"'}>${isOfficial ? "記錄還款" : "👁️ 僅供檢視"}</button>
-          ${canRemind ? `<button type="button" class="btn secondary small debt-suggest-remind-btn" data-debtor="${r.from}" data-creditor="${r.to}" data-amt="${r.amount}">🔔 提醒對方</button>` : ""}
+        <div class="debt-flow-card ${isFromMe ? 'is-my-debt' : isToMe ? 'is-my-credit' : ''}">
+          <div class="debt-flow-path">
+            <div class="debt-party debt-party-from ${isFromMe ? 'is-me' : ''}">
+              <div class="debt-party-avatar">
+                ${renderAvatarHTML(debtorObj, "avatar-sm")}
+                ${isFromMe ? '<span class="debt-me-mini-badge">我</span>' : ''}
+              </div>
+              <div class="debt-party-meta">
+                <span class="debt-party-role">付款人</span>
+                <span class="debt-party-name" title="${escapeHtml(debtorName)}">${escapeHtml(debtorName)} ${debtorLeft}</span>
+              </div>
+            </div>
+
+            <div class="debt-flow-arrow-wrap" aria-hidden="true">
+              <span class="debt-flow-arrow-icon">➔</span>
+            </div>
+
+            <div class="debt-party debt-party-to ${isToMe ? 'is-me' : ''}">
+              <div class="debt-party-meta">
+                <span class="debt-party-role">收款人</span>
+                <span class="debt-party-name" title="${escapeHtml(creditorName)}">${escapeHtml(creditorName)} ${creditorLeft}</span>
+              </div>
+              <div class="debt-party-avatar">
+                ${renderAvatarHTML(creditorObj, "avatar-sm")}
+                ${isToMe ? '<span class="debt-me-mini-badge">我</span>' : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="debt-flow-middle">
+            <div class="debt-flow-status-tag">
+              ${isFromMe ? '<span class="tag-pay-out">⚡ 你需轉帳給對方</span>' : isToMe ? '<span class="tag-receive-in">🎉 對方需轉帳給你</span>' : '<span class="tag-neutral">成員間結算</span>'}
+            </div>
+            <div class="debt-flow-amount-block">
+              <span class="debt-flow-amount">${SYM}${formatAmt(r.amount)}</span>
+              ${twdHint ? `<span class="debt-flow-twd-hint">${escapeHtml(twdHint)}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="debt-flow-footer">
+            <div class="debt-flow-actions">
+              ${canRemind ? `<button type="button" class="btn-flow-action btn-remind debt-suggest-remind-btn" data-debtor="${r.from}" data-creditor="${r.to}" data-amt="${r.amount}">🔔 提醒付款</button>` : ''}
+              <button type="button" class="btn-flow-action ${isFromMe ? 'btn-pay-primary' : 'btn-repay-secondary'} debt-suggest-repay-btn" data-from="${r.from}" data-to="${r.to}" data-amt="${r.amount}" ${isOfficial ? '' : 'disabled title="非群組官方採用方法，僅供檢視"'}>
+                ${isFromMe ? '💸 立即記還款' : isToMe ? '💸 記錄已收款' : isOfficial ? '📝 記錄還款' : '👁️ 僅供檢視'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    `;
+      `;
     }).join("");
 
     listEl.querySelectorAll(".debt-suggest-remind-btn").forEach(btn => {
@@ -4000,19 +4050,18 @@
     });
   }
 
-  // 「最簡還款法」跟「逐筆債務表」現在合併成同一張卡片，用頂端的切換
-  // 按鈕決定顯示哪一個 pane；只看跟我相關/複製結算清單/匯出圖片這幾個
-  // 動作都是算自「逐筆債務表」的原始資料，切到「最簡還款法」時一併收起
-  // 來，避免點了卻不知道是套用在畫面上看不到的那份資料。
+  // 「最佳化結算」跟「逐筆債務表」切換：
+  // 最佳化結算直接展示現代 Fintech 轉帳流向卡片；
+  // 逐筆債務表展示專屬操作按鈕與完整熱圖矩陣。
   function applyDebtModeUI(mode){
     const suggestPane = document.getElementById("debtSuggestPane");
     const matrixPane = document.getElementById("debtMatrixPane");
-    const headerActions = document.getElementById("matrixHeaderActions");
     const isSimplified = mode === "simplified";
+
     if(suggestPane) suggestPane.classList.toggle("hidden", !isSimplified);
     if(matrixPane) matrixPane.classList.toggle("hidden", isSimplified);
-    if(headerActions) headerActions.classList.toggle("hidden", isSimplified);
-    document.querySelectorAll("#debtModeToggle .debt-mode-btn").forEach(btn=>{
+
+    document.querySelectorAll("#debtModeToggle .debt-mode-btn, #debtModeToggle .debt-segment-btn").forEach(btn=>{
       btn.classList.toggle("active", btn.dataset.debtMode === mode);
     });
   }
@@ -4025,24 +4074,17 @@
   // 重算一次（群組資料一開始讀回來、或設定頁改了之後回來這裡才會變），
   // 不用每次切換檢視分頁都重跑。
   function markOfficialDebtMode(mode){
-    document.querySelectorAll("#debtModeToggle .debt-mode-btn").forEach(btn => {
+    document.querySelectorAll("#debtModeToggle .debt-mode-btn, #debtModeToggle .debt-segment-btn").forEach(btn => {
       const isOfficialBtn = btn.dataset.debtMode === mode;
-      let badge = btn.querySelector(".debt-mode-official-badge");
-      if(isOfficialBtn){
-        if(!badge){
-          badge = document.createElement("span");
-          badge.className = "debt-mode-official-badge";
-          badge.textContent = "✓ 使用中";
-          btn.appendChild(badge);
-        }
-      } else if(badge){
-        badge.remove();
-      }
+      btn.classList.toggle("is-official-mode", isOfficialBtn);
+      // 移除按鈕內部擠壓文字的長徽章，避免手機窄螢幕折行跳掉
+      const badge = btn.querySelector(".debt-mode-official-badge, .debt-segment-badge");
+      if(badge) badge.remove();
     });
     const hintEl = document.querySelector(".debt-mode-shared-hint");
     if(hintEl){
-      const label = mode === "detailed" ? "🧮 逐筆債務表" : "💡 最簡還款法";
-      hintEl.textContent = `👥 群組共用設定，目前採用「${label}」，僅建群人可在設定頁修改`;
+      const label = mode === "detailed" ? "🧮 逐筆債務表" : "💡 最佳化結算";
+      hintEl.textContent = `👥 目前採用「${label}」• 僅建群者可修改`;
     }
   }
 
@@ -4828,6 +4870,33 @@ function renderDebtMatrix(
     ids = allIds.filter(id => relatedIds.has(id));
   }
 
+  // 統計逐筆債務表中的總欠款筆數與個人欠款/被欠概況
+  let totalActiveDebts = 0;
+  let myMatrixIOweTotal = 0;
+  let myMatrixIOweCount = 0;
+  let myMatrixOwedMeTotal = 0;
+  let myMatrixOwedMeCount = 0;
+  const myCurrentId = myMember && myMember.id;
+
+  allIds.forEach(c => {
+    allIds.forEach(d => {
+      if(c === d) return;
+      const amt = (owed[c] && owed[c][d]) || 0;
+      if(amt > 0.05){
+        totalActiveDebts++;
+        if(myCurrentId && d === myCurrentId){
+          myMatrixIOweTotal += amt;
+          myMatrixIOweCount++;
+        }
+        if(myCurrentId && c === myCurrentId){
+          myMatrixOwedMeTotal += amt;
+          myMatrixOwedMeCount++;
+        }
+      }
+    });
+  });
+  window.cachedDetailedDebtCount = totalActiveDebts;
+
   // 熱圖用：找出整張表裡金額最大的一格，其他格子的顏色都相對這個最大值
   // 算比例，才能做出「越紅欠越多」這種連續漸層，而不是只有幾檔固定深淺。
   let maxDebtAmount = 0;
@@ -5183,7 +5252,7 @@ function renderDebtMatrix(
 // 官方採用哪一種（debtDisplayMode）只有建立者能在設定頁修改；兩者不
 // 一致時，該分頁的「記錄還款」按鈕會在渲染時被標成僅供檢視。
 // ==========================================================
-document.querySelectorAll("#debtModeToggle .debt-mode-btn").forEach(btn => {
+document.querySelectorAll("#debtModeToggle .debt-mode-btn, #debtModeToggle .debt-segment-btn").forEach(btn => {
   btn.addEventListener("click", ()=>{
     const mode = btn.dataset.debtMode;
     if(!mode || mode === debtViewMode) return;
@@ -5211,38 +5280,47 @@ function syncMatrixFilterMeBtn(){
 }
 
 // ==========================================================
-// 一鍵複製 LINE 結算文字
+// 一鍵複製 LINE 結算文字（支援最簡還款法與逐筆債務表）
 // ==========================================================
 const copySettlementBtn = document.getElementById("copySettlementBtn");
 if(copySettlementBtn){
   copySettlementBtn.addEventListener("click", async ()=>{
     const owed = buildDebtMatrix(cachedExpenses, cachedRepayments);
-    const activeDebts = [];
     const ids = memberRows.map(m => m.id);
-
-    ids.forEach(creditorId => {
-      ids.forEach(debtorId => {
-        if(creditorId === debtorId) return;
-        const amt = owed[creditorId] && owed[creditorId][debtorId];
-        if(amt && amt > 0.05){
-          activeDebts.push({
-            debtor: memberById[debtorId] || "某成員",
-            creditor: memberById[creditorId] || "某成員",
-            amount: amt
-          });
-        }
-      });
-    });
-
     const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
     const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
     let text = "";
 
-    if(activeDebts.length === 0){
-      text = `🎉【Splitbill 帳務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
+    if(debtViewMode === "simplified"){
+      const routes = (typeof simplifyDebts === "function") ? simplifyDebts(owed, ids) : [];
+      if(!routes.length){
+        text = `🎉【Splitbill 最佳化結算建議】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
+      } else {
+        const routeLines = routes.map((r, idx) => `${idx + 1}. ${memberById[r.from] || "某成員"} ➔ ${memberById[r.to] || "某成員"}：${SYM}${formatAmt(r.amount)}`).join("\n");
+        text = `🧾【Splitbill 最佳化結算建議】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 最佳化轉帳路徑（共 ${routes.length} 筆）：\n${routeLines}\n------------------------\n✨ 只要完成以上轉帳即可全團帳務完全平衡結清！`;
+      }
     } else {
-      const debtLines = activeDebts.map(d => `• ${d.debtor} 應付 ${d.creditor}：${SYM}${formatAmt(d.amount)}`).join("\n");
-      text = `🧾【Splitbill 帳務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 應結清款項明細：\n${debtLines}\n------------------------\n✨ 總計 ${activeDebts.length} 筆未結清款項，請確認後完成轉帳！`;
+      const activeDebts = [];
+      ids.forEach(creditorId => {
+        ids.forEach(debtorId => {
+          if(creditorId === debtorId) return;
+          const amt = owed[creditorId] && owed[creditorId][debtorId];
+          if(amt && amt > 0.05){
+            activeDebts.push({
+              debtor: memberById[debtorId] || "某成員",
+              creditor: memberById[creditorId] || "某成員",
+              amount: amt
+            });
+          }
+        });
+      });
+
+      if(activeDebts.length === 0){
+        text = `🎉【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
+      } else {
+        const debtLines = activeDebts.map(d => `• ${d.debtor} 應付 ${d.creditor}：${SYM}${formatAmt(d.amount)}`).join("\n");
+        text = `🧾【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 應結清款項明細（共 ${activeDebts.length} 筆）：\n${debtLines}\n------------------------\n✨ 請確認後完成轉帳！`;
+      }
     }
 
     try {
@@ -5263,7 +5341,7 @@ if(copySettlementBtn){
       copySettlementBtn.innerHTML = "<span>✓ 已複製結算文字</span>";
       setTimeout(()=>{ copySettlementBtn.innerHTML = originalHtml; }, 2500);
 
-      await sbAlert(`已成功將結算清單複製到剪貼簿！\n\n可直接貼到 LINE 或 WhatsApp 群組與大家核對。`, "📋 結算清單複製成功");
+      await sbAlert(`已成功將結算清單複製到剪貼簿！\n\n可直接貼到 LINE 或通訊軟體與大家核對。`, "📋 結算清單複製成功");
     } catch(err){
       await sbAlert("複製失敗，請手動複製：" + err.message, "🔔 Splitbill 提醒");
     }
@@ -6652,7 +6730,7 @@ function showPairDetail(
             🔥 進行中 (${visibleEvents.length})
           </button>
           <button type="button" class="debt-cycle-tab ${olderCyclePage > 0 ? 'active' : ''}" id="matrixHistoryCycleTab">
-            📜 歷史存檔 (${totalCyclePages})
+            📜 結清記錄 (${totalCyclePages})
           </button>
         </div>
       ` : ""}
@@ -6661,7 +6739,7 @@ function showPairDetail(
       <div class="debt-detail-section">
         <div class="debt-section-title">
           <span class="debt-section-icon">${olderCyclePage > 0 ? '📜' : '📋'}</span>
-          <span>${olderCyclePage > 0 ? '歷史存檔' : '往來紀錄'}</span>
+          <span>${olderCyclePage > 0 ? '結清記錄' : '往來紀錄'}</span>
           <span class="debt-section-count">${olderCyclePage > 0 ? olderEvents.length : visibleEvents.length} 筆</span>
           <button type="button" class="ledger-sort-toggle-btn" id="matrixLedgerSortBtn" title="切換排序方向" aria-label="切換排序方向">
             ${ledgerSortAsc ? "⬇ 舊到新" : "⬆ 新到舊"}
@@ -6818,7 +6896,7 @@ function showPairDetail(
         </div>
         ${totalCyclePages > 0 ? `
           <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:10px auto 4px;display:block;white-space:nowrap;">
-            📜 歷史結清存檔 (${totalCyclePages} 輪)
+            📜 結清記錄 (${totalCyclePages} 輪)
           </button>
         ` : ""}
       </div>
@@ -6886,7 +6964,7 @@ function showPairDetail(
             </button>
           ` : ""}
           ${canRemind ? `
-            <button type="button" class="btn secondary small" id="matrixDetailRemindBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
+            <button type="button" class="btn-remind-direct" id="matrixDetailRemindBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
               🔔 提醒對方
             </button>
           ` : ""}
