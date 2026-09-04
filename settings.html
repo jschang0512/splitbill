@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=721">
-<link rel="stylesheet" href="shared.css?v=721">
+<link rel="stylesheet" href="theme.css?v=725">
+<link rel="stylesheet" href="shared.css?v=725">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=721"></script>
-<script src="version.js?v=721"></script>
-<script src="shared-ui.js?v=721"></script>
-<script src="theme.js?v=721" defer></script>
-<script src="app-banner.js?v=721" defer></script>
+<script src="currencies.js?v=725"></script>
+<script src="version.js?v=725"></script>
+<script src="shared-ui.js?v=725"></script>
+<script src="theme.js?v=725" defer></script>
+<script src="app-banner.js?v=725" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -197,6 +197,12 @@ if("serviceWorker" in navigator){
           </div>
           <button class="btn secondary small payment-account-save-btn" id="savePaymentInfoBtn">儲存</button>
           <div class="msg" id="paymentInfoMsg"></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">收款帳戶顯示範圍</div>
+          <p class="settings-hint">收款帳戶會同步顯示在你所在的每個群組，可以個別選擇要在哪些群組讓其他成員看到。</p>
+          <div id="paymentVisibilityList"></div>
         </div>
 
         <div class="settings-group">
@@ -1614,6 +1620,42 @@ if(backBtn){
     });
   }
 
+  // 收款帳戶本身是「帳號」層級、跨群組共用同一份資料（見上面 save 的
+  // 註解），但「要不要在這個群組顯示」是每個群組各自獨立的選擇，所以
+  // 這個開關存在每一列 members 各自的 payment_accounts_visible 欄位，
+  // 不是跟 payment_accounts 一樣用 user_id 一次改全部。
+  async function renderPaymentVisibilityList(){
+    const list = document.getElementById("paymentVisibilityList");
+    if(!list || !currentUser) return;
+    const { data, error } = await sb.from("members")
+      .select("id, group_id, payment_accounts_visible, groups(name)")
+      .eq("user_id", currentUser.id).is("left_at", null);
+    if(error || !data || !data.length){
+      list.innerHTML = `<p class="filter-hint">目前沒有所屬群組</p>`;
+      return;
+    }
+    list.innerHTML = data.map(r => `
+      <div class="settings-row">
+        <span>${escapeHtml((r.groups && r.groups.name) || "?")}</span>
+        <label class="switch-toggle">
+          <input type="checkbox" class="payment-visibility-toggle" data-member-id="${r.id}"${r.payment_accounts_visible !== false ? " checked" : ""}>
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+    `).join("");
+    list.querySelectorAll(".payment-visibility-toggle").forEach(inp => {
+      inp.addEventListener("change", async ()=>{
+        const memberId = inp.dataset.memberId;
+        const wantVisible = inp.checked;
+        inp.disabled = true;
+        const { error: updErr } = await sb.from("members").update({ payment_accounts_visible: wantVisible }).eq("id", memberId);
+        inp.disabled = false;
+        if(updErr){ inp.checked = !wantVisible; }
+        else if(memberId === myMember.id){ myMember.payment_accounts_visible = wantVisible; }
+      });
+    });
+  }
+
   const saveEmailBtn = document.getElementById("saveEmailBtn");
   if(saveEmailBtn){
     saveEmailBtn.addEventListener("click", async ()=>{
@@ -1951,6 +1993,7 @@ if(backBtn){
       const nicknameInp = document.getElementById("settingsNickname");
       if(nicknameInp && myMember) nicknameInp.value = myMember.nickname || "";
       if(myMember) renderPaymentAccountRows(myMember.payment_accounts || []);
+      renderPaymentVisibilityList();
 
       // 掃 QR code 邀請碼進來時，index.html 的 <head> 那段腳本已經把邀請碼
       // 存進 localStorage 了；但這裡是「已經有帳號、已經在某個群組裡」的

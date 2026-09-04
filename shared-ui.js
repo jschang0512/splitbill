@@ -137,12 +137,12 @@ async function loadGroupMembers(sb, currentUser, showLeftMembers){
 
   let MEMBERS = [];
   try {
-    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,payment_accounts_visible,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
     if(activeGroupId) query = query.eq("group_id", activeGroupId);
     const { data, error } = await query;
     if(error){
       console.error("讀取群組成員失敗：", error);
-      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,payment_accounts_visible,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
       MEMBERS = fallbackData || [];
     } else {
       MEMBERS = data || [];
@@ -430,7 +430,8 @@ async function showMemberProfileModal(memberId){
 
   const paymentInfoEl = document.getElementById("memberProfilePaymentInfo");
   if(paymentInfoEl){
-    const accounts = Array.isArray(member.payment_accounts) ? member.payment_accounts.filter(a => a && (a.bankName || a.account)) : [];
+    const visibleInThisGroup = member.payment_accounts_visible !== false;
+    const accounts = (visibleInThisGroup && Array.isArray(member.payment_accounts)) ? member.payment_accounts.filter(a => a && (a.bankName || a.account)) : [];
     if(accounts.length){
       paymentInfoEl.innerHTML = `<span class="member-profile-payment-label">💳 收款帳戶</span>` +
         accounts.map((acc, idx) => {

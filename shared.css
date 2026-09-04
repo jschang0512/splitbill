@@ -4451,17 +4451,24 @@ button.dd-btn {
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  min-width:0;
-}
-.whoami-group-switcher{
+  /* 名字優先權比群組名高：固定不被壓縮，空間不夠時改由旁邊的
+     群組切換膠囊自己縮小/省略，而不是讓名字被擠到不見。 */
   flex:0 0 auto;
 }
+.whoami-group-switcher{
+  flex:1 1 auto;
+  min-width:28px;
+  /* 不能加 overflow:hidden——.dd-menu 展開選單是靠 position:absolute
+     長在這個外層下面，加了會直接把選單整個裁掉，點了選單打不開。
+     省略號的裁切交給裡面 .dd-btn-text 自己的 overflow:hidden 就夠了。 */
+}
 .whoami-group-switcher .dd-select{
-  width:auto;
+  width:100%;
   min-width:0;
 }
 .whoami-group-switcher .dd-btn{
-  width:auto;
+  width:100%;
+  min-width:0;
   padding:2px 8px 2px 10px;
   font-size:11.5px;
   font-weight:700;
@@ -4476,6 +4483,7 @@ button.dd-btn {
   color:var(--accent-text);
 }
 .whoami-group-switcher .dd-btn-text{
+  min-width:0;
   max-width:100px;
 }
 .whoami-group-switcher .dd-caret{
@@ -5559,7 +5567,18 @@ button.dd-btn {
     flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 4px !important;
+  }
+  /* 手機寬度本來就不夠，右邊這排圖示按鈕再縮小一點、擠出空間讓
+     左邊名字＋群組膠囊不要貼在一起。 */
+  .topbar .icon-btn {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 13px !important;
+  }
+  .topbar .btn.small {
+    padding: 5px 10px !important;
+    font-size: 12px !important;
   }
 }
 
