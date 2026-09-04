@@ -2367,7 +2367,14 @@
       (catLearnRows || []).forEach(row => { categoryLearningMap[row.keyword] = row.category; });
     }
 
-    applyFiltersAndRenderBoth();
+    // 即時同步（Realtime）觸發的重新整理跟頁面初始載入是各自獨立的兩條路徑，
+    // 理論上不該同時發生，但偶爾會在 loadMembers() 還沒跑完、myMember
+    // 還是 null 時就先被 Realtime callback 觸發——這裡的畫面渲染大量
+    // 沒防呆直接讀 myMember.id，硬讀會直接整個 crash 掉。myMember 還沒
+    // 準備好就先跳過這次渲染，之後 Realtime 或使用者操作還會再觸發一次。
+    if(myMember){
+      applyFiltersAndRenderBoth();
+    }
     await renderBalances(expenses, repayments, { data: balRows, error: balError });
 
     // 如果「往來紀錄」視窗目前開著（例如別人在同一時間新增/編輯了帳目），
@@ -2567,8 +2574,7 @@
     const categoryOptions = Object.keys(CATEGORY_MAP || {}).filter(k => k !== "xcur").map(k => ({
       value: k,
       label: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name}`,
-      shortLabel: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name.slice(0, 2)}`,
-      iconHtml: `<span class="cat-chip-icon" style="font-size:15px;line-height:1;">${CATEGORY_MAP[k].icon}</span>`
+      shortLabel: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name.slice(0, 2)}`
     }));
 
     setupMultiSelectDropdown({
@@ -2632,12 +2638,10 @@
     return safe.replace(reg, '<mark class="sb-search-match">$1</mark>');
   }
 
-  let activeQuickCategory = "all";
   let liveSearchKeyword = "";
   const activeMultiFilters = new Set();
   let filterMinAmountVal = null;
   let filterMaxAmountVal = null;
-  let filterHasAddonsOnly = false;
 
   function passesFilter(e){
     const from = getEffectiveFrom();
@@ -2665,12 +2669,6 @@
     if(keyword && !searchTarget.includes(keyword)) return false;
     if(liveSearchKeyword && !searchTarget.includes(liveSearchKeyword)) return false;
 
-    // 分類快速 Chip 篩選
-    if(activeQuickCategory !== "all"){
-      const catMeta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note, e.category)) || { type: "general" };
-      if(catMeta.type !== activeQuickCategory) return false;
-    }
-
     // 類別多選篩選
     if(selectedCats.length > 0){
       const catMeta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note, e.category)) || { type: "general" };
@@ -2691,14 +2689,11 @@
     if(activeMultiFilters.has("payer_me") && myId){
       if(!(e.payers || []).some(p => p.member_id === myId)) return false;
     }
-    if(activeMultiFilters.has("large")){
-      if((Number(e.amount) || 0) < 1000) return false;
-    }
-    const hasAddons = Boolean(
-      (e.description && (e.description.includes("自付") || e.description.includes("加點") || e.description.includes("共同品項") || e.description.includes("<!--AI_RECEIPT_DATA:"))) ||
-      (e.note && (e.note.includes("自付") || e.note.includes("加點") || e.note.includes("共同品項")))
-    );
-    if(activeMultiFilters.has("addons") || filterHasAddonsOnly){
+    if(activeMultiFilters.has("addons")){
+      const hasAddons = Boolean(
+        (e.description && (e.description.includes("自付") || e.description.includes("加點") || e.description.includes("共同品項") || e.description.includes("<!--AI_RECEIPT_DATA:"))) ||
+        (e.note && (e.note.includes("自付") || e.note.includes("加點") || e.note.includes("共同品項")))
+      );
       if(!hasAddons) return false;
     }
 
@@ -2742,9 +2737,6 @@
     if(activeMultiFilters.has("payer_me") && myId){
       if(r.from_member !== myId) return false;
     }
-    if(activeMultiFilters.has("large")){
-      if((Number(r.amount) || 0) < 1000) return false;
-    }
 
     const amt = Number(r.amount) || 0;
     if(filterMinAmountVal !== null && !isNaN(filterMinAmountVal) && amt < filterMinAmountVal) return false;
@@ -2762,10 +2754,8 @@
     const kwEl = document.getElementById("filterKeyword");
     if(kwEl && kwEl.value.trim()) activeFilterCount++;
     if(liveSearchKeyword) activeFilterCount++;
-    if(activeQuickCategory !== "all") activeFilterCount++;
     if(activeMultiFilters.size > 0) activeFilterCount += activeMultiFilters.size;
     if(filterMinAmountVal !== null || filterMaxAmountVal !== null) activeFilterCount++;
-    if(filterHasAddonsOnly) activeFilterCount++;
 
     Object.values(multiSelectStates).forEach(arr => {
       if(arr && arr.length) activeFilterCount += arr.length;
@@ -2868,15 +2858,6 @@
     });
   });
 
-  // 個人自付勾選
-  const addonsCheck = document.getElementById("filterHasAddonsCheck");
-  if(addonsCheck){
-    addonsCheck.addEventListener("change", ()=>{
-      filterHasAddonsOnly = addonsCheck.checked;
-      applyFiltersAndRenderHistory();
-    });
-  }
-
   // 兩邊清單都要重算，但共用的統計列文字最後會被「後執行的那個函式」蓋
   // 過去——所以統一由這個函式決定順序，讓目前看得到的那個 tab 排在最後
   // 執行，畫面上的統計列文字才會跟目前顯示的清單一致。
@@ -2928,15 +2909,6 @@
       applyFiltersAndRenderBoth();
     });
   }
-  document.querySelectorAll("#historyCategoryChips .history-cat-chip").forEach(chip => {
-    chip.addEventListener("click", ()=>{
-      document.querySelectorAll("#historyCategoryChips .history-cat-chip").forEach(c => c.classList.remove("active"));
-      chip.classList.add("active");
-      activeQuickCategory = chip.dataset.cat || "all";
-      applyFiltersAndRenderHistory();
-    });
-  });
-
   function resetAllHistoryFilters(){
     document.getElementById("filterFrom").value = "";
     document.getElementById("filterTo").value = "";
@@ -2944,17 +2916,13 @@
     if(liveSearchInp) liveSearchInp.value = "";
     if(liveSearchClear) liveSearchClear.classList.add("hidden");
     liveSearchKeyword = "";
-    activeQuickCategory = "all";
     activeMultiFilters.clear();
     filterMinAmountVal = null;
     filterMaxAmountVal = null;
-    filterHasAddonsOnly = false;
     if(minAmtInp) minAmtInp.value = "";
     if(maxAmtInp) maxAmtInp.value = "";
-    if(addonsCheck) addonsCheck.checked = false;
     document.querySelectorAll("#filterAmtPresets .amt-preset-btn").forEach(c => c.classList.toggle("active", c.dataset.range === "all"));
     document.querySelectorAll(".multi-chip").forEach(c => c.classList.remove("active"));
-    document.querySelectorAll("#historyCategoryChips .history-cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === "all"));
     Object.keys(multiSelectStates).forEach(k => {
       multiSelectStates[k] = [];
     });
@@ -2982,10 +2950,6 @@
     const repEl = document.getElementById("repaymentHistory");
     if(expEl) expEl.classList.toggle("hidden", !isExp);
     if(repEl) repEl.classList.toggle("hidden", isExp);
-
-    // 2.1 還款不需分類 Chips，切換時優雅收合
-    const catChipsWrap = document.getElementById("historyCategoryChips");
-    if(catChipsWrap) catChipsWrap.classList.toggle("hidden", !isExp);
 
     // 3. 同步上方篩選面板的按鈕與欄位
     document.querySelectorAll('.split-mode-btn[data-filter-type]').forEach(b => {
@@ -4012,31 +3976,39 @@
       }).join("");
     }
 
-    const myAmt = balance[myMember.id] || 0;
-    const myCls = myAmt > 0.05 ? "pos" : myAmt < -0.05 ? "neg" : "zero";
-    const myAbs = Math.abs(myAmt);
-    const myBalanceAmtEl = document.getElementById("myBalanceAmt");
-    if(myBalanceAmtEl){
-      if(myCls === "zero"){
-        myBalanceAmtEl.innerHTML = "已結清 🎉";
-      } else {
-        const statusText = myCls === "pos" ? "該收" : "該付";
-        myBalanceAmtEl.innerHTML = `${statusText} ${SYM}${formatAmt(myAbs)}${conversionHint(myAbs)}`;
+    // myMember 偶爾會在 loadMembers() 還沒跑完時就先被 Realtime 觸發的
+    // refreshExpenses() 呼叫到這裡，這幾行「我自己」相關的畫面沒防呆
+    // 直接讀 myMember.id 會整個 crash 掉，先跳過、等 myMember 準備好
+    // 之後下一次渲染自然會補上。myAmt 要留到外層給下面的 KPI 橫條用，
+    // 所以宣告在 if 外面、guard 裡面只負責賦值。
+    let myAmt = 0;
+    if(myMember){
+      myAmt = balance[myMember.id] || 0;
+      const myCls = myAmt > 0.05 ? "pos" : myAmt < -0.05 ? "neg" : "zero";
+      const myAbs = Math.abs(myAmt);
+      const myBalanceAmtEl = document.getElementById("myBalanceAmt");
+      if(myBalanceAmtEl){
+        if(myCls === "zero"){
+          myBalanceAmtEl.innerHTML = "已結清 🎉";
+        } else {
+          const statusText = myCls === "pos" ? "該收" : "該付";
+          myBalanceAmtEl.innerHTML = `${statusText} ${SYM}${formatAmt(myAbs)}${conversionHint(myAbs)}`;
+        }
+        myBalanceAmtEl.className = "my-balance-amt " + myCls;
       }
-      myBalanceAmtEl.className = "my-balance-amt " + myCls;
-    }
 
-    const myBalanceEl = document.getElementById("myBalance");
-    if(myBalanceEl){
-      myBalanceEl.className = "my-balance " + myCls;
-      void myBalanceEl.offsetWidth;
-      myBalanceEl.classList.add("pulse");
-    }
+      const myBalanceEl = document.getElementById("myBalance");
+      if(myBalanceEl){
+        myBalanceEl.className = "my-balance " + myCls;
+        void myBalanceEl.offsetWidth;
+        myBalanceEl.classList.add("pulse");
+      }
 
-    if(myCls === "zero" && lastBalanceCls !== null && lastBalanceCls !== "zero"){
-      fireConfetti();
+      if(myCls === "zero" && lastBalanceCls !== null && lastBalanceCls !== "zero"){
+        fireConfetti();
+      }
+      lastBalanceCls = myCls;
     }
-    lastBalanceCls = myCls;
 
     chartExpensesCache = expenses;
     chartRepaymentsCache = repayments;
@@ -6261,6 +6233,140 @@ let currentPairDetail = null; // 目前開啟中的往來紀錄視窗是哪一�
 // （用 "debtorId|creditorId" 當 key），關掉視窗再打開同一對人，會留在原本
 // 看到的那一輪，不用重新按好幾次「上一輪」。
 let pairOlderCyclePageMap = {};
+
+// ==========================================================
+// 編輯「跨幣別債務轉入」當初換算用的匯率——歷史紀錄裡帶 [xcur:UUID]
+// 標記的支出/還款，旁邊的 ✎ 按鈕會呼叫這裡。這種轉入紀錄一次會產生
+// 兩筆連動的紀錄（外幣帳本一筆還款結清、臺幣帳本一筆對應支出），
+// 兩筆用同一個 xcurId 串起來（臺幣支出的 offset_group 沒有這個欄位，
+// 是塞進 description 的 [xcur:xxx] 標記；外幣還款則是存在 offset_group
+// 欄位），外幣原始金額不變，只重新計算、寫回臺幣那一筆的應付金額。
+// 放在這裡（跟 showPairDetail 平行的共用範圍）而不是塞進 showPairDetail
+// 內部，是因為歷史紀錄列表（renderHistory/renderRepaymentHistory）跟
+// showPairDetail 彈窗上的 ✎ 按鈕都要呼叫到它——原本誤放在 showPairDetail
+// 內部時，只有從債務明細彈窗點的那顆會動，歷史紀錄列表那顆因為呼叫端
+// 看不到這個函式（不同的閉包範圍）而完全沒反應，且不會有任何錯誤訊息。
+// ==========================================================
+async function openXcurRateEditModal(xcurId){
+  if(!xcurId) return;
+  const modal = document.getElementById("xcurRateEditModal");
+  if(!modal) return;
+
+  const [{ data: expRows, error: expErr }, { data: repRows, error: repErr }] = await Promise.all([
+    sb.from("expenses").select("*").ilike("description", `%[xcur:${xcurId}]%`).limit(1),
+    sb.from("repayments").select("*").eq("offset_group", xcurId).limit(1)
+  ]);
+
+  if(expErr || repErr || !expRows || !expRows.length || !repRows || !repRows.length){
+    await sbAlert("找不到這筆跨幣別轉入的完整紀錄，可能其中一邊已經被刪除或還原過了。", "🔔 Splitbill 錯誤");
+    return;
+  }
+
+  const expRow = expRows[0];
+  const repRow = repRows[0];
+  const foreignCurrency = CURRENCIES.find(c => c.code === repRow.currency) || CURRENCIES[0];
+  const foreignAmt = Number(repRow.amount) || 0;
+  const debtorName = memberById[repRow.from_member] || "?";
+  const creditorName = memberById[repRow.to_member] || "?";
+  const existingRate = foreignAmt > 0 ? (Number(expRow.amount) || 0) / foreignAmt : 0;
+
+  const routeEl = document.getElementById("xcurRateEditRoute");
+  const origAmtEl = document.getElementById("xcurRateEditOrigAmt");
+  const ratePrefix = document.getElementById("xcurRateEditPrefix");
+  const rateInput = document.getElementById("xcurRateEditInput");
+  const resultAmtEl = document.getElementById("xcurRateEditResultAmt");
+  const fetchRateBtn = document.getElementById("xcurRateEditFetchRateBtn");
+  const saveBtn = document.getElementById("xcurRateEditSaveBtn");
+  const closeBtn = document.getElementById("xcurRateEditCloseBtn");
+
+  if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>欠</span> <b>${escapeHtml(creditorName)}</b>`;
+  if(origAmtEl) origAmtEl.textContent = `${foreignCurrency.symbol}${formatAmt(foreignAmt)} ${foreignCurrency.label}`;
+  if(ratePrefix) ratePrefix.textContent = `1 ${foreignCurrency.code} = NT$`;
+  if(rateInput) rateInput.value = existingRate > 0 ? existingRate : 1;
+
+  function updateCalculation(){
+    const r = parseFloat(rateInput.value) || 0;
+    const twdAmt = Math.round(foreignAmt * r);
+    if(resultAmtEl) resultAmtEl.textContent = `NT$ ${twdAmt.toLocaleString()}`;
+  }
+  updateCalculation();
+
+  if(rateInput) rateInput.oninput = updateCalculation;
+
+  if(fetchRateBtn){
+    fetchRateBtn.onclick = async ()=>{
+      const originalText = fetchRateBtn.textContent;
+      fetchRateBtn.disabled = true;
+      fetchRateBtn.textContent = "抓取中…";
+      const rate = await fetchRateForCurrencyCode(foreignCurrency.code);
+      fetchRateBtn.disabled = false;
+      fetchRateBtn.textContent = originalText;
+      if(rate){
+        rateInput.value = rate;
+        updateCalculation();
+      } else {
+        await sbAlert("抓取即時匯率失敗，請稍後再試或手動輸入。", "🔔 Splitbill 提醒");
+      }
+    };
+  }
+
+  if(closeBtn){
+    closeBtn.onclick = ()=>{ modal.classList.remove("show"); };
+  }
+
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      const r = parseFloat(rateInput.value) || 0;
+      if(r <= 0){
+        await sbAlert("匯率必須大於 0", "🔔 Splitbill 提醒");
+        return;
+      }
+      const newTwdAmt = Math.round(foreignAmt * r);
+      if(newTwdAmt <= 0){
+        await sbAlert("換算金額必須大於 0", "🔔 Splitbill 提醒");
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "儲存中…";
+
+      const newPayers = (expRow.payers || []).map(p => ({ ...p, amount: newTwdAmt }));
+      const newShares = (expRow.shares || []).map(s => ({ ...s, amount: newTwdAmt }));
+
+      const { error: updateExpErr } = await sb.from("expenses").update({
+        amount: newTwdAmt,
+        note: `${foreignCurrency.symbol}${formatAmt(foreignAmt)} 匯率 ${r}`,
+        payers: newPayers,
+        shares: newShares
+      }).eq("id", expRow.id);
+
+      if(updateExpErr){
+        await sbAlert("更新臺幣帳本失敗：" + updateExpErr.message, "🔔 Splitbill 錯誤");
+        saveBtn.disabled = false;
+        saveBtn.textContent = "儲存新匯率";
+        return;
+      }
+
+      const { error: updateRepErr } = await sb.from("repayments").update({
+        note: `轉為臺幣欠款 NT$${newTwdAmt.toLocaleString()} (匯率 ${r}) [xcur:${xcurId}]`
+      }).eq("id", repRow.id);
+
+      saveBtn.disabled = false;
+      saveBtn.textContent = "儲存新匯率";
+
+      if(updateRepErr){
+        await sbAlert("臺幣帳本已更新，但外幣端的備註更新失敗：" + updateRepErr.message + "\n\n（金額本身不受影響，只是備註文字沒同步，不影響帳務正確性）", "🔔 Splitbill 提醒");
+      }
+
+      modal.classList.remove("show");
+      await refreshExpenses();
+      await sbAlert(`✓ 已更新匯率為 ${r}，臺幣應付金額調整為 NT$${newTwdAmt.toLocaleString()}。`, "🔔 Splitbill 通知");
+    };
+  }
+
+  modal.classList.add("show");
+}
+
 function showPairDetail(
   debtorId,
   creditorId,
@@ -7156,134 +7262,6 @@ function showPairDetail(
   const remindBtn = document.getElementById("matrixDetailRemindBtn");
   if(remindBtn){
     remindBtn.onclick = () => sendDebtReminderFromBtn(remindBtn);
-  }
-
-  // ==========================================================
-  // 編輯「跨幣別債務轉入」當初換算用的匯率——歷史紀錄裡帶 [xcur:UUID]
-  // 標記的支出/還款，旁邊的 ✎ 按鈕會呼叫這裡。這種轉入紀錄一次會產生
-  // 兩筆連動的紀錄（外幣帳本一筆還款結清、臺幣帳本一筆對應支出），
-  // 兩筆用同一個 xcurId 串起來（臺幣支出的 offset_group 沒有這個欄位，
-  // 是塞進 description 的 [xcur:xxx] 標記；外幣還款則是存在 offset_group
-  // 欄位），外幣原始金額不變，只重新計算、寫回臺幣那一筆的應付金額。
-  // ==========================================================
-  async function openXcurRateEditModal(xcurId){
-    if(!xcurId) return;
-    const modal = document.getElementById("xcurRateEditModal");
-    if(!modal) return;
-
-    const [{ data: expRows, error: expErr }, { data: repRows, error: repErr }] = await Promise.all([
-      sb.from("expenses").select("*").ilike("description", `%[xcur:${xcurId}]%`).limit(1),
-      sb.from("repayments").select("*").eq("offset_group", xcurId).limit(1)
-    ]);
-
-    if(expErr || repErr || !expRows || !expRows.length || !repRows || !repRows.length){
-      await sbAlert("找不到這筆跨幣別轉入的完整紀錄，可能其中一邊已經被刪除或還原過了。", "🔔 Splitbill 錯誤");
-      return;
-    }
-
-    const expRow = expRows[0];
-    const repRow = repRows[0];
-    const foreignCurrency = CURRENCIES.find(c => c.code === repRow.currency) || CURRENCIES[0];
-    const foreignAmt = Number(repRow.amount) || 0;
-    const debtorName = memberById[repRow.from_member] || "?";
-    const creditorName = memberById[repRow.to_member] || "?";
-    const existingRate = foreignAmt > 0 ? (Number(expRow.amount) || 0) / foreignAmt : 0;
-
-    const routeEl = document.getElementById("xcurRateEditRoute");
-    const origAmtEl = document.getElementById("xcurRateEditOrigAmt");
-    const ratePrefix = document.getElementById("xcurRateEditPrefix");
-    const rateInput = document.getElementById("xcurRateEditInput");
-    const resultAmtEl = document.getElementById("xcurRateEditResultAmt");
-    const fetchRateBtn = document.getElementById("xcurRateEditFetchRateBtn");
-    const saveBtn = document.getElementById("xcurRateEditSaveBtn");
-    const closeBtn = document.getElementById("xcurRateEditCloseBtn");
-
-    if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>欠</span> <b>${escapeHtml(creditorName)}</b>`;
-    if(origAmtEl) origAmtEl.textContent = `${foreignCurrency.symbol}${formatAmt(foreignAmt)} ${foreignCurrency.label}`;
-    if(ratePrefix) ratePrefix.textContent = `1 ${foreignCurrency.code} = NT$`;
-    if(rateInput) rateInput.value = existingRate > 0 ? existingRate : 1;
-
-    function updateCalculation(){
-      const r = parseFloat(rateInput.value) || 0;
-      const twdAmt = Math.round(foreignAmt * r);
-      if(resultAmtEl) resultAmtEl.textContent = `NT$ ${twdAmt.toLocaleString()}`;
-    }
-    updateCalculation();
-
-    if(rateInput) rateInput.oninput = updateCalculation;
-
-    if(fetchRateBtn){
-      fetchRateBtn.onclick = async ()=>{
-        const originalText = fetchRateBtn.textContent;
-        fetchRateBtn.disabled = true;
-        fetchRateBtn.textContent = "抓取中…";
-        const rate = await fetchRateForCurrencyCode(foreignCurrency.code);
-        fetchRateBtn.disabled = false;
-        fetchRateBtn.textContent = originalText;
-        if(rate){
-          rateInput.value = rate;
-          updateCalculation();
-        } else {
-          await sbAlert("抓取即時匯率失敗，請稍後再試或手動輸入。", "🔔 Splitbill 提醒");
-        }
-      };
-    }
-
-    if(closeBtn){
-      closeBtn.onclick = ()=>{ modal.classList.remove("show"); };
-    }
-
-    if(saveBtn){
-      saveBtn.onclick = async ()=>{
-        const r = parseFloat(rateInput.value) || 0;
-        if(r <= 0){
-          await sbAlert("匯率必須大於 0", "🔔 Splitbill 提醒");
-          return;
-        }
-        const newTwdAmt = Math.round(foreignAmt * r);
-        if(newTwdAmt <= 0){
-          await sbAlert("換算金額必須大於 0", "🔔 Splitbill 提醒");
-          return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.textContent = "儲存中…";
-
-        const newPayers = (expRow.payers || []).map(p => ({ ...p, amount: newTwdAmt }));
-        const newShares = (expRow.shares || []).map(s => ({ ...s, amount: newTwdAmt }));
-
-        const { error: updateExpErr } = await sb.from("expenses").update({
-          amount: newTwdAmt,
-          note: `${foreignCurrency.symbol}${formatAmt(foreignAmt)} 匯率 ${r}`,
-          payers: newPayers,
-          shares: newShares
-        }).eq("id", expRow.id);
-
-        if(updateExpErr){
-          await sbAlert("更新臺幣帳本失敗：" + updateExpErr.message, "🔔 Splitbill 錯誤");
-          saveBtn.disabled = false;
-          saveBtn.textContent = "儲存新匯率";
-          return;
-        }
-
-        const { error: updateRepErr } = await sb.from("repayments").update({
-          note: `轉為臺幣欠款 NT$${newTwdAmt.toLocaleString()} (匯率 ${r}) [xcur:${xcurId}]`
-        }).eq("id", repRow.id);
-
-        saveBtn.disabled = false;
-        saveBtn.textContent = "儲存新匯率";
-
-        if(updateRepErr){
-          await sbAlert("臺幣帳本已更新，但外幣端的備註更新失敗：" + updateRepErr.message + "\n\n（金額本身不受影響，只是備註文字沒同步，不影響帳務正確性）", "🔔 Splitbill 提醒");
-        }
-
-        modal.classList.remove("show");
-        await refreshExpenses();
-        await sbAlert(`✓ 已更新匯率為 ${r}，臺幣應付金額調整為 NT$${newTwdAmt.toLocaleString()}。`, "🔔 Splitbill 通知");
-      };
-    }
-
-    modal.classList.add("show");
   }
 
   // ==========================================================

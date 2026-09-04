@@ -7508,39 +7508,6 @@ input#aiExpenseTime {
   box-shadow: 0 1px 4px rgba(114, 97, 150, 0.2);
 }
 
-.history-category-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  padding: 2px 2px 4px;
-  scrollbar-width: none;
-}
-.history-category-chips::-webkit-scrollbar { display: none; }
-.history-cat-chip {
-  flex: 0 0 auto;
-  border: 1.5px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all .12s ease;
-  font-family: inherit;
-  user-select: none;
-}
-.history-cat-chip:active {
-  transform: scale(0.96);
-}
-.history-cat-chip.active {
-  background: var(--btn-primary);
-  color: #FFFFFF !important;
-  border-color: var(--btn-primary);
-  box-shadow: 0 2px 8px rgba(114, 97, 150, 0.3);
-}
-
 /* 📊 篩選即時統計列 */
 .history-result-stats {
   display: flex;

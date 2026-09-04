@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=683">
-<link rel="stylesheet" href="shared.css?v=683">
+<link rel="stylesheet" href="theme.css?v=689">
+<link rel="stylesheet" href="shared.css?v=689">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=683"></script>
-<script src="version.js?v=683"></script>
-<script src="shared-ui.js?v=683"></script>
-<script src="theme.js?v=683" defer></script>
+<script src="currencies.js?v=689"></script>
+<script src="version.js?v=689"></script>
+<script src="shared-ui.js?v=689"></script>
+<script src="theme.js?v=689" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -457,27 +457,10 @@ if("serviceWorker" in navigator){
           <label>快速篩選</label>
           <div class="history-multi-chips" id="filterQuickChips">
             <button type="button" class="multi-chip" data-quick="payer_me">💳 我代墊的</button>
-            <button type="button" class="multi-chip" data-quick="large">💰 大額支出 (&gt;1,000)</button>
             <button type="button" class="multi-chip" data-quick="addons">🍽️ 有個人自付</button>
           </div>
 
           <div id="filterExpenseFields">
-            <label>分類快捷</label>
-            <div class="history-category-chips" id="historyCategoryChips">
-              <button type="button" class="history-cat-chip active" data-cat="all">全部類別</button>
-              <button type="button" class="history-cat-chip" data-cat="food">🍜 美食</button>
-              <button type="button" class="history-cat-chip" data-cat="drink">☕ 飲料</button>
-              <button type="button" class="history-cat-chip" data-cat="transit">🚄 交通</button>
-              <button type="button" class="history-cat-chip" data-cat="car">🚗 租車</button>
-              <button type="button" class="history-cat-chip" data-cat="flight">✈️ 機票</button>
-              <button type="button" class="history-cat-chip" data-cat="hotel">🏨 住宿</button>
-              <button type="button" class="history-cat-chip" data-cat="ticket">🎟️ 門票</button>
-              <button type="button" class="history-cat-chip" data-cat="shopping">🛍️ 購物</button>
-              <button type="button" class="history-cat-chip" data-cat="medical">💊 醫療</button>
-              <button type="button" class="history-cat-chip" data-cat="network">📶 網卡</button>
-              <button type="button" class="history-cat-chip" data-cat="general">🧾 一般</button>
-            </div>
-
             <label>金額區間</label>
             <div class="filter-amt-range-row">
               <input type="number" id="filterMinAmount" placeholder="最低金額" min="0" step="any" class="filter-amt-inp">
@@ -489,13 +472,6 @@ if("serviceWorker" in navigator){
               <button type="button" class="amt-preset-btn" data-range="small">&le; $500</button>
               <button type="button" class="amt-preset-btn" data-range="medium">$500 ~ $2,000</button>
               <button type="button" class="amt-preset-btn" data-range="large">&gt; $2,000</button>
-            </div>
-
-            <div class="filter-check-row">
-              <label class="filter-checkbox-label">
-                <input type="checkbox" id="filterHasAddonsCheck">
-                <span>🍽️ 僅看包含個人自付 / 加點品項的支出</span>
-              </label>
             </div>
 
             <label>支出類別（可多選）</label>
@@ -1097,6 +1073,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=683"></script>
+<script src="app.js?v=689"></script>
 </body>
 </html>
