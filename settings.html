@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=689">
-<link rel="stylesheet" href="shared.css?v=689">
+<link rel="stylesheet" href="theme.css?v=691">
+<link rel="stylesheet" href="shared.css?v=691">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=689"></script>
-<script src="version.js?v=689"></script>
-<script src="shared-ui.js?v=689"></script>
-<script src="theme.js?v=689" defer></script>
-<script src="app-banner.js?v=689" defer></script>
+<script src="currencies.js?v=691"></script>
+<script src="version.js?v=691"></script>
+<script src="shared-ui.js?v=691"></script>
+<script src="theme.js?v=691" defer></script>
+<script src="app-banner.js?v=691" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -367,7 +367,10 @@ if("serviceWorker" in navigator){
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
             <div class="settings-changelog-header" id="settingsChangelogHeader">✨ v642 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>移除「最佳化結算」建議還款功能，總表只保留「逐筆債務表」，避免付款方式跟逐筆帳目對不起來</li>
+              <li>「支出」「記一筆」「AI 拆單」三個記帳表單改成一步一步填寫，一次只需要處理一個區塊</li>
+              <li>「有另外加服務費或稅嗎」改成清楚的「有／沒有」按鈕，不用再猜要不要點開</li>
+              <li>修正歷史紀錄「✎ 編輯匯率」按鈕點了沒反應的問題</li>
+              <li>簡化進階篩選，整合重複的篩選項目</li>
             </ul>
           </div>
         </div>

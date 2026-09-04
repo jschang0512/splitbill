@@ -363,7 +363,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     let selectedReceiptCurrency = deps.CURRENCY;
     let editingAiExpenseId = null;
     let editingAiExpenseOriginal = null;
-    let selectedHighlightMemberId = null;
 
     function getReceiptSymbol(){
       const c = (deps.CURRENCIES || []).find(item => item.code === selectedReceiptCurrency);
@@ -1886,21 +1885,6 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       }
     }
 
-    function updateMemberHighlightInItems(){
-      if(!itemsListEl) return;
-      itemsListEl.querySelectorAll(".ai-receipt-item-card").forEach(card => {
-        const itemId = card.dataset.id;
-        const it = receiptClaimItems.find(x => x.id === itemId);
-        if(!selectedHighlightMemberId){
-          card.classList.remove("is-highlighted-by-member", "is-dimmed-by-filter");
-        } else {
-          const hasMember = it && it.claimedMemberIds.includes(selectedHighlightMemberId);
-          card.classList.toggle("is-highlighted-by-member", hasMember);
-          card.classList.toggle("is-dimmed-by-filter", !hasMember);
-        }
-      });
-    }
-
     function updateCalculationsAndBadges(){
       const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
       const discount = Number(currentReceiptData && currentReceiptData.discount) || 0;
@@ -2008,9 +1992,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const activeMembers = (deps.getState().MEMBERS || []).filter(m => deps.showLeftMembers || !m.left_at);
         membersGridEl.innerHTML = activeMembers.map(m => {
           const data = memberCalcMap[m.id] || { total: 0 };
-          const isSelected = (selectedHighlightMemberId === m.id);
           return `
-            <div class="ai-receipt-member-badge clickable ${isSelected ? 'active' : ''}" data-member-id="${m.id}" title="點擊${isSelected ? '取消高亮' : '高亮'}此成員認領的品項">
+            <div class="ai-receipt-member-badge" data-member-id="${m.id}">
               <div class="ai-receipt-member-left">
                 ${renderAvatarHTML(m, "avatar-xs")}
                 <span class="ai-receipt-member-name">${escapeHtml(m.name || deps.emailToName(m.email))}</span>
@@ -2019,22 +2002,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             </div>
           `;
         }).join("");
-
-        membersGridEl.querySelectorAll(".ai-receipt-member-badge").forEach(badge => {
-          badge.addEventListener("click", ()=>{
-            const mId = badge.dataset.memberId;
-            if(selectedHighlightMemberId === mId){
-              selectedHighlightMemberId = null;
-            } else {
-              selectedHighlightMemberId = mId;
-            }
-            updateMemberHighlightInItems();
-            updateCalculationsAndBadges();
-          });
-        });
       }
-
-      updateMemberHighlightInItems();
 
       if(aiBreakdownContent){
         aiBreakdownContent.textContent = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);

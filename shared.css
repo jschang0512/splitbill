@@ -6869,30 +6869,7 @@ button.dd-btn {
   margin-left:4px;
 }
 
-/* 成員徽章點擊與反向高亮 */
-.ai-receipt-member-badge.clickable {
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  user-select: none;
-  border: 1.5px solid var(--line);
-}
-.ai-receipt-member-badge.clickable:hover {
-  border-color: var(--btn-primary);
-  transform: translateY(-1.5px);
-  box-shadow: 0 3px 8px rgba(108, 92, 231, 0.15);
-}
-.ai-receipt-member-badge.clickable.active {
-  background: linear-gradient(135deg, var(--btn-primary), var(--logo-grad-a, #7A6B9E));
-  color: #ffffff;
-  border-color: var(--btn-primary);
-  box-shadow: 0 3.5px 12px rgba(108, 92, 231, 0.35);
-  transform: translateY(-2px) scale(1.02);
-}
-.ai-receipt-member-badge.clickable.active b {
-  color: #ffffff;
-}
-
-/* 品項認領狀態樣式 (待認領 vs 已認領) 與成員反向高亮 */
+/* 品項認領狀態樣式 (待認領 vs 已認領) */
 .ai-receipt-item-card.is-unclaimed {
   border-color: rgba(253, 121, 168, 0.45);
   background: color-mix(in srgb, #fd79a8 3%, var(--paper));
@@ -6900,17 +6877,6 @@ button.dd-btn {
 .ai-receipt-item-card.is-unclaimed .ai-item-tag-num {
   background: rgba(253, 121, 168, 0.15);
   color: #d63031;
-}
-.ai-receipt-item-card.is-highlighted-by-member {
-  border-color: var(--btn-primary) !important;
-  background: color-mix(in srgb, var(--btn-primary) 8%, var(--paper)) !important;
-  box-shadow: 0 4px 14px rgba(108, 92, 231, 0.22) !important;
-  transform: translateY(-2px);
-}
-.ai-receipt-item-card.is-dimmed-by-filter {
-  opacity: 0.35 !important;
-  filter: grayscale(35%);
-  transition: opacity 0.2s ease, filter 0.2s ease;
 }
 
 /* 卡片右上角：狀態徽章（待認領／每人¥X／已分配X/Y）+ 刪除鈕放在同一個
@@ -6951,13 +6917,6 @@ button.dd-btn {
   color: #ffffff;
   border: 1px solid rgba(255,255,255,0.3);
   font-family: 'JetBrains Mono', monospace;
-}
-
-.ai-section-sub-hint {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ink-soft);
-  margin-left: 6px;
 }
 
 /* 明細複製按鈕群組 */
