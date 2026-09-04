@@ -334,6 +334,18 @@ function showToast(title, body, actionLabel, actionFn){
       cardEl = document.createElement("div");
       cardEl.id = "sbAvatarFloatingCard";
       cardEl.className = "sb-avatar-floating-card";
+      // 點小卡片本身 → 升級成打開完整的個人資料彈窗（如果這個成員的 id
+      // 解析得出來、且頁面上有 #memberProfileModal 的話）。用 onclick
+      // 賦值而不是 addEventListener，因為 cardEl 只會建立這一次、之後
+      // 每次顯示都是覆寫同一個節點的內容，不會有重複綁定的問題。
+      cardEl.onclick = (e) => {
+        e.stopPropagation();
+        const mid = cardEl.dataset.memberId;
+        if(mid && typeof window.showMemberProfileModal === "function"){
+          hideCard();
+          window.showMemberProfileModal(mid);
+        }
+      };
       document.body.appendChild(cardEl);
     }
     return cardEl;
@@ -396,13 +408,19 @@ function showToast(title, body, actionLabel, actionFn){
     const initialBg = (initialEl && initialEl.style.background) ? initialEl.style.background : (window.getAvatarColor ? window.getAvatarColor(displayName) : "#7A6B9E");
     const initialChar = (initialEl && initialEl.textContent ? initialEl.textContent.trim() : displayName.charAt(0).toUpperCase()) || "?";
 
+    // 3.5 精確的成員 id（renderAvatarHTML 有塞 data-member-id 的話），有的話
+    // 優先拿來查徽章、拿來當「點小卡片打開完整資料彈窗」的依據——姓名字串
+    // 比對在同名成員時會誤判，id 精準很多。
+    const memberId = avatar.dataset.memberId || "";
+
     // 4. 計算該成員解鎖的勳章
-    const memberBadges = (window.getMemberBadges ? window.getMemberBadges(cleanName) : []).slice(0, 4);
+    const memberBadges = (window.getMemberBadges ? window.getMemberBadges(memberId || cleanName) : []).slice(0, 4);
     const badgesHtml = memberBadges.length > 0
       ? `<div class="sb-afc-badges">${memberBadges.map(b => `<span class="sb-afc-badge-chip" title="${escapeHtml(b.desc)}">${b.icon} ${escapeHtml(b.name)}</span>`).join("")}</div>`
       : "";
 
     const card = getCardEl();
+    card.dataset.memberId = memberId;
     const avatarHtml = imgSrc
       ? `<img src="${imgSrc}" class="sb-afc-avatar-img" alt="${escapeHtml(displayName)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="sb-afc-avatar-initial" style="display:none;background:${initialBg};">${escapeHtml(initialChar)}</span>`
       : `<span class="sb-afc-avatar-initial" style="background:${initialBg};">${escapeHtml(initialChar)}</span>`;
@@ -483,6 +501,98 @@ function showToast(title, body, actionLabel, actionFn){
   // 滾動時自動隱藏
   window.addEventListener("scroll", hideCard, { passive: true });
 })();
+
+// ============================================================
+// 👤 成員個人資料彈窗（點浮動小卡片本身觸發，見上面 initFloatingAvatarTooltip）
+// 不用另外寫一套 initXXX(deps) 在每個頁面手動呼叫初始化——直接讀
+// window.cachedExpenses/cachedRepayments/allGroupExpenses/allGroupRepayments/
+// memberRows/myMember 這些頁面本來就會設定好的全域變數，跟 getMemberBadges()
+// 自己讀取全域變數的既有寫法一致。currency.html、summary.html 只要各自
+// 有 #memberProfileModal 這個彈窗骨架就會動，不用額外接線。
+// ============================================================
+async function showMemberProfileModal(memberId){
+  const modal = document.getElementById("memberProfileModal");
+  if(!modal || !memberId) return;
+
+  const myMember = window.myMember;
+  if(myMember && myMember.group_id && (!window.allGroupExpenses || !window.allGroupExpenses.length)){
+    try {
+      const sb = window.sb;
+      const [allExpRes, allRepRes] = await Promise.all([
+        sb.from("expenses").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false }),
+        sb.from("repayments").select("*").eq("group_id", myMember.group_id).order("created_at", { ascending:false })
+      ]);
+      if(allExpRes.data) window.allGroupExpenses = allExpRes.data;
+      if(allRepRes.data) window.allGroupRepayments = allRepRes.data;
+    } catch(e){}
+  }
+
+  const expenses = window.allGroupExpenses || window.cachedExpenses || [];
+  const repayments = window.allGroupRepayments || window.cachedRepayments || [];
+  const memberRows = window.memberRows || [];
+  const member = memberRows.find(m => m.id === memberId) || { id: memberId, name: memberId };
+
+  const avatarWrap = document.getElementById("memberProfileAvatarWrap");
+  if(avatarWrap) avatarWrap.innerHTML = window.renderAvatarHTML ? window.renderAvatarHTML(member, "avatar-xl") : "";
+
+  const nameEl = document.getElementById("memberProfileName");
+  if(nameEl) nameEl.textContent = member.name || "?";
+
+  const balanceEl = document.getElementById("memberProfileBalance");
+  if(balanceEl && typeof window.computeMemberNetBalanceTWD === "function"){
+    const netTWD = window.computeMemberNetBalanceTWD(memberId, expenses, repayments);
+    const cls = netTWD > 0.5 ? "pos" : netTWD < -0.5 ? "neg" : "zero";
+    const label = netTWD > 0.5 ? `該收 NT$${Math.round(netTWD).toLocaleString()}`
+      : netTWD < -0.5 ? `該付 NT$${Math.round(Math.abs(netTWD)).toLocaleString()}`
+      : "已結清 🎉";
+    balanceEl.textContent = label;
+    balanceEl.className = "member-profile-balance " + cls;
+  }
+
+  // 跟「我」的關係：只有在看別人的資料卡時才顯示（自己不會欠自己）。
+  const relationEl = document.getElementById("memberProfileRelation");
+  if(relationEl){
+    const viewerId = window.myMember && window.myMember.id;
+    if(viewerId && viewerId !== memberId && typeof window.computePairNetBalanceTWD === "function"){
+      const pairTWD = window.computePairNetBalanceTWD(viewerId, memberId, expenses, repayments);
+      const cls = pairTWD > 0.5 ? "pos" : pairTWD < -0.5 ? "neg" : "zero";
+      const label = pairTWD > 0.5 ? `他欠你 NT$${Math.round(pairTWD).toLocaleString()}`
+        : pairTWD < -0.5 ? `你欠他 NT$${Math.round(Math.abs(pairTWD)).toLocaleString()}`
+        : "你們目前沒有互相欠款";
+      relationEl.textContent = "跟你的關係：" + label;
+      relationEl.className = "member-profile-relation " + cls;
+      relationEl.classList.remove("hidden");
+    } else {
+      relationEl.classList.add("hidden");
+    }
+  }
+
+  const badgesEl = document.getElementById("memberProfileBadges");
+  if(badgesEl){
+    const badges = window.getMemberBadges ? window.getMemberBadges(memberId, expenses, repayments, memberRows) : [];
+    badgesEl.innerHTML = badges.length > 0
+      ? badges.map(b => `<span class="sb-afc-badge-chip" title="${escapeHtml(b.desc)}">${b.icon} ${escapeHtml(b.name)}</span>`).join("")
+      : `<span class="filter-hint">尚未解鎖任何成就</span>`;
+  }
+
+  modal.classList.remove("hidden");
+  modal.classList.add("show");
+
+  const closeBtn = document.getElementById("memberProfileCloseBtn");
+  if(closeBtn){
+    closeBtn.onclick = ()=>{
+      modal.classList.remove("show");
+      setTimeout(()=> modal.classList.add("hidden"), 200);
+    };
+  }
+  modal.onclick = (e)=>{
+    if(e.target === modal){
+      modal.classList.remove("show");
+      setTimeout(()=> modal.classList.add("hidden"), 200);
+    }
+  };
+}
+window.showMemberProfileModal = showMemberProfileModal;
 
 // ============================================================
 // App 已安裝、正在執行時，掃到邀請 QR code（App Links 驗證通過後系統會

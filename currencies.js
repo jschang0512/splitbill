@@ -652,10 +652,12 @@ function renderAvatarHTML(memberOrName, sizeClass = "avatar-sm"){
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   const safeName = String(name).replace(/"/g, "&quot;");
 
+  const idAttr = id ? ` data-member-id="${id}"` : "";
+
   if(avatarUrl){
-    return `<span class="sb-avatar ${sizeClass}" title="${safeName}" data-name="${safeName}"><img src="${avatarUrl}" class="sb-avatar-img" alt="${safeName}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';"><span class="sb-avatar-initial" style="display:none;background:${getAvatarColor(name)};">${initial}</span></span>`;
+    return `<span class="sb-avatar ${sizeClass}" title="${safeName}" data-name="${safeName}"${idAttr}><img src="${avatarUrl}" class="sb-avatar-img" alt="${safeName}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';"><span class="sb-avatar-initial" style="display:none;background:${getAvatarColor(name)};">${initial}</span></span>`;
   }
-  return `<span class="sb-avatar ${sizeClass}" title="${safeName}" data-name="${safeName}"><span class="sb-avatar-initial" style="background:${getAvatarColor(name)};">${initial}</span></span>`;
+  return `<span class="sb-avatar ${sizeClass}" title="${safeName}" data-name="${safeName}"${idAttr}><span class="sb-avatar-initial" style="background:${getAvatarColor(name)};">${initial}</span></span>`;
 }
 
 function triggerReceiptFlyAnimation(opts = {}){
@@ -871,6 +873,71 @@ window.renderAvatarHTML = renderAvatarHTML;
 window.triggerReceiptFlyAnimation = triggerReceiptFlyAnimation;
 window.openFinancialKeypad = openFinancialKeypad;
 
+// 單一成員的跨幣別淨結餘（換算成 TWD）。正數代表該收（債權人），負數代表
+// 該付（債務人）。原本是寫死在「欠款大魔王」徽章裡面找全團最大值用的內層
+// 迴圈，成員頭像個人資料卡也需要同一個算法，抽出來共用、不要維持兩份。
+function computeMemberNetBalanceTWD(memberId, expenses, repayments){
+  let paidTWD = 0, shareTWD = 0, repaidTWD = 0, receivedTWD = 0;
+
+  (expenses || []).forEach(e => {
+    const cur = e.currency || "TWD";
+    const p = (e.payers || []).find(x => x.member_id === memberId);
+    if(p) paidTWD += convertToTWD(p.amount, cur);
+    const s = (e.shares || []).find(x => x.member_id === memberId);
+    if(s) shareTWD += convertToTWD(s.amount, cur);
+  });
+
+  (repayments || []).forEach(r => {
+    const cur = r.currency || "TWD";
+    if(r.from_member === memberId) repaidTWD += convertToTWD(r.amount, cur);
+    if(r.to_member === memberId) receivedTWD += convertToTWD(r.amount, cur);
+  });
+
+  return (paidTWD + repaidTWD) - (shareTWD + receivedTWD);
+}
+window.computeMemberNetBalanceTWD = computeMemberNetBalanceTWD;
+
+// 「你」跟某個特定對象之間的跨幣別淨結餘（換算成 TWD）。正數代表對方欠你，
+// 負數代表你欠對方。這裡不是拿真正的（事件時間軸式）債務明細演算法
+// 來算——那套演算法（computeExpenseDebts/buildDebtMatrix）只存在 app.js、
+// 是逐幣別運作，且 summary.html 沒載入 app.js 用不到；這裡只是給個人資料卡
+// 一個簡單、透明、看得懂算法的「跟你的關係」參考數字，不是取代「逐筆債務表」
+// 那個權威數字，共同支出裡三人以上同時有淨額時本來就沒有唯一正確的兩兩分法。
+function computePairNetBalanceTWD(viewerId, otherId, expenses, repayments){
+  let net = 0; // 正數：對方欠你；負數：你欠對方
+
+  (expenses || []).forEach(e => {
+    const cur = e.currency || "TWD";
+    const payers = e.payers || [];
+    const shares = e.shares || [];
+    const totalPaid = payers.reduce((s,p)=>s+(Number(p.amount)||0), 0);
+    if(totalPaid <= 0) return;
+
+    const viewerPaid = payers.find(p => p.member_id === viewerId);
+    const otherShare = shares.find(s => s.member_id === otherId);
+    if(viewerPaid && otherShare){
+      const portion = (Number(viewerPaid.amount) || 0) / totalPaid;
+      net += convertToTWD((Number(otherShare.amount) || 0) * portion, cur);
+    }
+
+    const otherPaid = payers.find(p => p.member_id === otherId);
+    const viewerShare = shares.find(s => s.member_id === viewerId);
+    if(otherPaid && viewerShare){
+      const portion = (Number(otherPaid.amount) || 0) / totalPaid;
+      net -= convertToTWD((Number(viewerShare.amount) || 0) * portion, cur);
+    }
+  });
+
+  (repayments || []).forEach(r => {
+    const cur = r.currency || "TWD";
+    if(r.from_member === otherId && r.to_member === viewerId) net -= convertToTWD(r.amount, cur);
+    if(r.from_member === viewerId && r.to_member === otherId) net += convertToTWD(r.amount, cur);
+  });
+
+  return net;
+}
+window.computePairNetBalanceTWD = computePairNetBalanceTWD;
+
 // ============================================================
 // 🎖️ 成員成就與趣味勳章系統 (Member Achievements & Badges - 跨幣別大一統)
 // ============================================================
@@ -879,7 +946,7 @@ const BADGES_CATALOG = [
     id: "big_spender",
     icon: "👑",
     name: "代付大金主",
-    desc: "全團歷史累積代付總金額最高者（跨幣別折算 TWD）",
+    desc: "全團歷史累積代付總金額最高者（跨幣別）",
     check: (m, expList, repList, membersList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       let allMembers = (membersList && membersList.length) ? membersList : (window.memberRows || window.MEMBERS || []);
@@ -916,7 +983,7 @@ const BADGES_CATALOG = [
     id: "debt_demon",
     icon: "😈",
     name: "欠款大魔王",
-    desc: "目前全團累積淨欠款最高者（跨幣別折算 TWD）",
+    desc: "目前全團累積淨欠款最高者（跨幣別）",
     check: (m, expList, repList, membersList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const reps = window.allGroupRepayments || repList || window.cachedRepayments || [];
@@ -942,23 +1009,7 @@ const BADGES_CATALOG = [
 
       allMembers.forEach(mem => {
         const memId = mem.id || mem;
-        let paidTWD = 0, shareTWD = 0, repaidTWD = 0, receivedTWD = 0;
-
-        exps.forEach(e => {
-          const cur = e.currency || "TWD";
-          const p = (e.payers || []).find(x => x.member_id === memId);
-          if(p) paidTWD += convertToTWD(p.amount, cur);
-          const s = (e.shares || []).find(x => x.member_id === memId);
-          if(s) shareTWD += convertToTWD(s.amount, cur);
-        });
-
-        reps.forEach(r => {
-          const cur = r.currency || "TWD";
-          if(r.from_member === memId) repaidTWD += convertToTWD(r.amount, cur);
-          if(r.to_member === memId) receivedTWD += convertToTWD(r.amount, cur);
-        });
-
-        const netTWD = (paidTWD + repaidTWD) - (shareTWD + receivedTWD);
+        const netTWD = computeMemberNetBalanceTWD(memId, exps, reps);
         const debtTWD = -netTWD; // 正數代表淨欠款
         if(debtTWD > 1 && debtTWD > maxDebtTWD){
           maxDebtTWD = debtTWD;
@@ -974,14 +1025,15 @@ const BADGES_CATALOG = [
     id: "foodie",
     icon: "🍜",
     name: "米其林老饕",
-    desc: "餐飲類別支出超過個人總支出的 25%",
+    desc: "餐飲類別支出超過個人總支出的 25%（跨幣別）",
     check: (m, expList) => {
+      const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const memId = m.id || m;
       let foodAmt = 0, totalShare = 0;
-      (expList || []).forEach(e => {
+      exps.forEach(e => {
         const s = (e.shares || []).find(x => x.member_id === memId);
         if(s){
-          const amt = Number(s.amount) || 0;
+          const amt = convertToTWD(Number(s.amount) || 0, e.currency || "TWD");
           totalShare += amt;
           const meta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note, e.category) : { type: "general" };
           if(meta.type === "food" || meta.type === "drink") foodAmt += amt;
@@ -994,14 +1046,15 @@ const BADGES_CATALOG = [
     id: "shopaholic",
     icon: "🛍️",
     name: "購物狂熱者",
-    desc: "購物類別支出超過個人總支出的 25%",
+    desc: "購物類別支出超過個人總支出的 25%（跨幣別）",
     check: (m, expList) => {
+      const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const memId = m.id || m;
       let shopAmt = 0, totalShare = 0;
-      (expList || []).forEach(e => {
+      exps.forEach(e => {
         const s = (e.shares || []).find(x => x.member_id === memId);
         if(s){
-          const amt = Number(s.amount) || 0;
+          const amt = convertToTWD(Number(s.amount) || 0, e.currency || "TWD");
           totalShare += amt;
           const meta = window.getCategoryMeta ? window.getCategoryMeta(e.description, e.note, e.category) : { type: "general" };
           if(meta.type === "shopping") shopAmt += amt;
@@ -1014,9 +1067,9 @@ const BADGES_CATALOG = [
     id: "speedy_settler",
     icon: "⚡",
     name: "秒速結清手",
-    desc: "最近一次完成結清還款的人",
+    desc: "全團最近一次完成結清還款的人（跨幣別）",
     check: (m, expList, repList) => {
-      const reps = repList || window.cachedRepayments || [];
+      const reps = window.allGroupRepayments || repList || window.cachedRepayments || [];
       if(!reps || !reps.length) return false;
       const sorted = [...reps].sort((a, b) => {
         const tA = new Date(a.payment_date || a.created_at || 0).getTime();
@@ -1033,9 +1086,9 @@ const BADGES_CATALOG = [
     id: "ai_master",
     icon: "🤖",
     name: "AI 拆單達人",
-    desc: "全團使用 AI 照片收據自動拆單次數最多者",
+    desc: "全團使用 AI 照片收據自動拆單次數最多者（跨幣別）",
     check: (m, expList, repList, membersList) => {
-      const exps = expList || window.cachedExpenses || [];
+      const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       let allMembers = (membersList && membersList.length) ? membersList : (window.memberRows || window.MEMBERS || []);
       if(!allMembers.length){
         const idMap = new Map();

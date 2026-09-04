@@ -21,6 +21,7 @@
   }
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window.sb = sb;
   const SYM = CURRENCY_SYMBOL;
 
   // 帳密登入/註冊/忘記密碼/連結帳號失敗時，先判斷是不是幾種已知的常見情況，
