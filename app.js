@@ -3288,7 +3288,8 @@
     });
 
     const { title, note } = splitExpenseTitleAndNote(expense.description, expense.note);
-    const canEdit = isExpenseParty(expense, myMember.id) || expense.created_by === myMember.id;
+    const myId = myMember && myMember.id;
+    const canEdit = isExpenseParty(expense, myId) || expense.created_by === myId;
     const isXcur = isXcurStr(expense.description) || isXcurStr(expense.note);
     const xcurId = isXcur ? (extractXcurId(expense.description) || extractXcurId(expense.note)) : null;
     const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || expense.description, expense.note, expense.category)) || { icon: "🧾", name: "一般" };
@@ -3399,12 +3400,13 @@
     });
 
     const searchKw = liveSearchKeyword || (document.getElementById("filterKeyword") ? document.getElementById("filterKeyword").value.trim().toLowerCase() : "");
+    const myId = myMember && myMember.id;
 
     el.innerHTML = groups.map(g => {
       const dateTitle = formatDateGroupTitle(g.date);
       const itemsHtml = g.items.map(e => {
         const { title, note } = splitExpenseTitleAndNote(e.description, e.note);
-        const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
+        const canEdit = isExpenseParty(e, myId) || e.created_by === myId;
         const isXcur = isXcurStr(e.description) || isXcurStr(e.note);
         const xcurId = isXcur ? (extractXcurId(e.description) || extractXcurId(e.note)) : null;
         const isAiSplit = Boolean((e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細"))) || (e.note && e.note.includes("<!--AI_RECEIPT_DATA:")));
@@ -3570,6 +3572,7 @@
     pageUnits.forEach(u => u.items.forEach(r => { repaymentById[r.id] = r; }));
 
     const searchKw = liveSearchKeyword || (document.getElementById("filterKeyword") ? document.getElementById("filterKeyword").value.trim().toLowerCase() : "");
+    const myId = myMember && myMember.id;
 
     // 按日期分組呈現
     const groups = [];
@@ -3589,7 +3592,7 @@
       const unitsHtml = g.units.map(u => {
         if(u.type === "offset"){
           const [a, b] = u.items;
-          const canEdit = isRepaymentParty(a, myMember.id);
+          const canEdit = isRepaymentParty(a, myId);
           const isXcur = isXcurStr(a.offset_group) || isXcurStr(a.note);
           const xcurId = isXcur ? (a.offset_group || extractXcurId(a.note)) : null;
           return `<div class="exp-item">
@@ -3605,7 +3608,7 @@
           </div>`;
         }
         const r = u.items[0];
-        const canEdit = isRepaymentParty(r, myMember.id) || r.created_by === myMember.id;
+        const canEdit = isRepaymentParty(r, myId) || r.created_by === myId;
         const isXcur = isXcurStr(r.note) || isXcurStr(r.offset_group);
         const xcurId = isXcur ? (r.offset_group || extractXcurId(r.note)) : null;
         const cleanNote = cleanXcurText(r.note);
@@ -6176,8 +6179,9 @@ function showExpenseDebtDetail(e){
   const expDebtModalRestoreBtn = document.getElementById("expDebtModalRestoreBtn");
   const isExpXcurDetail = isXcurStr(e.description);
   const expXcurIdDetail = isExpXcurDetail ? extractXcurId(e.description) : null;
+  const myId = myMember && myMember.id;
   if(expDebtModalEditBtn){
-    const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
+    const canEdit = isExpenseParty(e, myId) || e.created_by === myId;
     if(!canEdit){
       expDebtModalEditBtn.style.display = "none";
     } else if(isExpXcurDetail){
@@ -6199,7 +6203,7 @@ function showExpenseDebtDetail(e){
     }
   }
   if(expDebtModalRestoreBtn){
-    const canEdit = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
+    const canEdit = isExpenseParty(e, myId) || e.created_by === myId;
     if(canEdit && isExpXcurDetail){
       expDebtModalRestoreBtn.style.display = "inline-flex";
       expDebtModalRestoreBtn.onclick = () => {
@@ -6748,7 +6752,8 @@ function showPairDetail(
   const renderTimelineCard = (ev) => {
     if(ev.type === "expense"){
       const e = ev.expense;
-      const canEditExpense = isExpenseParty(e, myMember.id) || e.created_by === myMember.id;
+      const myId = myMember && myMember.id;
+      const canEditExpense = isExpenseParty(e, myId) || e.created_by === myId;
       const firstLine = getFirstLineDesc(e.description || "未命名支出");
       const isAiSplit = Boolean(e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細")));
       const isExpXcur = isXcurStr(e.description);
@@ -6789,9 +6794,10 @@ function showPairDetail(
 
     const r = ev.repayment;
     const amount = ev.amount;
+    const myId = myMember && myMember.id;
     const canEditRepay = r.offset_group
-      ? isRepaymentParty(r, myMember.id)
-      : (isRepaymentParty(r, myMember.id) || r.created_by === myMember.id);
+      ? isRepaymentParty(r, myId)
+      : (isRepaymentParty(r, myId) || r.created_by === myId);
     const isRepXcur = isXcurStr(r.note) || isXcurStr(r.offset_group);
     const repXcurId = isRepXcur ? (r.offset_group || extractXcurId(r.note)) : null;
     return `
