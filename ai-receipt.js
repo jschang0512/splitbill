@@ -57,55 +57,32 @@
     });
   }
 
-  let systemGeminiApiKey = localStorage.getItem("sb_cached_sys_gemini_key") || "";
+  // 舊版這裡會直接從 app_settings 資料表把「系統預設金鑰」讀到前端明碼
+  // （甚至還有一段用 anon key 打 REST API 的 fallback），導致任何人不用
+  // 登入都能把金鑰撈走。金鑰已改成只存在 Edge Function（見
+  // supabase/functions/gemini-receipt-proxy）的環境變數，前端完全碰不到；
+  // 這裡只保留「使用者自己填的個人 Key」這條路徑，沒填的話交給後端代打。
+  try { localStorage.removeItem("sb_cached_sys_gemini_key"); } catch(e){}
 
-  export async function fetchSystemGeminiApiKey(sb){
-    try {
-      if(typeof sb !== "undefined" && sb && sb.from){
-        const { data, error } = await sb.from("app_settings").select("value").eq("key", "gemini_api_key").single();
-        if(data && data.value && data.value.trim()){
-          systemGeminiApiKey = data.value.trim();
-          localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
-          return systemGeminiApiKey;
-        }
-      }
-    } catch(e){
-      console.warn("fetchSystemGeminiApiKey Supabase error, trying REST fallback:", e);
-    }
-
-    // Direct REST API Fallback
-    try {
-      const res = await fetch("https://ofevarwtqzvzrvhbanmf.supabase.co/rest/v1/app_settings?key=eq.gemini_api_key&select=value", {
-        headers: {
-          "apikey": "sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX",
-          "Authorization": "Bearer sb_publishable_pWT6foelsonrb1sLMXhnCw_oA3ytvaX"
-        }
-      });
-      if(res.ok){
-        const list = await res.json();
-        if(Array.isArray(list) && list.length > 0 && list[0].value){
-          systemGeminiApiKey = list[0].value.trim();
-          localStorage.setItem("sb_cached_sys_gemini_key", systemGeminiApiKey);
-          return systemGeminiApiKey;
-        }
-      }
-    } catch(restErr){
-      console.warn("REST app_settings fetch error:", restErr);
-    }
-
-    return systemGeminiApiKey || "";
-  }
-
-  async function getEffectiveGeminiKey(sb){
-    let userKey = (localStorage.getItem("splitbill_gemini_api_key") || "").trim();
-    if(userKey) return userKey;
-    return await fetchSystemGeminiApiKey(sb);
+  function getPersonalGeminiKey(){
+    return (localStorage.getItem("splitbill_gemini_api_key") || "").trim();
   }
 
   async function parseReceiptWithGemini(pureBase64, mimeType = "image/jpeg", apiKey = "", sb){
-    const activeKey = (apiKey || "").trim() || await getEffectiveGeminiKey(sb);
+    const activeKey = (apiKey || "").trim();
     if(!activeKey){
-      throw new Error("請先在「⚙️ 設定」中填寫 Gemini API Key，或由管理員於資料庫設定系統預設金鑰。");
+      // 沒有自己填 Key → 呼叫後端 Edge Function 代打，系統金鑰只存在
+      // 後端環境變數，這裡永遠拿不到、也不需要拿到。
+      if(!sb || !sb.functions){
+        throw new Error("請先在「⚙️ 設定」中填寫 Gemini API Key。");
+      }
+      const { data, error } = await sb.functions.invoke("gemini-receipt-proxy", {
+        body: { image: pureBase64, mimeType }
+      });
+      if(error || !data || data.error){
+        throw new Error((data && data.error) || (error && error.message) || "系統預設 AI 額度暫時無法使用，請先在「⚙️ 設定」中填寫自己的 Gemini API Key。");
+      }
+      return data.data;
     }
 
     const prompt = `You are an expert multilingual receipt & invoice OCR parsing AI. Analyze the image carefully.
@@ -1154,7 +1131,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     if(cropConfirmBtn){
       cropConfirmBtn.addEventListener("click", async ()=>{
         if(!currentRawImage) return;
-        const key = await getEffectiveGeminiKey(deps.sb);
+        const key = getPersonalGeminiKey();
         showScreen("loading");
         startAiProgress();
 

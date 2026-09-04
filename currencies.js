@@ -233,6 +233,84 @@ const CATEGORY_MAP = {
 window.CATEGORY_MAP = CATEGORY_MAP;
 
 // ============================================================
+// 收款帳戶選單——分兩組：常見不需要銀行帳號的行動支付（LINE Pay 等，
+// code 用內部代號、不是真的銀行代碼，畫面上不會顯示成「(代號)」），
+// 跟完整的台灣金融機構代號清單。使用者的銀行還是不在清單裡的話，
+// 銀行組最後留一個「其他銀行」選項，代碼留空、名稱自己再對照存摺
+// 確認即可，不會卡住無法儲存。
+// ============================================================
+const TAIWAN_BANKS = [
+  { code: "linepay", name: "LINE Pay", category: "wallet" },
+  { code: "jkopay", name: "街口支付", category: "wallet" },
+  { code: "taiwanpay", name: "台灣Pay", category: "wallet" },
+  { code: "easywallet", name: "悠遊付", category: "wallet" },
+  { code: "pxpay", name: "全支付", category: "wallet" },
+
+  { code: "004", name: "臺灣銀行" },
+  { code: "005", name: "土地銀行" },
+  { code: "006", name: "合作金庫" },
+  { code: "007", name: "第一銀行" },
+  { code: "008", name: "華南銀行" },
+  { code: "009", name: "彰化銀行" },
+  { code: "011", name: "上海商銀" },
+  { code: "012", name: "富邦銀行" },
+  { code: "013", name: "國泰世華" },
+  { code: "015", name: "輸出入銀行" },
+  { code: "016", name: "高雄銀行" },
+  { code: "017", name: "兆豐銀行" },
+  { code: "018", name: "農業金庫" },
+  { code: "021", name: "花旗台灣" },
+  { code: "039", name: "澳盛台灣" },
+  { code: "048", name: "王道銀行" },
+  { code: "050", name: "臺企銀行" },
+  { code: "052", name: "渣打銀行" },
+  { code: "053", name: "台中商銀" },
+  { code: "054", name: "京城銀行" },
+  { code: "081", name: "滙豐台灣" },
+  { code: "101", name: "瑞興銀行" },
+  { code: "102", name: "華泰銀行" },
+  { code: "103", name: "新光銀行" },
+  { code: "108", name: "陽信銀行" },
+  { code: "118", name: "板信銀行" },
+  { code: "147", name: "三信銀行" },
+  { code: "700", name: "中華郵政" },
+  { code: "803", name: "聯邦銀行" },
+  { code: "805", name: "遠東銀行" },
+  { code: "806", name: "元大銀行" },
+  { code: "807", name: "永豐銀行" },
+  { code: "808", name: "玉山銀行" },
+  { code: "809", name: "凱基銀行" },
+  { code: "810", name: "星展台灣" },
+  { code: "812", name: "台新銀行" },
+  { code: "814", name: "大眾銀行" },
+  { code: "815", name: "日盛銀行" },
+  { code: "816", name: "安泰銀行" },
+  { code: "822", name: "中國信託" },
+  { code: "823", name: "將來銀行" },
+  { code: "824", name: "連線銀行" },
+  { code: "826", name: "樂天銀行" },
+  { code: "", name: "其他銀行" }
+];
+window.TAIWAN_BANKS = TAIWAN_BANKS;
+
+// 銀行顯示格式統一成「國泰世華 (013)」；行動支付跟「其他銀行」沒有
+// 真正的三碼代號，就不畫蛇添足加一個假代號在後面，只顯示名稱。
+function formatBankLabel(code, name){
+  if(!name) return "";
+  return (code && /^\d{3}$/.test(code)) ? `${name} (${code})` : name;
+}
+window.formatBankLabel = formatBankLabel;
+
+// 收款帳戶「藥丸按鈕」收合狀態用的精簡標籤：銀行就顯示三碼代號本身
+// （例如「013」），行動支付/其他銀行沒有真正代號，就取名稱前兩個字
+// （例如「LINE Pay」取「LI」、「街口支付」取「街口」）。
+function formatBankShortLabel(code, name){
+  if(code && /^\d{3}$/.test(code)) return code;
+  return (name || "選擇").slice(0, 2);
+}
+window.formatBankShortLabel = formatBankShortLabel;
+
+// ============================================================
 // 多國同義詞與模糊關鍵字辭庫 (Synonym & Fuzzy Keyword Dictionary)
 // ============================================================
 const CATEGORY_KEYWORDS = {
@@ -897,14 +975,16 @@ function computeMemberNetBalanceTWD(memberId, expenses, repayments){
 }
 window.computeMemberNetBalanceTWD = computeMemberNetBalanceTWD;
 
-// 「你」跟某個特定對象之間的跨幣別淨結餘（換算成 TWD）。正數代表對方欠你，
-// 負數代表你欠對方。這裡不是拿真正的（事件時間軸式）債務明細演算法
+// 「你」跟某個特定對象之間的淨結餘，逐幣別分開列出（不像成就徽章/整體
+// 淨結餘那樣換算成 TWD 合併成一個數字）——使用者反映這裡如果直接跨幣別
+// 合併，看不出來是哪個幣別區欠的。回傳 { 幣別代碼: 淨額 }，正數代表對方
+// 欠你、負數代表你欠對方。這裡不是拿真正的（事件時間軸式）債務明細演算法
 // 來算——那套演算法（computeExpenseDebts/buildDebtMatrix）只存在 app.js、
 // 是逐幣別運作，且 summary.html 沒載入 app.js 用不到；這裡只是給個人資料卡
 // 一個簡單、透明、看得懂算法的「跟你的關係」參考數字，不是取代「逐筆債務表」
 // 那個權威數字，共同支出裡三人以上同時有淨額時本來就沒有唯一正確的兩兩分法。
-function computePairNetBalanceTWD(viewerId, otherId, expenses, repayments){
-  let net = 0; // 正數：對方欠你；負數：你欠對方
+function computePairNetBalanceByCurrency(viewerId, otherId, expenses, repayments){
+  const byCurrency = {}; // 正數：對方欠你；負數：你欠對方
 
   (expenses || []).forEach(e => {
     const cur = e.currency || "TWD";
@@ -917,26 +997,26 @@ function computePairNetBalanceTWD(viewerId, otherId, expenses, repayments){
     const otherShare = shares.find(s => s.member_id === otherId);
     if(viewerPaid && otherShare){
       const portion = (Number(viewerPaid.amount) || 0) / totalPaid;
-      net += convertToTWD((Number(otherShare.amount) || 0) * portion, cur);
+      byCurrency[cur] = (byCurrency[cur] || 0) + (Number(otherShare.amount) || 0) * portion;
     }
 
     const otherPaid = payers.find(p => p.member_id === otherId);
     const viewerShare = shares.find(s => s.member_id === viewerId);
     if(otherPaid && viewerShare){
       const portion = (Number(otherPaid.amount) || 0) / totalPaid;
-      net -= convertToTWD((Number(viewerShare.amount) || 0) * portion, cur);
+      byCurrency[cur] = (byCurrency[cur] || 0) - (Number(viewerShare.amount) || 0) * portion;
     }
   });
 
   (repayments || []).forEach(r => {
     const cur = r.currency || "TWD";
-    if(r.from_member === otherId && r.to_member === viewerId) net -= convertToTWD(r.amount, cur);
-    if(r.from_member === viewerId && r.to_member === otherId) net += convertToTWD(r.amount, cur);
+    if(r.from_member === otherId && r.to_member === viewerId) byCurrency[cur] = (byCurrency[cur] || 0) - (Number(r.amount) || 0);
+    if(r.from_member === viewerId && r.to_member === otherId) byCurrency[cur] = (byCurrency[cur] || 0) + (Number(r.amount) || 0);
   });
 
-  return net;
+  return byCurrency;
 }
-window.computePairNetBalanceTWD = computePairNetBalanceTWD;
+window.computePairNetBalanceByCurrency = computePairNetBalanceByCurrency;
 
 // ============================================================
 // 🎖️ 成員成就與趣味勳章系統 (Member Achievements & Badges - 跨幣別大一統)

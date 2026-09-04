@@ -137,12 +137,12 @@ async function loadGroupMembers(sb, currentUser, showLeftMembers){
 
   let MEMBERS = [];
   try {
-    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
     if(activeGroupId) query = query.eq("group_id", activeGroupId);
     const { data, error } = await query;
     if(error){
       console.error("讀取群組成員失敗：", error);
-      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
       MEMBERS = fallbackData || [];
     } else {
       MEMBERS = data || [];
@@ -323,183 +323,35 @@ function showToast(title, body, actionLabel, actionFn){
 }
 
 // ============================================================
-// 全站頭貼點擊/觸碰懸浮放大預覽卡片 (Floating Magnified Avatar Card)
+// 全站頭貼點擊 → 直接開啟成員個人資料彈窗 (Avatar Click → Member Profile Modal)
+// 原本這裡是先跳一張 2.6 秒後自動消失的懸浮小卡片、要再點一次小卡片才會
+// 打開完整資料彈窗，使用者反映多這一層沒必要，改成點一下頭像就直接開
+// 完整彈窗。
 // ============================================================
-(function initFloatingAvatarTooltip(){
-  let cardEl = null;
-  let hideTimer = null;
-
-  function getCardEl(){
-    if(!cardEl){
-      cardEl = document.createElement("div");
-      cardEl.id = "sbAvatarFloatingCard";
-      cardEl.className = "sb-avatar-floating-card";
-      // 點小卡片本身 → 升級成打開完整的個人資料彈窗（如果這個成員的 id
-      // 解析得出來、且頁面上有 #memberProfileModal 的話）。用 onclick
-      // 賦值而不是 addEventListener，因為 cardEl 只會建立這一次、之後
-      // 每次顯示都是覆寫同一個節點的內容，不會有重複綁定的問題。
-      cardEl.onclick = (e) => {
-        e.stopPropagation();
-        const mid = cardEl.dataset.memberId;
-        if(mid && typeof window.showMemberProfileModal === "function"){
-          hideCard();
-          window.showMemberProfileModal(mid);
-        }
-      };
-      document.body.appendChild(cardEl);
-    }
-    return cardEl;
-  }
-
-  function hideCard(){
-    if(cardEl){
-      cardEl.classList.remove("show");
-    }
-    if(hideTimer){
-      clearTimeout(hideTimer);
-      hideTimer = null;
-    }
-  }
-
-  function showCardForElement(targetEl){
-    if(!targetEl) return;
-    // 設定頁面與設定相關彈窗/編輯元件不觸發懸浮卡片
+(function initAvatarProfileClick(){
+  document.addEventListener("click", (e)=>{
+    // 設定頁面與設定相關彈窗/編輯元件（大頭貼裁切/上傳等）不觸發
     if(location.pathname.endsWith("settings.html") ||
        location.href.includes("settings.html") ||
-       targetEl.closest(".settings-card, #avatarCropModal, .avatar-crop-modal, .avatar-preview-wrap, .avatar-editor-modal, .profile-avatar-wrap, .member-manage-pill, .member-manage-row, .settings-section")){
+       e.target.closest(".settings-card, #avatarCropModal, .avatar-crop-modal, .avatar-preview-wrap, .avatar-editor-modal, .profile-avatar-wrap, .member-manage-pill, .member-manage-row, .settings-section")){
       return;
     }
 
     // 嚴格排除所有類別相關與圖表元素
-    if(targetEl.closest(".donut-slice, .donut-legend-item, .exp-cat-badge, .exp-cat-chip, .category-detail-modal-title, #catModalTitleWrap, .cat-modal-icon, .donut-center-info, .donut-svg-wrap, #donutScopeTabs, .exp-cat-dot")) return;
+    if(e.target.closest(".donut-slice, .donut-legend-item, .exp-cat-badge, .exp-cat-chip, .category-detail-modal-title, #catModalTitleWrap, .cat-modal-icon, .donut-center-info, .donut-svg-wrap, #donutScopeTabs, .exp-cat-dot")) return;
 
-    // 嚴格限定為人物頭貼元件
-    const avatar = targetEl.closest(".sb-avatar, .cat-exp-avatar-bubble, .mem-avatar, .avatar-wrap");
+    const avatar = e.target.closest(".sb-avatar, .cat-exp-avatar-bubble, .mem-avatar, .avatar-wrap");
     if(!avatar) return;
 
-    // 1. 取得名稱與原始文字
-    let rawName = avatar.dataset.name ||
-                  avatar.getAttribute("title") ||
-                  avatar.querySelector("[data-name]")?.dataset?.name ||
-                  avatar.querySelector(".sb-avatar-img")?.alt || "";
+    // 分攤人勾選、共同品項自付人勾選、多選篩選下拉選單裡的頭像維持原本
+    // 「點了切換勾選/篩選」的行為，不搶走點擊去開個人資料彈窗。
+    if(e.target.closest("label.check-pill, .sb-ms-item")) return;
 
-    if(!rawName || rawName === "?") return;
-
-    // 2. 格式化身分標籤與純淨姓名
-    let roleBadge = "";
-    let cleanName = rawName;
-    if(cleanName.startsWith("付款人:") || cleanName.startsWith("付款：")){
-      roleBadge = "💳 付款人";
-      cleanName = cleanName.replace(/^付款人[:：]\s*/, "");
-    } else if(cleanName.startsWith("應付人:") || cleanName.startsWith("應付：")){
-      roleBadge = "👥 應付人";
-      cleanName = cleanName.replace(/^應付人[:：]\s*/, "");
-    }
-
-    // (退出)/(銷毀) 是資料庫直接寫進暱稱的離開標籤，特地留著不濾掉，
-    // 其他括號內容（雜訊）維持原本邏輯照樣清掉。
-    let displayName = cleanName.replace(/\s*\((?!退出\)|銷毀\))[^)]*\)/g, "").trim();
-    if(!displayName) displayName = cleanName;
-
-    // 3. 取得頭像圖片或底色與字母
-    const imgEl = avatar.querySelector("img");
-    const imgSrc = (imgEl && imgEl.style.display !== "none" && imgEl.src) ? imgEl.src : "";
-    const initialEl = avatar.querySelector(".sb-avatar-initial");
-    const initialBg = (initialEl && initialEl.style.background) ? initialEl.style.background : (window.getAvatarColor ? window.getAvatarColor(displayName) : "#7A6B9E");
-    const initialChar = (initialEl && initialEl.textContent ? initialEl.textContent.trim() : displayName.charAt(0).toUpperCase()) || "?";
-
-    // 3.5 精確的成員 id（renderAvatarHTML 有塞 data-member-id 的話），有的話
-    // 優先拿來查徽章、拿來當「點小卡片打開完整資料彈窗」的依據——姓名字串
-    // 比對在同名成員時會誤判，id 精準很多。
     const memberId = avatar.dataset.memberId || "";
-
-    // 4. 計算該成員解鎖的勳章
-    const memberBadges = (window.getMemberBadges ? window.getMemberBadges(memberId || cleanName) : []).slice(0, 4);
-    const badgesHtml = memberBadges.length > 0
-      ? `<div class="sb-afc-badges">${memberBadges.map(b => `<span class="sb-afc-badge-chip" title="${escapeHtml(b.desc)}">${b.icon} ${escapeHtml(b.name)}</span>`).join("")}</div>`
-      : "";
-
-    const card = getCardEl();
-    card.dataset.memberId = memberId;
-    const avatarHtml = imgSrc
-      ? `<img src="${imgSrc}" class="sb-afc-avatar-img" alt="${escapeHtml(displayName)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="sb-afc-avatar-initial" style="display:none;background:${initialBg};">${escapeHtml(initialChar)}</span>`
-      : `<span class="sb-afc-avatar-initial" style="background:${initialBg};">${escapeHtml(initialChar)}</span>`;
-
-    card.innerHTML = `
-      <div class="sb-afc-avatar-wrap">
-        ${avatarHtml}
-      </div>
-      <div class="sb-afc-info">
-        <div class="sb-afc-name-row">
-          <span class="sb-afc-name">${escapeHtml(displayName)}</span>
-          ${roleBadge ? `<span class="sb-afc-role">${escapeHtml(roleBadge)}</span>` : ''}
-        </div>
-        ${badgesHtml}
-      </div>
-      <div class="sb-afc-arrow"></div>
-    `;
-
-    // 5. 精準定位至頭貼上方（並支援邊界自動翻轉、寬裕安全邊界與箭頭偏移校正）
-    const rect = avatar.getBoundingClientRect();
-    card.style.visibility = "hidden";
-    card.style.display = "flex";
-    card.classList.remove("flipped");
-
-    const cardRect = card.getBoundingClientRect();
-    const avatarCenterX = rect.left + rect.width / 2;
-    let topPos = rect.top - cardRect.height - 14;
-
-    // 若上方空間不足（< 16px），翻轉至下方
-    if(topPos < 16){
-      topPos = rect.bottom + 14;
-      card.classList.add("flipped");
-    }
-
-    // 確保底部也不超出視窗邊界
-    topPos = Math.max(12, Math.min(window.innerHeight - cardRect.height - 16, topPos));
-
-    // 左右兩側保留寬裕邊界（至少 18px）
-    const sideMargin = 18;
-    const minLeft = cardRect.width / 2 + sideMargin;
-    const maxLeft = window.innerWidth - cardRect.width / 2 - sideMargin;
-    let leftPos = avatarCenterX;
-    leftPos = Math.max(minLeft, Math.min(maxLeft, leftPos));
-
-    // 箭頭動態對齊頭貼中心
-    const arrow = card.querySelector(".sb-afc-arrow");
-    if(arrow){
-      const arrowLeft = Math.max(18, Math.min(cardRect.width - 18, (avatarCenterX - (leftPos - cardRect.width / 2))));
-      arrow.style.left = `${arrowLeft}px`;
-      arrow.style.transform = "translateX(-50%)";
-    }
-
-    card.style.top = `${topPos}px`;
-    card.style.left = `${leftPos}px`;
-    card.style.visibility = "visible";
-
-    // 6. 觸發平滑彈出動畫
-    card.classList.add("show");
-
-    if(hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(hideCard, 2600);
-  }
-
-  // 監聽全域點擊
-  document.addEventListener("click", (e)=>{
-    if(e.target.closest(".donut-slice, .donut-legend-item, .exp-cat-badge, .exp-cat-chip, .category-detail-modal-title, #catModalTitleWrap, .cat-modal-icon, .donut-center-info, .donut-svg-wrap, #donutScopeTabs, .exp-cat-dot")){
-      hideCard();
-      return;
-    }
-    const avatar = e.target.closest(".sb-avatar, .cat-exp-avatar-bubble, .mem-avatar, .avatar-wrap");
-    if(avatar){
-      showCardForElement(avatar);
-    } else {
-      hideCard();
+    if(memberId && typeof window.showMemberProfileModal === "function"){
+      window.showMemberProfileModal(memberId);
     }
   }, { passive: true });
-
-  // 滾動時自動隱藏
-  window.addEventListener("scroll", hideCard, { passive: true });
 })();
 
 // ============================================================
@@ -549,21 +401,64 @@ async function showMemberProfileModal(memberId){
     balanceEl.className = "member-profile-balance " + cls;
   }
 
-  // 跟「我」的關係：只有在看別人的資料卡時才顯示（自己不會欠自己）。
+  // 跟「我」的關係：只有在看別人的資料卡時才顯示（自己不會欠自己），
+  // 逐幣別分開列出、不跨幣別合併，才看得出來是哪個幣別區欠的。
   const relationEl = document.getElementById("memberProfileRelation");
   if(relationEl){
     const viewerId = window.myMember && window.myMember.id;
-    if(viewerId && viewerId !== memberId && typeof window.computePairNetBalanceTWD === "function"){
-      const pairTWD = window.computePairNetBalanceTWD(viewerId, memberId, expenses, repayments);
-      const cls = pairTWD > 0.5 ? "pos" : pairTWD < -0.5 ? "neg" : "zero";
-      const label = pairTWD > 0.5 ? `他欠你 NT$${Math.round(pairTWD).toLocaleString()}`
-        : pairTWD < -0.5 ? `你欠他 NT$${Math.round(Math.abs(pairTWD)).toLocaleString()}`
-        : "你們目前沒有互相欠款";
-      relationEl.textContent = "跟你的關係：" + label;
-      relationEl.className = "member-profile-relation " + cls;
+    if(viewerId && viewerId !== memberId && typeof window.computePairNetBalanceByCurrency === "function"){
+      const byCurrency = window.computePairNetBalanceByCurrency(viewerId, memberId, expenses, repayments);
+      const allCurrencies = (typeof CURRENCIES !== "undefined" && CURRENCIES) || [];
+      const rows = Object.keys(byCurrency)
+        .map(cur => ({ cur, amt: byCurrency[cur] }))
+        .filter(x => Math.abs(x.amt) > 0.5)
+        .map(x => {
+          const curObj = allCurrencies.find(c => c.code === x.cur);
+          const sym = curObj ? curObj.symbol : x.cur;
+          const curLabel = curObj ? curObj.label : x.cur;
+          const amtText = window.formatAmt ? window.formatAmt(Math.abs(x.amt)) : Math.round(Math.abs(x.amt));
+          const cls = x.amt > 0 ? "pos" : "neg";
+          const label = x.amt > 0 ? `他欠你 ${sym}${amtText}` : `你欠他 ${sym}${amtText}`;
+          return `<div class="member-profile-relation-row ${cls}"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>${escapeHtml(label)}</div>`;
+        });
+      relationEl.innerHTML = rows.length ? rows.join("") : `<div class="member-profile-relation-row zero">目前沒有互相欠款</div>`;
       relationEl.classList.remove("hidden");
     } else {
       relationEl.classList.add("hidden");
+    }
+  }
+
+  const paymentInfoEl = document.getElementById("memberProfilePaymentInfo");
+  if(paymentInfoEl){
+    const accounts = Array.isArray(member.payment_accounts) ? member.payment_accounts.filter(a => a && (a.bankName || a.account)) : [];
+    if(accounts.length){
+      paymentInfoEl.innerHTML = `<span class="member-profile-payment-label">💳 收款帳戶</span>` +
+        accounts.map((acc, idx) => {
+          const label = window.formatBankLabel ? window.formatBankLabel(acc.bankCode, acc.bankName) : (acc.bankName || "");
+          const valueText = acc.account ? `${label} ${acc.account}` : label;
+          const copyBtn = acc.account ? `<button type="button" class="member-profile-payment-copy" data-account="${escapeHtml(acc.account)}" title="複製帳號">📋</button>` : "";
+          return `
+          <div class="member-profile-payment-row">
+            <span class="member-profile-payment-index">${idx + 1}</span>
+            <span class="member-profile-payment-value">${escapeHtml(valueText)}</span>
+            ${copyBtn}
+          </div>
+        `;
+        }).join("");
+      paymentInfoEl.classList.remove("hidden");
+      paymentInfoEl.querySelectorAll(".member-profile-payment-copy").forEach(btn => {
+        btn.addEventListener("click", async ()=>{
+          const num = btn.dataset.account;
+          if(!num) return;
+          try {
+            await navigator.clipboard.writeText(num);
+            btn.textContent = "✓";
+            setTimeout(()=>{ btn.textContent = "📋"; }, 1200);
+          } catch(e){}
+        });
+      });
+    } else {
+      paymentInfoEl.classList.add("hidden");
     }
   }
 

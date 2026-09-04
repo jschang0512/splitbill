@@ -168,7 +168,7 @@ textarea:focus, .amt-row-input:focus, .search-inp:focus {
 
 /* ---------- 5. 防止手機彈窗與下拉選單滾動穿透 (Overscroll Contain) ---------- */
 .modal, .calc-modal, .calc-card, .quick-exp-modal-card, .matrix-scroll,
-.history-scroll, .select-menu, .dropdown-menu, .sb-avatar-floating-card,
+.history-scroll, .select-menu, .dropdown-menu,
 .chart-gran-menu, .donut-time-range-menu, .checks-scroll-box, .amt-grid-scroll-box {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -8375,98 +8375,9 @@ body.dark-mode .sb-search-match {
 }
 
 /* ============================================================
-   全站頭貼懸浮放大預覽卡片 (Floating Magnified Avatar Card)
+   徽章 chip 樣式（成員個人資料彈窗的「已解鎖成就」列表用，原本是
+   懸浮預覽小卡片的樣式，小卡片機制拿掉後只留這個還在用的部分）
    ============================================================ */
-.sb-avatar-floating-card{
-  position: fixed;
-  z-index: 9999999;
-  display: none;
-  align-items: center;
-  gap: 14px;
-  background: var(--menu-bg);
-  color: var(--ink);
-  padding: 10px 18px 10px 10px;
-  border-radius: 40px;
-  box-shadow: var(--menu-shadow);
-  border: 1px solid var(--menu-border);
-  transform: translate(-50%, 0) scale(0.85);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  white-space: nowrap;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-.sb-avatar-floating-card.show{
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate(-50%, 0) scale(1);
-  animation: sbAfcPop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
-  cursor: pointer;
-}
-@keyframes sbAfcPop {
-  0% { opacity: 0; transform: translate(-50%, 4px) scale(0.85); }
-  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-}
-.sb-afc-avatar-wrap{
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-  border: 2.5px solid var(--menu-bg);
-  transition: transform 0.2s ease;
-}
-.sb-afc-avatar-img{
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.sb-afc-avatar-initial{
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 24px;
-  font-weight: 800;
-  text-transform: uppercase;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-.sb-afc-info{
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.sb-afc-name-row{
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.sb-afc-name{
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.2;
-}
-.sb-afc-role{
-  font-size: 12px;
-  color: var(--ink-soft);
-  font-weight: 500;
-}
-.sb-afc-badges{
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
 .sb-afc-badge-chip{
   font-size: 11px;
   background: color-mix(in srgb, var(--btn-primary) 14%, var(--card));
@@ -8483,23 +8394,6 @@ body.dark-mode .sb-search-match {
 .sb-afc-badge-chip:hover{
   transform: translateY(-1px);
   background: color-mix(in srgb, var(--btn-primary) 24%, var(--card));
-}
-.sb-afc-arrow{
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 7px solid var(--menu-bg);
-}
-.sb-avatar-floating-card.flipped .sb-afc-arrow{
-  top: auto;
-  bottom: 100%;
-  border-top: none;
-  border-bottom: 7px solid var(--menu-bg);
 }
 
 /* ============================================================
@@ -8636,17 +8530,251 @@ body.dark-mode .sb-search-match {
 .member-profile-balance.neg{ color: var(--negative-text); font-weight: 700; }
 .member-profile-balance.zero{ color: var(--ink-soft); }
 .member-profile-relation{
-  margin-top: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 999px;
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
   background: var(--card);
   border: 1px solid var(--line);
+  text-align: left;
 }
-.member-profile-relation.pos{ color: var(--positive-text); border-color: color-mix(in srgb, var(--positive-text) 40%, var(--line)); }
-.member-profile-relation.neg{ color: var(--negative-text); border-color: color-mix(in srgb, var(--negative-text) 40%, var(--line)); }
-.member-profile-relation.zero{ color: var(--ink-soft); }
+.member-profile-relation-row{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.member-profile-relation-row.pos{ color: var(--positive-text); }
+.member-profile-relation-row.neg{ color: var(--negative-text); }
+.member-profile-relation-row.zero{ color: var(--ink-soft); font-weight: 500; }
+.member-profile-relation-currency-tag{
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, var(--card));
+  color: inherit;
+}
+.member-profile-payment-info{
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--btn-primary) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--btn-primary) 20%, var(--line));
+  text-align: left;
+}
+.member-profile-payment-label{
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.member-profile-payment-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.member-profile-payment-index{
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--btn-primary) 18%, var(--card));
+  color: var(--btn-primary);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.member-profile-payment-value{
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
+}
+.member-profile-payment-copy{
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: background .15s ease;
+}
+.member-profile-payment-copy:hover{
+  background: color-mix(in srgb, var(--btn-primary) 14%, transparent);
+}
+
+/* 設定頁：收款帳戶多筆列表 */
+.payment-accounts-list{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+.payment-account-row{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  transition: transform .15s ease;
+  background: var(--paper);
+}
+.payment-account-row.dragging{
+  transition: none;
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  border-radius: 8px;
+}
+.payment-account-drag-handle{
+  flex-shrink: 0;
+  width: 22px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.payment-account-row.dragging .payment-account-drag-handle{
+  cursor: grabbing;
+  color: var(--btn-primary);
+}
+.payment-account-row .payment-account-num{
+  flex: 1;
+  min-width: 0;
+}
+/* 銀行/行動支付選擇改成藥丸按鈕＋彈出清單，取代原生 <select>——select
+   的內容寬度沒辦法縮小，手機版一行塞不下文字會被裁切；藥丸按鈕收合時
+   只顯示代碼或名稱前兩字，寬度固定很窄，帳號欄位就有足夠空間，任何
+   螢幕寬度都不用再靠斷點拆行。 */
+.payment-bank-picker{
+  position: relative;
+  flex-shrink: 0;
+}
+.payment-bank-trigger{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s ease;
+}
+.payment-bank-trigger:hover{
+  background: color-mix(in srgb, var(--btn-primary) 12%, var(--card));
+  color: var(--btn-primary);
+  border-color: color-mix(in srgb, var(--btn-primary) 30%, var(--line));
+}
+.payment-bank-popover{
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 220px;
+  max-width: 80vw;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--menu-bg);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--menu-border);
+  border-radius: 14px;
+  box-shadow: var(--menu-shadow);
+  z-index: 999999;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.payment-bank-group-label{
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 6px 8px 2px;
+}
+.payment-bank-option{
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 13px;
+  font-family: "Noto Sans TC", sans-serif;
+  cursor: pointer;
+  transition: background .1s ease;
+}
+.payment-bank-option:hover{
+  background: color-mix(in srgb, var(--paper) 60%, var(--card));
+}
+.payment-bank-option.active{
+  background: color-mix(in srgb, var(--btn-primary) 14%, var(--card));
+  color: var(--btn-primary);
+  font-weight: 700;
+}
+.payment-account-copy,
+.payment-account-del{
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--card-nested-border);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.payment-account-copy:hover,
+.payment-account-del:hover{
+  border-color: var(--btn-primary);
+}
+.payment-account-del{
+  color: var(--negative-text);
+}
+.payment-account-del:hover{
+  border-color: var(--negative-text);
+  background: color-mix(in srgb, var(--negative-text) 12%, var(--paper));
+}
+.payment-account-add-row{
+  display: block;
+  margin-top: 4px;
+}
+#savePaymentInfoBtn.payment-account-save-btn{
+  margin-top: 12px;
+}
 .member-profile-section-title{
   margin-top: 18px;
   align-self: flex-start;

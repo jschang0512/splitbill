@@ -706,7 +706,6 @@
     };
     const aiReceiptModule = await import("./ai-receipt.js?v=" + APP_VERSION);
     aiReceiptModule.setupAiReceiptModal(aiReceiptDeps);
-    aiReceiptModule.fetchSystemGeminiApiKey(sb);
 
     // 從總表頁「快速記帳」按了「改用照片自動拆單」跳過來的（?ai=1），
     // 直接開拍照拆單看板本身。

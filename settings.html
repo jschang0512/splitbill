@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=697">
-<link rel="stylesheet" href="shared.css?v=697">
+<link rel="stylesheet" href="theme.css?v=721">
+<link rel="stylesheet" href="shared.css?v=721">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=697"></script>
-<script src="version.js?v=697"></script>
-<script src="shared-ui.js?v=697"></script>
-<script src="theme.js?v=697" defer></script>
-<script src="app-banner.js?v=697" defer></script>
+<script src="currencies.js?v=721"></script>
+<script src="version.js?v=721"></script>
+<script src="shared-ui.js?v=721"></script>
+<script src="theme.js?v=721" defer></script>
+<script src="app-banner.js?v=721" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -185,6 +185,18 @@ if("serviceWorker" in navigator){
           </div>
           <p class="settings-hint" id="emailStatusHint"></p>
           <div class="msg" id="emailMsg"></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-section-title">收款帳戶</div>
+
+          <p class="settings-hint" id="infoPaymentInfo">填寫後，其他成員點開你的頭像查看個人資料時就會看到，方便他們知道該轉帳到哪裡還你錢。可以依偏好順序，由上而下新增多筆帳戶。</p>
+          <div class="payment-accounts-list" id="paymentAccountsList"></div>
+          <div class="payment-account-add-row">
+            <button type="button" class="link-btn" id="addPaymentAccountBtn">+ 新增帳戶</button>
+          </div>
+          <button class="btn secondary small payment-account-save-btn" id="savePaymentInfoBtn">儲存</button>
+          <div class="msg" id="paymentInfoMsg"></div>
         </div>
 
         <div class="settings-group">
@@ -1416,6 +1428,192 @@ if(backBtn){
     });
   }
 
+  // ---------- 收款帳戶：可新增多筆，每筆是「銀行/行動支付 + 帳號」 ----------
+  // 銀行選單原本用原生 <select>，但 select 的內容寬度沒辦法縮小，手機
+  // 版一行塞不下文字會被裁切。改成藥丸按鈕（收合時只顯示代碼，例如
+  // 「013」；行動支付/其他銀行沒有真代碼就顯示名稱前兩字）+ 點下去才
+  // 彈出的完整清單，觸發按鈕本身可以做得很窄，帳號欄位就有足夠空間，
+  // 不用再靠斷點拆行。
+  function bankNameForCode(code){
+    const b = (window.TAIWAN_BANKS || []).find(x => x.code === code);
+    return b ? b.name : "";
+  }
+  function isWalletCode(code){
+    const b = (window.TAIWAN_BANKS || []).find(x => x.code === code);
+    return !!(b && b.category === "wallet");
+  }
+  function bankPopoverHtml(selectedCode){
+    const all = window.TAIWAN_BANKS || [];
+    const opt = b => `<button type="button" class="payment-bank-option${b.code === selectedCode ? " active" : ""}" data-code="${b.code}">${window.formatBankLabel ? window.formatBankLabel(b.code, b.name) : b.name}</button>`;
+    const wallets = all.filter(b => b.category === "wallet");
+    const banks = all.filter(b => b.category !== "wallet");
+    return `
+      <div class="payment-bank-popover hidden">
+        <div class="payment-bank-group-label">行動支付</div>
+        ${wallets.map(opt).join("")}
+        <div class="payment-bank-group-label">銀行</div>
+        ${banks.map(opt).join("")}
+      </div>
+    `;
+  }
+  function closeAllBankPopovers(){
+    document.querySelectorAll(".payment-bank-popover").forEach(p => p.classList.add("hidden"));
+  }
+  document.addEventListener("click", (e)=>{
+    if(!e.target.closest(".payment-bank-picker")) closeAllBankPopovers();
+  });
+  function wirePaymentAccountRow(rowEl){
+    const pickerEl = rowEl.querySelector(".payment-bank-picker");
+    const triggerEl = rowEl.querySelector(".payment-bank-trigger");
+    const popoverEl = rowEl.querySelector(".payment-bank-popover");
+    const numInp = rowEl.querySelector(".payment-account-num");
+    if(triggerEl && popoverEl){
+      triggerEl.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const willOpen = popoverEl.classList.contains("hidden");
+        closeAllBankPopovers();
+        popoverEl.classList.toggle("hidden", !willOpen);
+      });
+      popoverEl.querySelectorAll(".payment-bank-option").forEach(optBtn => {
+        optBtn.addEventListener("click", ()=>{
+          const code = optBtn.dataset.code;
+          pickerEl.dataset.code = code;
+          triggerEl.textContent = window.formatBankShortLabel ? window.formatBankShortLabel(code, bankNameForCode(code)) : code;
+          popoverEl.querySelectorAll(".payment-bank-option").forEach(o => o.classList.toggle("active", o === optBtn));
+          popoverEl.classList.add("hidden");
+          if(numInp) numInp.placeholder = isWalletCode(code) ? "帳號（選填）" : "帳號";
+        });
+      });
+    }
+    const copyBtn = rowEl.querySelector(".payment-account-copy");
+    if(copyBtn){
+      copyBtn.addEventListener("click", async ()=>{
+        const num = rowEl.querySelector(".payment-account-num").value.trim();
+        if(!num) return;
+        try {
+          await navigator.clipboard.writeText(num);
+          copyBtn.textContent = "✓";
+          setTimeout(()=>{ copyBtn.textContent = "📋"; }, 1200);
+        } catch(e){}
+      });
+    }
+    const delBtn = rowEl.querySelector(".payment-account-del");
+    if(delBtn) delBtn.addEventListener("click", ()=> rowEl.remove());
+  }
+  function addPaymentAccountRow(acc){
+    const wrap = document.getElementById("paymentAccountsList");
+    if(!wrap) return;
+    const row = document.createElement("div");
+    row.className = "payment-account-row";
+    // 新增空白列時預設選第一個行動支付選項（跟原本 <select> 的預設行為一致）
+    const firstOption = (window.TAIWAN_BANKS || [])[0];
+    const initialCode = (acc && acc.bankCode) || (firstOption ? firstOption.code : "");
+    const initialShortLabel = window.formatBankShortLabel ? window.formatBankShortLabel(initialCode, bankNameForCode(initialCode)) : initialCode;
+    row.innerHTML = `
+      <button type="button" class="payment-account-drag-handle" title="拖曳調整順序" aria-label="拖曳調整順序">⠿</button>
+      <div class="payment-bank-picker" data-code="${initialCode}">
+        <button type="button" class="payment-bank-trigger">${escapeHtml(initialShortLabel)}</button>
+        ${bankPopoverHtml(initialCode)}
+      </div>
+      <input type="text" class="payment-account-num" placeholder="${isWalletCode(initialCode) ? "帳號（選填）" : "帳號"}" value="${escapeHtml((acc && acc.account) || "")}">
+      <button type="button" class="payment-account-copy" title="複製帳號" aria-label="複製帳號">📋</button>
+      <button type="button" class="payment-account-del" title="刪除這個帳戶" aria-label="刪除">✕</button>
+    `;
+    wrap.appendChild(row);
+    wirePaymentAccountRow(row);
+  }
+  function renderPaymentAccountRows(accounts){
+    const wrap = document.getElementById("paymentAccountsList");
+    if(!wrap) return;
+    wrap.innerHTML = "";
+    (accounts || []).forEach(acc => addPaymentAccountRow(acc));
+  }
+
+  // 拖曳調整帳戶順序：拖曳中用 transform 讓其他列即時讓位（只是視覺上
+  // 位移，DOM 順序不變），放開的那一刻才真的用 insertBefore 搬動 DOM
+  // 節點一次——比「拖曳過程中不斷即時搬動 DOM」簡單很多，不用處理
+  // 搬動後座標系整個變動、transform 要重新校正的問題。儲存時就是照
+  // 目前 DOM 順序讀出每一列，所以排序完不用額外再存一個順序欄位。
+  (function initPaymentAccountDragReorder(){
+    const wrap = document.getElementById("paymentAccountsList");
+    if(!wrap) return;
+    wrap.addEventListener("pointerdown", (e)=>{
+      const handle = e.target.closest(".payment-account-drag-handle");
+      if(!handle) return;
+      const row = handle.closest(".payment-account-row");
+      if(!row) return;
+      e.preventDefault();
+
+      const rows = [...wrap.querySelectorAll(".payment-account-row")];
+      const startIndex = rows.indexOf(row);
+      const startY = e.clientY;
+      const rowHeight = row.getBoundingClientRect().height + 3;
+      let targetIndex = startIndex;
+
+      row.classList.add("dragging");
+      try { handle.setPointerCapture(e.pointerId); } catch(err){}
+
+      function onMove(ev){
+        const dy = ev.clientY - startY;
+        row.style.transform = `translateY(${dy}px)`;
+        const shift = Math.round(dy / rowHeight);
+        targetIndex = Math.max(0, Math.min(rows.length - 1, startIndex + shift));
+        rows.forEach((r, i) => {
+          if(r === row) return;
+          let visualIndex = i;
+          if(i > startIndex && i <= targetIndex) visualIndex = i - 1;
+          else if(i < startIndex && i >= targetIndex) visualIndex = i + 1;
+          const offset = (visualIndex - i) * rowHeight;
+          r.style.transform = offset ? `translateY(${offset}px)` : "";
+        });
+      }
+      function onUp(ev){
+        row.classList.remove("dragging");
+        try { handle.releasePointerCapture(ev.pointerId); } catch(err){}
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        rows.forEach(r => { r.style.transform = ""; });
+        if(targetIndex !== startIndex){
+          const others = rows.filter(r => r !== row);
+          const ref = others[targetIndex] || null;
+          if(ref) wrap.insertBefore(row, ref);
+          else wrap.appendChild(row);
+        }
+      }
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  })();
+
+  const addPaymentAccountBtn = document.getElementById("addPaymentAccountBtn");
+  if(addPaymentAccountBtn){
+    addPaymentAccountBtn.addEventListener("click", ()=> addPaymentAccountRow(null));
+  }
+
+  const savePaymentInfoBtn = document.getElementById("savePaymentInfoBtn");
+  if(savePaymentInfoBtn){
+    savePaymentInfoBtn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("paymentInfoMsg");
+      const rows = [...document.querySelectorAll("#paymentAccountsList .payment-account-row")];
+      const accounts = rows.map(row => {
+        const bankCode = row.querySelector(".payment-bank-picker").dataset.code || "";
+        const account = row.querySelector(".payment-account-num").value.trim();
+        const bankObj = (window.TAIWAN_BANKS || []).find(b => b.code === bankCode);
+        return { bankCode, bankName: bankObj ? bankObj.name : "", account, isWallet: !!(bankObj && bankObj.category === "wallet") };
+      // 行動支付不用填帳號也能存，銀行轉帳沒填帳號的列才略過不存。
+      }).filter(a => a.account || a.isWallet)
+        .map(({ isWallet, ...rest }) => rest);
+      // 收款帳戶是「帳號」層級的設定、不分群組，所以跟大頭貼一樣用
+      // user_id 一次更新這個使用者在所有群組裡的 members 列，而不是只
+      // 更新目前這個群組的那一列。
+      const { error } = await sb.from("members").update({ payment_accounts: accounts }).eq("user_id", currentUser.id);
+      if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
+      await loadMembers();
+      renderPaymentAccountRows(accounts);
+      msg.textContent = accounts.length ? "收款帳戶已更新！" : "已清除收款帳戶"; msg.className = "msg ok";
+    });
+  }
+
   const saveEmailBtn = document.getElementById("saveEmailBtn");
   if(saveEmailBtn){
     saveEmailBtn.addEventListener("click", async ()=>{
@@ -1752,6 +1950,7 @@ if(backBtn){
       if(nameInp && myMember) nameInp.value = myMember.accountName || "";
       const nicknameInp = document.getElementById("settingsNickname");
       if(nicknameInp && myMember) nicknameInp.value = myMember.nickname || "";
+      if(myMember) renderPaymentAccountRows(myMember.payment_accounts || []);
 
       // 掃 QR code 邀請碼進來時，index.html 的 <head> 那段腳本已經把邀請碼
       // 存進 localStorage 了；但這裡是「已經有帳號、已經在某個群組裡」的
