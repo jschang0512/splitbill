@@ -577,6 +577,95 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       if(cr) cr.classList.toggle("hidden", screen !== "crop");
       if(ld) ld.classList.toggle("hidden", screen !== "loading");
       if(cl) cl.classList.toggle("hidden", screen !== "claim");
+      if(screen === "claim") showAiClaimSubStep(0);
+    }
+
+    // ============================================================
+    // 📝 品項認領 → 付款人/日期 → 分攤預覽送出：延伸上面 showScreen()
+    // 同一套 classList.toggle("hidden", ...) 模式，只是這裡切的是
+    // aiReceiptClaimScreen 內部的 3 個子畫面。跟「新增支出」表單的
+    // createFormWizard() 是刻意分開的兩套邏輯（見計畫文件）。
+    // ============================================================
+    const aiClaimSubStepLabels = ["品項認領","付款人/日期","分攤預覽送出"];
+    let aiClaimSubStepIndex = 0;
+
+    function getUnclaimedItemsCount(){
+      return receiptClaimItems.filter(it => it.qtyMode
+        ? !Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0)
+        : it.claimedMemberIds.length === 0).length;
+    }
+
+    function validateAiPayers(finalTotal){
+      const curSym = getReceiptSymbol();
+      if(aiPayerMode === "single"){
+        const payerId = aiPaidBySingle ? aiPaidBySingle.value : (deps.getState().myMember && deps.getState().myMember.id);
+        if(!payerId) return { ok:false, message:"請選擇付款人！" };
+        return { ok:true, payers: [{ member_id: payerId, amount: finalTotal }] };
+      }
+      const payers = [];
+      if(aiPayerMultiList){
+        aiPayerMultiList.querySelectorAll(".ai-multi-payer-input").forEach(inp => {
+          const amt = Number(inp.value) || 0;
+          if(amt > 0) payers.push({ member_id: inp.dataset.id, amount: amt });
+        });
+      }
+      if(!payers.length) return { ok:false, message:"多人付款模式下至少需有一人輸入付款金額！" };
+      const payerSum = payers.reduce((acc, p) => acc + p.amount, 0);
+      if(Math.abs(payerSum - finalTotal) >= 0.5){
+        return { ok:false, message:`付款人總額 (${curSym}${deps.formatAmt(payerSum)}) 與支出總額 (${curSym}${deps.formatAmt(finalTotal)}) 不符，請調整！` };
+      }
+      return { ok:true, payers };
+    }
+
+    function updateAiClaimWizardChrome(index){
+      document.querySelectorAll("#aiClaimWizardDots .form-wizard-dot").forEach((dot, i)=>{
+        dot.classList.toggle("active", i === index);
+        dot.classList.toggle("done", i < index);
+      });
+      const titleEl = document.getElementById("aiClaimWizardStepTitle");
+      if(titleEl) titleEl.textContent = `步驟 ${index+1} / 3・${aiClaimSubStepLabels[index]}`;
+      const backBtn = document.getElementById("aiClaimWizardBackBtn");
+      if(backBtn) backBtn.classList.toggle("hidden", index === 0);
+      const nextBtn = document.getElementById("aiClaimWizardNextBtn");
+      if(nextBtn) nextBtn.classList.toggle("hidden", index === aiClaimSubStepLabels.length - 1);
+    }
+
+    function showAiClaimSubStep(index){
+      if(index < 0 || index > 2) return;
+      aiClaimSubStepIndex = index;
+      const step1 = document.getElementById("aiClaimSubStep1");
+      const step2 = document.getElementById("aiClaimSubStep2");
+      const step3 = document.getElementById("aiClaimSubStep3");
+      if(step1) step1.classList.toggle("hidden", index !== 0);
+      if(step2) step2.classList.toggle("hidden", index !== 1);
+      if(step3) step3.classList.toggle("hidden", index !== 2);
+      updateAiClaimWizardChrome(index);
+    }
+
+    function goAiClaimNext(){
+      const msgTarget = document.getElementById("aiClaimWizardMsg");
+      if(aiClaimSubStepIndex === 0){
+        const unclaimedCount = getUnclaimedItemsCount();
+        if(unclaimedCount > 0){
+          if(msgTarget){ msgTarget.textContent = `還有 ${unclaimedCount} 個品項尚未認領，請先完成所有品項的分攤認領`; msgTarget.className = "msg error"; }
+          return;
+        }
+      } else if(aiClaimSubStepIndex === 1){
+        const { subtotal, netExtraFees } = calculateMemberTotals();
+        const calculatedTotal = taxType === "inclusive" ? roundAmt(subtotal - (Number(currentReceiptData && currentReceiptData.discount) || 0)) : roundAmt(subtotal + netExtraFees);
+        const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
+        const result = validateAiPayers(finalTotal);
+        if(!result.ok){
+          if(msgTarget){ msgTarget.textContent = result.message; msgTarget.className = "msg error"; }
+          return;
+        }
+      }
+      if(msgTarget){ msgTarget.textContent = ""; msgTarget.className = "msg"; }
+      showAiClaimSubStep(Math.min(aiClaimSubStepIndex + 1, 2));
+    }
+
+    function goAiClaimBack(){
+      showAiClaimSubStep(Math.max(aiClaimSubStepIndex - 1, 0));
     }
 
     let aiProgressInterval = null;
@@ -1839,10 +1928,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       // 更新頂部防漏單進度條
       const totalItemsCount = receiptClaimItems.length;
-      const isItemClaimed = it => it.qtyMode
-        ? Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0)
-        : it.claimedMemberIds.length > 0;
-      const unclaimedCount = receiptClaimItems.filter(it => !isItemClaimed(it)).length;
+      const unclaimedCount = getUnclaimedItemsCount();
       const claimedItemsCount = totalItemsCount - unclaimedCount;
       const claimPercent = totalItemsCount > 0 ? Math.round((claimedItemsCount / totalItemsCount) * 100) : 0;
 
@@ -2050,6 +2136,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       });
     }
 
+    const aiClaimWizardNextBtn = document.getElementById("aiClaimWizardNextBtn");
+    const aiClaimWizardBackBtn = document.getElementById("aiClaimWizardBackBtn");
+    if(aiClaimWizardNextBtn) aiClaimWizardNextBtn.addEventListener("click", goAiClaimNext);
+    if(aiClaimWizardBackBtn) aiClaimWizardBackBtn.addEventListener("click", goAiClaimBack);
+
     // 🌟 一鍵直接記帳（無需跳回支出表單）
     if(aiDirectSaveBtn){
       aiDirectSaveBtn.addEventListener("click", async ()=>{
@@ -2061,11 +2152,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const curSym = getReceiptSymbol();
         const curLabel = getReceiptCurrencyLabel();
 
-        const unclaimedItems = receiptClaimItems.filter(it => it.qtyMode
-          ? !Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0)
-          : it.claimedMemberIds.length === 0);
-        if(unclaimedItems.length > 0){
-          await sbAlert(`還有 ${unclaimedItems.length} 個品項尚未認領，請點擊成員頭像完成所有品項的分攤認領後，再進行儲存記帳！`, "⚠️ 請先完成所有品項認領");
+        const unclaimedCountAtSave = getUnclaimedItemsCount();
+        if(unclaimedCountAtSave > 0){
+          await sbAlert(`還有 ${unclaimedCountAtSave} 個品項尚未認領，請點擊成員頭像完成所有品項的分攤認領後，再進行儲存記帳！`, "⚠️ 請先完成所有品項認領");
           return;
         }
 
@@ -2083,32 +2172,13 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           return;
         }
 
-        // 1. 付款人校驗
-        let payers = [];
-        if(aiPayerMode === "single"){
-          const payerId = aiPaidBySingle ? aiPaidBySingle.value : (deps.getState().myMember && deps.getState().myMember.id);
-          if(!payerId){
-            await sbAlert("請選擇付款人！", "付款人未選");
-            return;
-          }
-          payers = [{ member_id: payerId, amount: finalTotal }];
-        } else {
-          if(aiPayerMultiList){
-            aiPayerMultiList.querySelectorAll(".ai-multi-payer-input").forEach(inp => {
-              const amt = Number(inp.value) || 0;
-              if(amt > 0) payers.push({ member_id: inp.dataset.id, amount: amt });
-            });
-          }
-          if(!payers.length){
-            await sbAlert("多人付款模式下至少需有一人輸入付款金額！", "付款人未填");
-            return;
-          }
-          const payerSum = payers.reduce((acc, p) => acc + p.amount, 0);
-          if(Math.abs(payerSum - finalTotal) >= 0.5){
-            await sbAlert(`付款人總額 (${curSym}${deps.formatAmt(payerSum)}) 與支出總額 (${curSym}${deps.formatAmt(finalTotal)}) 不符，請調整！`, "付款總額不符");
-            return;
-          }
+        // 1. 付款人校驗（跟 Step 2「付款人/日期」下一步用同一套 validateAiPayers()）
+        const payerCheck = validateAiPayers(finalTotal);
+        if(!payerCheck.ok){
+          await sbAlert(payerCheck.message, "付款人資料有誤");
+          return;
         }
+        const payers = payerCheck.payers;
 
         // 2. 分攤人與份額校驗
         const activeMembers = (deps.getState().MEMBERS || []).filter(m => deps.showLeftMembers || !m.left_at);

@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=672">
-<link rel="stylesheet" href="shared.css?v=672">
+<link rel="stylesheet" href="theme.css?v=683">
+<link rel="stylesheet" href="shared.css?v=683">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=672"></script>
-<script src="version.js?v=672"></script>
-<script src="shared-ui.js?v=672"></script>
-<script src="theme.js?v=672" defer></script>
-<script src="app-banner.js?v=672" defer></script>
+<script src="currencies.js?v=683"></script>
+<script src="version.js?v=683"></script>
+<script src="shared-ui.js?v=683"></script>
+<script src="theme.js?v=683" defer></script>
+<script src="app-banner.js?v=683" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -246,21 +246,6 @@ if("serviceWorker" in navigator){
             <button class="btn secondary small" id="saveGroupNameBtn">儲存</button>
           </div>
           <div class="msg" id="groupNameMsg"></div>
-
-          <label>還款計算方法<button type="button" class="info-btn" data-info-for="infoDebtMode" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoDebtMode">「最佳化結算」算出最少轉帳次數的建議路徑；「逐筆債務表」列出每個人之間實際的欠款金額。任何成員都能在總表頁自由切換查看兩種算法，但這裡選的是大家實際記帳依據的方法，只有建立者能修改——沒被選中的那個分頁，「記錄還款」按鈕會變成僅供檢視。</p>
-          <div class="debt-segmented-control hidden" id="settingsDebtModeToggle">
-            <button type="button" class="debt-segment-btn debt-mode-btn" data-debt-mode="simplified">
-              <span class="debt-segment-icon">💡</span>
-              <span class="debt-segment-label">最佳化結算</span>
-            </button>
-            <button type="button" class="debt-segment-btn debt-mode-btn" data-debt-mode="detailed">
-              <span class="debt-segment-icon">🧮</span>
-              <span class="debt-segment-label">逐筆債務表</span>
-            </button>
-          </div>
-          <p class="settings-hint hidden" id="debtModeReadonlyNote"></p>
-          <div class="msg" id="debtModeMsg"></div>
         </div>
 
         <div class="settings-group">
@@ -382,7 +367,7 @@ if("serviceWorker" in navigator){
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
             <div class="settings-changelog-header" id="settingsChangelogHeader">✨ v642 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>微調官方結算提示語：將群組採用提示簡化為「👥 目前採用『💡 最佳化結算』• 僅建群者可修改」</li>
+              <li>移除「最佳化結算」建議還款功能，總表只保留「逐筆債務表」，避免付款方式跟逐筆帳目對不起來</li>
             </ul>
           </div>
         </div>
@@ -703,7 +688,7 @@ if(backBtn){
     const sel = document.getElementById("settingsGroupSelect");
     const inviteInp = document.getElementById("settingsInviteCode");
     if(!sel || !myMember) return;
-    const { data } = await sb.from("members").select("group_id, groups(name, invite_code, created_by, debt_display_mode)").eq("user_id", currentUser.id).is("left_at", null);
+    const { data } = await sb.from("members").select("group_id, groups(name, invite_code, created_by)").eq("user_id", currentUser.id).is("left_at", null);
     myGroups = data || [];
     sel.innerHTML = myGroups.map(r =>
       `<option value="${r.group_id}"${r.group_id === myMember.group_id ? " selected" : ""}>${escapeHtml((r.groups && r.groups.name) || "?")}</option>`
@@ -718,22 +703,6 @@ if(backBtn){
     const manageSection = document.getElementById("groupManageSection");
     if(manageSection) manageSection.classList.toggle("hidden", !isCreator);
     if(isCreator) await renderGroupMemberManageList();
-
-    // 還款計算方法：只有建立者看得到可以點擊的切換鈕；其他成員完全不
-    // 顯示這組控制項，只用一行文字告知目前群組採用哪一種，避免「看得到
-    // 卻按不動」的困惑。
-    const debtMode = (activeRow && activeRow.groups && activeRow.groups.debt_display_mode) || "simplified";
-    const debtModeLabel = debtMode === "detailed" ? "🧮 逐筆債務表" : "💡 最佳化結算";
-    const toggleEl = document.getElementById("settingsDebtModeToggle");
-    const readonlyNoteEl = document.getElementById("debtModeReadonlyNote");
-    if(toggleEl) toggleEl.classList.toggle("hidden", !isCreator);
-    if(readonlyNoteEl){
-      readonlyNoteEl.classList.toggle("hidden", isCreator);
-      readonlyNoteEl.textContent = `目前採用：${debtModeLabel}（僅建立者可修改）`;
-    }
-    document.querySelectorAll("#settingsDebtModeToggle .debt-mode-btn").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.debtMode === debtMode);
-    });
   }
 
   async function renderGroupMemberManageList(){
@@ -793,18 +762,6 @@ if(backBtn){
       await renderSettingsGroupSection();
     });
   }
-
-  document.querySelectorAll("#settingsDebtModeToggle .debt-mode-btn").forEach(btn => {
-    btn.addEventListener("click", async ()=>{
-      if(btn.disabled || btn.classList.contains("active")) return;
-      const msg = document.getElementById("debtModeMsg");
-      msg.textContent = "儲存中…"; msg.className = "msg";
-      const { error } = await sb.rpc("set_debt_display_mode", { p_group_id: myMember.group_id, p_mode: btn.dataset.debtMode });
-      if(error){ msg.textContent = "儲存失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
-      msg.textContent = "已更新！"; msg.className = "msg ok";
-      await renderSettingsGroupSection();
-    });
-  });
 
   const copyInviteCodeBtn = document.getElementById("copyInviteCodeBtn");
   const inviteInp = document.getElementById("settingsInviteCode");
@@ -1116,10 +1073,38 @@ if(backBtn){
     avatarModalCloseBtn.addEventListener("click", ()=> avatarModal.classList.remove("show"));
   }
 
-  // 把裁切完的正方形 base64 圖片實際上傳、同步到雲端與本地快取（不管是從
-  // 裁切彈窗確認的，還是之後有其他來源，都共用這一份邏輯）。
+  // 把裁切完的正方形 base64 圖片轉成檔案，上傳到 Supabase Storage（不再
+  // 把整張圖片的 Base64 文字塞進資料庫欄位）——欄位裡只存一個網址字串，
+  // 好處：(1) members 查詢一次抓全部人的頭像時，不用把每個人的完整圖片
+  // 資料都傳一次，抓群組成員清單會快很多；(2) 網址是可以被瀏覽器正常
+  // 快取的圖片資源，換頁不會重複下載同一張圖。上傳路徑用「自己的
+  // user id」當資料夾名稱，Storage 那邊的權限規則只允許本人寫入自己
+  // 的資料夾，同一個路徑用 upsert 覆蓋，網址後面加時間戳記讓瀏覽器在
+  // 換頭貼之後不會繼續顯示快取住的舊圖。
   async function uploadAvatarBase64(base64, msg){
-    const { data: updateRes, error: updateErr } = await sb.auth.updateUser({ data: { avatar_url: base64 } });
+    if(!currentUser || !currentUser.id){
+      if(msg){ msg.textContent = "尚未登入，無法上傳"; msg.className = "msg error"; }
+      return false;
+    }
+
+    let avatarUrl;
+    try {
+      const blob = await (await fetch(base64)).blob();
+      const path = `${currentUser.id}/avatar.jpg`;
+      const { error: uploadErr } = await sb.storage.from("avatars").upload(path, blob, {
+        contentType: "image/jpeg",
+        upsert: true
+      });
+      if(uploadErr) throw uploadErr;
+      const { data: pub } = sb.storage.from("avatars").getPublicUrl(path);
+      avatarUrl = pub.publicUrl + "?t=" + Date.now();
+    } catch(uploadErr){
+      console.error("avatar storage upload error:", uploadErr);
+      if(msg){ msg.textContent = "圖片上傳失敗：" + (uploadErr.message || "請稍後再試"); msg.className = "msg error"; }
+      return false;
+    }
+
+    const { data: updateRes, error: updateErr } = await sb.auth.updateUser({ data: { avatar_url: avatarUrl } });
     if(updateErr){
       console.error("auth updateUser error:", updateErr);
       if(msg){ msg.textContent = "雲端同步失敗：" + updateErr.message; msg.className = "msg error"; }
@@ -1135,7 +1120,7 @@ if(backBtn){
     // 接不到，要自己檢查 error 才會發現這裡其實沒寫進去。
     try {
       if(currentUser && currentUser.id){
-        const { error: memberAvatarErr } = await sb.from("members").update({ avatar_url: base64 }).eq("user_id", currentUser.id);
+        const { error: memberAvatarErr } = await sb.from("members").update({ avatar_url: avatarUrl }).eq("user_id", currentUser.id);
         if(memberAvatarErr) console.warn("members avatar_url database update error:", memberAvatarErr);
       }
     } catch(dbErr){
@@ -1143,17 +1128,17 @@ if(backBtn){
     }
 
     if(myMember){
-      myMember.avatar_url = base64;
-      localStorage.setItem("sb_avatar_" + myMember.id, base64);
-      if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, base64);
+      myMember.avatar_url = avatarUrl;
+      localStorage.setItem("sb_avatar_" + myMember.id, avatarUrl);
+      if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, avatarUrl);
     }
     if(currentUser){
-      localStorage.setItem("sb_avatar_" + currentUser.id, base64);
-      if(currentUser.user_metadata) currentUser.user_metadata.avatar_url = base64;
+      localStorage.setItem("sb_avatar_" + currentUser.id, avatarUrl);
+      if(currentUser.user_metadata) currentUser.user_metadata.avatar_url = avatarUrl;
     }
-    localStorage.setItem("sb_my_avatar", base64);
-    if(window.myMember) window.myMember.avatar_url = base64;
-    if(window.currentUser && window.currentUser.user_metadata) window.currentUser.user_metadata.avatar_url = base64;
+    localStorage.setItem("sb_my_avatar", avatarUrl);
+    if(window.myMember) window.myMember.avatar_url = avatarUrl;
+    if(window.currentUser && window.currentUser.user_metadata) window.currentUser.user_metadata.avatar_url = avatarUrl;
 
     renderSettingsAvatarPreview();
     const whoamiAvatarEl = document.getElementById("whoamiAvatar");
@@ -1367,6 +1352,13 @@ if(backBtn){
         if(clearAvatarErr) console.warn("members avatar_url 清除失敗：", clearAvatarErr);
       } catch(e){
         console.warn("members avatar_url 清除異常：", e);
+      }
+      // 順手把 Storage 裡的檔案也刪掉，純粹清理，失敗也不影響移除頭像
+      // 這個操作本身（畫面跟資料庫都已經清乾淨了）。
+      try {
+        await sb.storage.from("avatars").remove([`${currentUser.id}/avatar.jpg`]);
+      } catch(e){
+        console.warn("avatar storage 清除異常：", e);
       }
 
       if(msg){ msg.textContent = "已移除大頭貼，恢復姓名首字頭像！"; msg.className = "msg ok"; }

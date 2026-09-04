@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=672">
-<link rel="stylesheet" href="shared.css?v=672">
+<link rel="stylesheet" href="theme.css?v=683">
+<link rel="stylesheet" href="shared.css?v=683">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=672"></script>
-<script src="version.js?v=672"></script>
-<script src="shared-ui.js?v=672"></script>
-<script src="theme.js?v=672" defer></script>
-<script src="app-banner.js?v=672" defer></script>
+<script src="currencies.js?v=683"></script>
+<script src="version.js?v=683"></script>
+<script src="shared-ui.js?v=683"></script>
+<script src="theme.js?v=683" defer></script>
+<script src="app-banner.js?v=683" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -205,6 +205,16 @@ if("serviceWorker" in navigator){
 
     <div class="quick-exp-modal-body">
 
+      <div class="form-wizard-progress" id="quickExpWizardProgress">
+        <div class="form-wizard-dots" id="quickExpWizardDots">
+          <span class="form-wizard-dot active" data-step="0"></span>
+          <span class="form-wizard-dot" data-step="1"></span>
+          <span class="form-wizard-dot" data-step="2"></span>
+          <span class="form-wizard-dot" data-step="3"></span>
+        </div>
+        <div class="form-wizard-step-title" id="quickExpWizardStepTitle">步驟 1 / 4・支出內容</div>
+      </div>
+
       <div class="exp-form-section sec-content">
         <div class="exp-form-section-head">
           <span class="exp-form-section-icon">🍽️</span>
@@ -249,13 +259,14 @@ if("serviceWorker" in navigator){
           <button type="button" class="amt-row-calc-btn input-calc-btn" id="quickExpAmountCalcBtn" title="小計算機">🧮</button>
         </div>
 
-        <!-- 服務費 / 稅：預設收合，大部分時候金額已含稅、不用理它。摘要卡片
+        <!-- 服務費 / 稅：預設「沒有」，大部分時候金額已含稅、不用理它。摘要卡片
              故意放在收合區塊外面，即使收合起來、只要有填資料就看得到組成 -->
         <div class="exp-lightweight-container" id="quickTaxContainer">
-          <button type="button" class="exp-lightweight-toggle" id="quickTaxToggle">
-            <span class="exp-lightweight-toggle-icon" id="quickTaxCaret">+</span>
-            <span>這筆有另外加服務費或稅嗎？</span>
-          </button>
+          <label class="exp-addon-label">這筆有另外加服務費或稅嗎？</label>
+          <div class="filter-type-toggle">
+            <button type="button" class="split-mode-btn active" id="quickTaxHasNoBtn" data-tax-has="no">沒有</button>
+            <button type="button" class="split-mode-btn" id="quickTaxHasYesBtn" data-tax-has="yes">有，要另外加</button>
+          </div>
           <div class="exp-addons-body hidden" id="quickTaxBody">
             <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
             <label class="exp-addon-label">服務費 / 稅額金額</label>
@@ -268,13 +279,12 @@ if("serviceWorker" in navigator){
               <button type="button" class="ai-tax-btn active" data-quick-tax-mode="ratio" id="quickTaxRatioBtn">依消費比例</button>
               <button type="button" class="ai-tax-btn" data-quick-tax-mode="equal" id="quickTaxEqualBtn">全員平分</button>
             </div>
-            <button type="button" class="link-btn exp-lightweight-clear" id="quickTaxClearBtn">清除服務費/稅資料</button>
           </div>
           <div class="exp-tax-preview hidden exp-tax-preview-box" id="quickTaxPreview"></div>
         </div>
       </div>
 
-      <div class="exp-form-section sec-payer">
+      <div class="exp-form-section sec-payer hidden">
         <div class="exp-form-section-head">
           <span class="exp-form-section-icon">💰</span>
           <span class="exp-form-section-title">誰付的錢</span>
@@ -292,7 +302,7 @@ if("serviceWorker" in navigator){
         <div class="sum-check" id="quickPayerSumCheck"></div>
       </div>
 
-      <div class="exp-form-section sec-split">
+      <div class="exp-form-section sec-split hidden">
         <div class="exp-form-section-head">
           <span class="exp-form-section-icon">🤝</span>
           <span class="exp-form-section-title">怎麼分攤</span>
@@ -338,7 +348,7 @@ if("serviceWorker" in navigator){
         <div class="sum-check" id="quickShareSumCheck"></div>
       </div>
 
-      <div class="exp-form-section sec-note">
+      <div class="exp-form-section sec-note hidden">
         <div class="exp-form-section-head">
           <span class="exp-form-section-icon">🗒️</span>
           <span class="exp-form-section-title">備註與日期</span>
@@ -353,7 +363,10 @@ if("serviceWorker" in navigator){
 
       <div class="msg" id="quickExpMsg"></div>
 
-      <button type="button" class="btn" id="quickExpSubmitBtn">加入這筆支出</button>
+      <div class="form-wizard-nav" id="quickExpWizardNav">
+        <button type="button" class="btn secondary form-wizard-back hidden" id="quickExpWizardBackBtn">← 上一步</button>
+        <button type="button" class="btn" id="quickExpSubmitBtn">下一步</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1422,9 +1435,9 @@ renderNavLinks();
     const amtLabel = document.getElementById("quickExpAmountLabel");
     const descInput = document.getElementById("quickExpDesc");
     const catSelect = document.getElementById("quickExpCategorySelect");
-    const taxToggle = document.getElementById("quickTaxToggle");
+    const taxHasYesBtn = document.getElementById("quickTaxHasYesBtn");
+    const taxHasNoBtn = document.getElementById("quickTaxHasNoBtn");
     const taxBody = document.getElementById("quickTaxBody");
-    const taxCaret = document.getElementById("quickTaxCaret");
     const taxAmtInput = document.getElementById("quickTaxAmount");
     const paidBySelect = document.getElementById("quickExpPaidBy");
     const participantsWrap = document.getElementById("quickExpParticipants");
@@ -1640,11 +1653,11 @@ renderNavLinks();
       `;
     }
 
-    // --- 服務費/稅折疊（純粹展開/收合欄位，不影響是否算有稅） ---
+    // --- 服務費/稅：有沒有另外加，改成明確的 有/沒有 按鈕 ---
     function collapseQuickTaxBody(){
       if(taxBody) taxBody.classList.add("hidden");
-      if(taxToggle) taxToggle.classList.remove("open");
-      if(taxCaret) taxCaret.classList.remove("open");
+      if(taxHasYesBtn) taxHasYesBtn.classList.remove("active");
+      if(taxHasNoBtn) taxHasNoBtn.classList.add("active");
     }
     if(taxAmtInput){
       taxAmtInput.addEventListener("input", ()=>{
@@ -1654,23 +1667,23 @@ renderNavLinks();
         updateQuickShareTaxWarn();
       });
     }
-    taxToggle && taxToggle.addEventListener("click", ()=>{
-      const isHidden = taxBody.classList.contains("hidden");
-      taxBody.classList.toggle("hidden", !isHidden);
-      taxToggle.classList.toggle("open", isHidden);
-      if(taxCaret) taxCaret.classList.toggle("open", isHidden);
-    });
-    const quickTaxClearBtn = document.getElementById("quickTaxClearBtn");
-    if(quickTaxClearBtn){
-      quickTaxClearBtn.addEventListener("click", ()=>{
+    function setQuickTaxHasExtra(hasExtra){
+      if(taxHasYesBtn) taxHasYesBtn.classList.toggle("active", hasExtra);
+      if(taxHasNoBtn) taxHasNoBtn.classList.toggle("active", !hasExtra);
+      if(taxBody) taxBody.classList.toggle("hidden", !hasExtra);
+      if(!hasExtra){
         if(taxAmtInput) taxAmtInput.value = "";
         quickTaxSplitMode = "ratio";
         document.getElementById("quickTaxRatioBtn") && document.getElementById("quickTaxRatioBtn").classList.add("active");
         document.getElementById("quickTaxEqualBtn") && document.getElementById("quickTaxEqualBtn").classList.remove("active");
-        recomputeQuickTaxMode();
-        updateQuickTaxPreview();
-        updateQuickShareTaxWarn();
-      });
+      }
+      recomputeQuickTaxMode();
+      updateQuickTaxPreview();
+      updateQuickShareTaxWarn();
+    }
+    if(taxHasYesBtn && taxHasNoBtn){
+      taxHasYesBtn.addEventListener("click", ()=> setQuickTaxHasExtra(true));
+      taxHasNoBtn.addEventListener("click", ()=> setQuickTaxHasExtra(false));
     }
 
     // --- 服務費分配方式切換 ---
@@ -2075,6 +2088,129 @@ renderNavLinks();
     });
     catSelect && catSelect.addEventListener("change", () => userManuallyPickedCat = true);
 
+    // ============================================================
+    // 📝 Step-by-step 表單導覽：跟「新增支出」完整表單（app.js）共用
+    // expense-form-shared.js 的 createFormWizard()，驗證規則統一套用
+    // 較嚴格的那一套（金額整數、付款總和容錯、自訂分攤總和容錯）。
+    // ============================================================
+    function validateQuickStep1(){
+      const rawAmt = (amtInput.value || "").trim();
+      if(!rawAmt) return { ok:false, message:"請輸入金額" };
+      const subtotal = Number(rawAmt);
+      if(isNaN(subtotal) || subtotal <= 0) return { ok:false, message:"金額必須大於 0" };
+      if(!Number.isInteger(subtotal)) return { ok:false, message:"金額請輸入整數，不支援小數點" };
+      return { ok:true };
+    }
+
+    function validateQuickStep2(){
+      if(quickPayerMode === "single"){
+        if(!paidBySelect.value) return { ok:false, message:"請選擇代付人" };
+        return { ok:true };
+      }
+      const payersGrid = document.getElementById("quickExpPayers");
+      const rows = payersGrid ? payersGrid.querySelectorAll(".amt-row-input") : [];
+      const payers = [];
+      rows.forEach(inp => { const v = Number(inp.value); if(v > 0) payers.push({ member_id: inp.dataset.member, amount: v }); });
+      if(!payers.length) return { ok:false, message:"至少輸入一位代付人的金額" };
+
+      const subtotal = Number((amtInput.value || "").trim()) || 0;
+      const taxAmt = Number(taxAmtInput ? taxAmtInput.value : 0) || 0;
+      const totalAmount = quickTaxMode === "exclusive" ? subtotal + taxAmt : subtotal;
+      const payerSum = payers.reduce((s,p)=>s+p.amount, 0);
+      if(Math.abs(payerSum - totalAmount) >= 0.5){
+        const diff = Math.round((totalAmount - payerSum) * 100) / 100;
+        return { ok:false, message: diff > 0
+          ? `付款總額還差 ${formatAmt(diff)}，跟支出金額 ${formatAmt(totalAmount)} 對不上，無法加入`
+          : `付款總額超過 ${formatAmt(Math.abs(diff))}，跟支出金額 ${formatAmt(totalAmount)} 對不上，無法加入` };
+      }
+      return { ok:true };
+    }
+
+    function validateQuickStep3(){
+      const subtotal = Number((amtInput.value || "").trim()) || 0;
+      const taxAmt = Number(taxAmtInput ? taxAmtInput.value : 0) || 0;
+      const totalAmount = quickTaxMode === "exclusive" ? subtotal + taxAmt : subtotal;
+
+      if(quickSplitMode === "equal"){
+        const checked = Array.from(participantsWrap.querySelectorAll("input:checked")).map(i => i.value);
+        if(!checked.length) return { ok:false, message:"至少需要選取一位分攤人" };
+        const { totalAddon } = getQuickAddonsData();
+        if(totalAddon > subtotal){
+          return { ok:false, message:`個人自付／共同品項總額 (${totalAddon}) 超過不含稅金額 (${subtotal})` };
+        }
+      } else {
+        const customRows = [];
+        if(quickSharesCustom){
+          quickSharesCustom.querySelectorAll(".quick-share-inp").forEach(inp => {
+            const v = Number(inp.value);
+            if(v > 0) customRows.push({ member_id: inp.dataset.member, amount: v });
+          });
+        }
+        if(!customRows.length) return { ok:false, message:"至少需要輸入一位分攤金額" };
+        const customBaseSum = customRows.reduce((s,p)=>s+p.amount, 0);
+        if(taxAmt > 0){
+          if(subtotal > 0 && Math.abs(customBaseSum - subtotal) >= 0.5){
+            const diff = Math.round((subtotal - customBaseSum) * 100) / 100;
+            return { ok:false, message: diff > 0
+              ? `自訂消費總額還差 ${formatAmt(diff)}，跟不含稅金額 ${formatAmt(subtotal)} 對不上`
+              : `自訂消費總額超過 ${formatAmt(Math.abs(diff))}，跟不含稅金額 ${formatAmt(subtotal)} 對不上` };
+          }
+        } else {
+          if(Math.abs(customBaseSum - totalAmount) >= 0.5){
+            const diff = Math.round((totalAmount - customBaseSum) * 100) / 100;
+            return { ok:false, message: diff > 0
+              ? `分攤總額還差 ${formatAmt(diff)}，跟支出金額 ${formatAmt(totalAmount)} 對不上，無法加入`
+              : `分攤總額超過 ${formatAmt(Math.abs(diff))}，跟支出金額 ${formatAmt(totalAmount)} 對不上，無法加入` };
+          }
+        }
+      }
+      return { ok:true };
+    }
+
+    const quickExpWizardStepLabels = ["支出內容","誰付的錢","怎麼分攤","備註與日期"];
+    function updateQuickExpWizardChrome(index){
+      document.querySelectorAll("#quickExpWizardDots .form-wizard-dot").forEach((dot, i)=>{
+        dot.classList.toggle("active", i === index);
+        dot.classList.toggle("done", i < index);
+      });
+      const titleEl = document.getElementById("quickExpWizardStepTitle");
+      if(titleEl) titleEl.textContent = `步驟 ${index+1} / 4・${quickExpWizardStepLabels[index]}`;
+      const backBtn = document.getElementById("quickExpWizardBackBtn");
+      if(backBtn) backBtn.classList.toggle("hidden", index === 0);
+      if(submitBtn){
+        submitBtn.textContent = (index === quickExpWizardStepLabels.length - 1) ? "加入這筆支出" : "下一步";
+      }
+    }
+
+    let quickExpWizardInstance = null;
+    async function getQuickExpWizard(){
+      if(quickExpWizardInstance) return quickExpWizardInstance;
+      const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
+      quickExpWizardInstance = formShared.createFormWizard({
+        steps: [
+          { id:"content", sectionEl: document.querySelector("#quickExpenseModal .sec-content"), validate: validateQuickStep1 },
+          { id:"payer", sectionEl: document.querySelector("#quickExpenseModal .sec-payer"), validate: validateQuickStep2 },
+          { id:"split", sectionEl: document.querySelector("#quickExpenseModal .sec-split"), validate: validateQuickStep3 },
+          { id:"note", sectionEl: document.querySelector("#quickExpenseModal .sec-note") }
+        ],
+        onStepChange: updateQuickExpWizardChrome
+      });
+      return quickExpWizardInstance;
+    }
+
+    async function resetQuickExpWizardToStep0(){
+      const wizard = await getQuickExpWizard();
+      wizard.goToStep(0);
+    }
+
+    const quickExpWizardBackBtn = document.getElementById("quickExpWizardBackBtn");
+    if(quickExpWizardBackBtn){
+      quickExpWizardBackBtn.addEventListener("click", async ()=>{
+        const wizard = await getQuickExpWizard();
+        wizard.goBack();
+      });
+    }
+
     // --- 開啟 / 關閉 ---
     function openModal(){
       populateCurrencies();
@@ -2097,6 +2233,7 @@ renderNavLinks();
       setQuickAddonMode("custom");
       dateInput.value = new Date().toISOString().split("T")[0];
       if(msgEl){ msgEl.textContent = ""; msgEl.className = "msg"; }
+      resetQuickExpWizardToStep0();
       modal.classList.remove("hidden");
       modal.classList.add("show");
       setTimeout(() => amtInput.focus(), 150);
@@ -2122,11 +2259,21 @@ renderNavLinks();
 
     // --- 提交支出 ---
     submitBtn && submitBtn.addEventListener("click", async () =>{
-      const rawAmt = (amtInput.value || "").trim();
-      if(!rawAmt){ msgEl.textContent = "請輸入金額"; msgEl.className = "msg error"; amtInput.focus(); return; }
-      let subtotal = 0;
-      try { subtotal = Number(rawAmt); if(isNaN(subtotal) || subtotal <= 0) throw 0; } catch(e){ msgEl.textContent = "金額必須大於 0"; msgEl.className = "msg error"; amtInput.focus(); return; }
+      const wizard = await getQuickExpWizard();
+      if(wizard.getCurrentIndex() < wizard.getStepCount() - 1){
+        const result = wizard.goNext();
+        if(!result.ok){
+          msgEl.textContent = result.message || "";
+          msgEl.className = "msg error";
+        } else {
+          msgEl.textContent = "";
+          msgEl.className = "msg";
+        }
+        return;
+      }
 
+      const rawAmt = (amtInput.value || "").trim();
+      const subtotal = Number(rawAmt) || 0;
       const taxAmt = Number(taxAmtInput ? taxAmtInput.value : 0) || 0;
       const totalAmount = quickTaxMode === "exclusive" ? subtotal + taxAmt : subtotal;
 
@@ -2140,28 +2287,20 @@ renderNavLinks();
       // 代付人
       let payers = [];
       if(quickPayerMode === "single"){
-        if(!paidBySelect.value){ msgEl.textContent = "請選擇代付人"; msgEl.className = "msg error"; return; }
         payers = [{ member_id: paidBySelect.value, amount: totalAmount }];
       } else {
         const payersGrid = document.getElementById("quickExpPayers");
         const rows = payersGrid ? payersGrid.querySelectorAll(".amt-row-input") : [];
         rows.forEach(inp => { const v = Number(inp.value); if(v > 0) payers.push({ member_id: inp.dataset.member, amount: v }); });
-        if(!payers.length){ msgEl.textContent = "至少輸入一位代付人的金額"; msgEl.className = "msg error"; return; }
       }
 
       // 分攤人
       let shares = [];
       if(quickSplitMode === "equal"){
         const checked = Array.from(participantsWrap.querySelectorAll("input:checked")).map(i => i.value);
-        if(!checked.length){ msgEl.textContent = "至少需要選取一位分攤人"; msgEl.className = "msg error"; return; }
 
         // 扣除個人自付／共同品項後，剩餘款項才由全員平分（跟完整記帳表單同一套邏輯）
-        const { totalAddon, items: addonItems } = getQuickAddonsData();
-        if(totalAddon > subtotal){
-          msgEl.textContent = `個人自付／共同品項總額 (${totalAddon}) 超過不含稅金額 (${subtotal})`;
-          msgEl.className = "msg error";
-          return;
-        }
+        const { items: addonItems } = getQuickAddonsData();
         // 均分/自訂分攤的計算已經抽成共用的 expense-form-shared.js（ES
         // module），跟「新增支出」完整表單共用同一套演算法，不用再各自維護一份。
         const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
@@ -2179,7 +2318,6 @@ renderNavLinks();
             if(v > 0) customRows.push({ member_id: inp.dataset.member, amount: v });
           });
         }
-        if(!customRows.length){ msgEl.textContent = "至少需要輸入一位分攤金額"; msgEl.className = "msg error"; return; }
 
         // 均分/自訂分攤的計算已經抽成共用的 expense-form-shared.js（ES
         // module），跟「新增支出」完整表單共用同一套演算法，不用再各自維護一份。

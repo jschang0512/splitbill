@@ -167,17 +167,6 @@
   const MATRIX_SHOW_ONLY_MINE_KEY = "splitbill-matrix-show-only-mine";
   let matrixShowOnlyMine = localStorage.getItem(MATRIX_SHOW_ONLY_MINE_KEY) === "1";
 
-  // debtDisplayMode：群組「官方」採用的還款計算方法（存在 groups 資料表，
-  // 只有建立者能在設定頁修改），一開始先假設 "simplified"，實際值會在
-  // onLoggedIn() 裡跟群組資料一起讀回來，這個值在畫面上不會因為使用者
-  // 自己切換分頁而改變。
-  // debtViewMode：使用者「目前正在看」哪一個分頁，任何人都能自由切換
-  // 純粹是本機顯示狀態，不會寫回資料庫——只有當它跟 debtDisplayMode 不
-  // 一致時，代表使用者在看「非官方」的算法，這時候「記錄還款」相關按鈕
-  // 會變成僅供檢視，避免大家依照沒有共識的算法各自去記帳。
-  let debtDisplayMode = "simplified";
-  let debtViewMode = "simplified";
-
   // 金額格式化：不進行整數四捨五入，保留精確位數（最多2位小數）
   function formatAmt(v){
     if(v === undefined || v === null || isNaN(v) || Math.abs(v) < 0.001) return "0";
@@ -577,20 +566,6 @@
     if(localStorage.getItem(MATRIX_SHOW_ONLY_MINE_KEY) === null){
       matrixShowOnlyMine = memberRows.length > 8;
     }
-
-    // 「還款計算方法」的官方選擇是群組共用設定（只有建立者能在設定頁改），
-    // 讀不到就維持預設值 "simplified"，不影響其他功能正常運作。一開始
-    // 顯示的分頁跟著官方設定走，之後使用者自己切換分頁（debtViewMode）
-    // 不會動到 debtDisplayMode 這個官方值。
-    try{
-      const { data: groupRow } = await sb.from("groups").select("debt_display_mode").eq("id", myMember.group_id).maybeSingle();
-      if(groupRow && groupRow.debt_display_mode) debtDisplayMode = groupRow.debt_display_mode;
-    }catch(e){
-      console.warn("讀取群組還款顯示模式失敗，使用預設值：", e);
-    }
-    debtViewMode = debtDisplayMode;
-    if(typeof applyDebtModeUI === "function") applyDebtModeUI(debtViewMode);
-    if(typeof markOfficialDebtMode === "function") markOfficialDebtMode(debtDisplayMode);
 
     // 類別學習清單已經併進 refreshExpenses() 那一批平行查詢裡了（跟支出/
     // 還款/餘額一起發），這裡不用再額外呼叫一次，省一趟多餘的網路來回。
@@ -1064,11 +1039,11 @@
 
   function collapseTaxBody(){
     const body = document.getElementById("expTaxBody");
-    const toggle = document.getElementById("expTaxToggle");
-    const caret = document.getElementById("expTaxCaret");
+    const yesBtn = document.getElementById("expTaxHasYesBtn");
+    const noBtn = document.getElementById("expTaxHasNoBtn");
     if(body) body.classList.add("hidden");
-    if(toggle) toggle.classList.remove("open");
-    if(caret) caret.classList.remove("open");
+    if(yesBtn) yesBtn.classList.remove("active");
+    if(noBtn) noBtn.classList.add("active");
   }
 
   function updateTaxPreview(){
@@ -1093,9 +1068,9 @@
     `;
   }
 
-  const expTaxToggle = document.getElementById("expTaxToggle");
+  const expTaxHasYesBtn = document.getElementById("expTaxHasYesBtn");
+  const expTaxHasNoBtn = document.getElementById("expTaxHasNoBtn");
   const expTaxBody = document.getElementById("expTaxBody");
-  const expTaxCaret = document.getElementById("expTaxCaret");
   const expTaxInp = document.getElementById("expTaxAmount");
   const expTaxCalcBtn = document.getElementById("expTaxCalcBtn");
   const expManualTaxRatioBtn = document.getElementById("expManualTaxRatioBtn");
@@ -1119,25 +1094,25 @@
     });
   }
 
-  if(expTaxToggle && expTaxBody){
-    expTaxToggle.addEventListener("click", ()=>{
-      const isHidden = expTaxBody.classList.contains("hidden");
-      expTaxBody.classList.toggle("hidden", !isHidden);
-      expTaxToggle.classList.toggle("open", isHidden);
-      if(expTaxCaret) expTaxCaret.classList.toggle("open", isHidden);
-    });
-  }
-  const expTaxClearBtn = document.getElementById("expTaxClearBtn");
-  if(expTaxClearBtn){
-    expTaxClearBtn.addEventListener("click", ()=>{
+  // 「有沒有另外加服務費或稅」改成明確的 有/沒有 按鈕，取代原本模糊的
+  // 展開/收合圖示——選「沒有」會直接清空稅額欄位（等於原本的清除按鈕）。
+  function setManualTaxHasExtra(hasExtra){
+    if(expTaxHasYesBtn) expTaxHasYesBtn.classList.toggle("active", hasExtra);
+    if(expTaxHasNoBtn) expTaxHasNoBtn.classList.toggle("active", !hasExtra);
+    if(expTaxBody) expTaxBody.classList.toggle("hidden", !hasExtra);
+    if(!hasExtra){
       if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
       manualTaxSplitMode = "ratio";
       if(expManualTaxRatioBtn) expManualTaxRatioBtn.classList.add("active");
       if(expManualTaxEqualBtn) expManualTaxEqualBtn.classList.remove("active");
-      recomputeManualTaxType();
-      updateTaxPreview();
-      updateManualTaxTypeUI();
-    });
+    }
+    recomputeManualTaxType();
+    updateTaxPreview();
+    updateManualTaxTypeUI();
+  }
+  if(expTaxHasYesBtn && expTaxHasNoBtn){
+    expTaxHasYesBtn.addEventListener("click", ()=> setManualTaxHasExtra(true));
+    expTaxHasNoBtn.addEventListener("click", ()=> setManualTaxHasExtra(false));
   }
 
   if(expManualTaxRatioBtn && expManualTaxEqualBtn){
@@ -1546,19 +1521,137 @@
     });
   }
 
+  // ============================================================
+  // 📝 Step-by-step 表單導覽：把原本「送出當下一次檢查全部」的驗證，
+  // 拆成每一步按「下一步」時只檢查那一步（規則跟原本完全一樣，只是
+  // 檢查的時機提前了）。wizard 本身只負責畫面顯示/步驟索引，見
+  // expense-form-shared.js 的 createFormWizard()。
+  // ============================================================
+  function validateExpStep1(){
+    const { total: amount } = getManualExpenseTotals();
+    const itemTitle = document.getElementById("expDesc").value.trim();
+    if(!amount || amount <= 0) return { ok:false, message:"請輸入正確金額" };
+    if(!Number.isInteger(amount)) return { ok:false, message:"金額請輸入整數，不支援小數點" };
+    if(!itemTitle) return { ok:false, message:"請輸入項目" };
+    return { ok:true };
+  }
+
+  function validateExpStep2(){
+    if(payerMode === "single") return { ok:true };
+    const { total: amount } = getManualExpenseTotals();
+    const payers = readAmountRows("expPayers");
+    if(!payers.length) return { ok:false, message:"至少要有一個人付錢" };
+    const payerSum = payers.reduce((s,p)=>s+p.amount, 0);
+    if(Math.abs(payerSum - amount) >= 0.5){
+      const diff = Math.round((amount - payerSum) * 100) / 100;
+      return { ok:false, message: diff > 0
+        ? `付款總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
+        : `付款總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入` };
+    }
+    return { ok:true };
+  }
+
+  function validateExpStep3(){
+    const { subtotal, tax: taxAmount, total: amount } = getManualExpenseTotals();
+    if(splitMode === "equal"){
+      const participants = Array.from(document.querySelectorAll("#expParticipants input:checked")).map(i=>i.value);
+      if(!participants.length) return { ok:false, message:"至少要選一個人分攤" };
+      const { totalAddon } = getAddonsData();
+      if(totalAddon > subtotal && subtotal > 0){
+        return { ok:false, message:`個人自付總額 (${SYM}${formatAmt(totalAddon)}) 超過不含稅總金額 (${SYM}${formatAmt(subtotal)})` };
+      }
+    } else {
+      const customRows = readAmountRows("expSharesCustom");
+      if(!customRows.length) return { ok:false, message:"至少要有一個人分攤" };
+      const customBaseSum = customRows.reduce((s,p)=>s+p.amount, 0);
+      if(taxAmount > 0){
+        if(subtotal > 0 && Math.abs(customBaseSum - subtotal) >= 0.5){
+          const diff = Math.round((subtotal - customBaseSum) * 100) / 100;
+          return { ok:false, message: diff > 0
+            ? `自訂消費總額還差 ${SYM}${formatAmt(diff)}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上`
+            : `自訂消費總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上` };
+        }
+      } else {
+        if(Math.abs(customBaseSum - amount) >= 0.5){
+          const diff = Math.round((amount - customBaseSum) * 100) / 100;
+          return { ok:false, message: diff > 0
+            ? `分攤總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
+            : `分攤總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入` };
+        }
+      }
+    }
+    return { ok:true };
+  }
+
+  const expWizardStepLabels = ["支出內容","誰付的錢","怎麼分攤","備註與日期"];
+  function updateExpWizardChrome(index){
+    document.querySelectorAll("#expWizardDots .form-wizard-dot").forEach((dot, i)=>{
+      dot.classList.toggle("active", i === index);
+      dot.classList.toggle("done", i < index);
+    });
+    const titleEl = document.getElementById("expWizardStepTitle");
+    if(titleEl) titleEl.textContent = `步驟 ${index+1} / 4・${expWizardStepLabels[index]}`;
+    const backBtn = document.getElementById("expWizardBackBtn");
+    if(backBtn) backBtn.classList.toggle("hidden", index === 0);
+    const nextBtn = document.getElementById("addExpenseBtn");
+    if(nextBtn){
+      nextBtn.textContent = (index === expWizardStepLabels.length - 1)
+        ? (editingExpenseId ? "更新這筆支出" : "加入這筆支出")
+        : "下一步";
+    }
+  }
+
+  let expWizardInstance = null;
+  async function getExpWizard(){
+    if(expWizardInstance) return expWizardInstance;
+    const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
+    expWizardInstance = formShared.createFormWizard({
+      steps: [
+        { id:"content", sectionEl: document.querySelector("#panelExpense .sec-content"), validate: validateExpStep1 },
+        { id:"payer", sectionEl: document.querySelector("#panelExpense .sec-payer"), validate: validateExpStep2 },
+        { id:"split", sectionEl: document.querySelector("#panelExpense .sec-split"), validate: validateExpStep3 },
+        { id:"note", sectionEl: document.querySelector("#panelExpense .sec-note") }
+      ],
+      onStepChange: updateExpWizardChrome
+    });
+    return expWizardInstance;
+  }
+
+  async function resetExpWizardToStep0(){
+    const wizard = await getExpWizard();
+    wizard.goToStep(0);
+  }
+
+  const expWizardBackBtn = document.getElementById("expWizardBackBtn");
+  if(expWizardBackBtn){
+    expWizardBackBtn.addEventListener("click", async ()=>{
+      const wizard = await getExpWizard();
+      wizard.goBack();
+    });
+  }
+
   const addExpBtn = document.getElementById("addExpenseBtn");
   if(addExpBtn){
     addExpBtn.addEventListener("click", async ()=>{
+      const msg = document.getElementById("expMsg");
+      const wizard = await getExpWizard();
+      if(wizard.getCurrentIndex() < wizard.getStepCount() - 1){
+        const result = wizard.goNext();
+        if(!result.ok){
+          msg.textContent = result.message || "";
+          msg.className = "msg error";
+        } else {
+          msg.textContent = "";
+          msg.className = "msg";
+        }
+        return;
+      }
+
       const { subtotal, tax: taxAmount, total: totalAmount } = getManualExpenseTotals();
       const amount = totalAmount;
       const itemTitle = document.getElementById("expDesc").value.trim();
       const itemNote = (document.getElementById("expNote") ? document.getElementById("expNote").value.trim() : "");
       const expense_date = document.getElementById("expDate").value;
-      const msg = document.getElementById("expMsg");
-
-      if(!amount || amount <= 0){ msg.textContent = "請輸入正確金額"; msg.className = "msg error"; return; }
-      if(!Number.isInteger(amount)){ msg.textContent = "金額請輸入整數，不支援小數點"; msg.className = "msg error"; return; }
-      if(!itemTitle){ msg.textContent = "請輸入項目"; msg.className = "msg error"; return; }
 
       let payers;
       if(payerMode === "single"){
@@ -1568,29 +1661,12 @@
         payers = [pObj];
       } else {
         payers = readAmountRows("expPayers");
-        if(!payers.length){ msg.textContent = "至少要有一個人付錢"; msg.className = "msg error"; return; }
-        const payerSum = payers.reduce((s,p)=>s+p.amount, 0);
-        if(Math.abs(payerSum - amount) >= 0.5){
-          const diff = Math.round((amount - payerSum) * 100) / 100;
-          msg.textContent = diff > 0
-            ? `付款總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
-            : `付款總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`;
-          msg.className = "msg error";
-          return;
-        }
       }
 
       let shares = [];
       if(splitMode === "equal"){
         const participants = Array.from(document.querySelectorAll("#expParticipants input:checked")).map(i=>i.value);
-        if(!participants.length){ msg.textContent = "至少要選一個人分攤"; msg.className = "msg error"; return; }
-
         const { totalAddon, items: addonItems } = getAddonsData();
-        if(totalAddon > subtotal && subtotal > 0){
-          msg.textContent = `個人自付總額 (${SYM}${formatAmt(totalAddon)}) 超過不含稅總金額 (${SYM}${formatAmt(subtotal)})`;
-          msg.className = "msg error";
-          return;
-        }
 
         // 編輯模式下，如果金額、分攤名單都跟原本一模一樣且無新加點與稅額，直接沿用原本存的
         const origShares = editingExpenseOriginal && editingExpenseOriginal.shares;
@@ -1618,28 +1694,6 @@
         }
       } else {
         const customRows = readAmountRows("expSharesCustom");
-        if(!customRows.length){ msg.textContent = "至少要有一個人分攤"; msg.className = "msg error"; return; }
-        const customBaseSum = customRows.reduce((s,p)=>s+p.amount, 0);
-
-        if(taxAmount > 0){
-          if(subtotal > 0 && Math.abs(customBaseSum - subtotal) >= 0.5){
-            const diff = Math.round((subtotal - customBaseSum) * 100) / 100;
-            msg.textContent = diff > 0
-              ? `自訂消費總額還差 ${SYM}${formatAmt(diff)}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上`
-              : `自訂消費總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上`;
-            msg.className = "msg error";
-            return;
-          }
-        } else {
-          if(Math.abs(customBaseSum - amount) >= 0.5){
-            const diff = Math.round((amount - customBaseSum) * 100) / 100;
-            msg.textContent = diff > 0
-              ? `分攤總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
-              : `分攤總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`;
-            msg.className = "msg error";
-            return;
-          }
-        }
 
         // 均分/自訂分攤的計算已經抽成共用的 expense-form-shared.js（ES
         // module），跟「快速記帳」共用同一套演算法，不用再各自維護一份。
@@ -1700,12 +1754,6 @@
       msg.className = "msg ok";
       const wasEditing = !!editingExpenseId;
       const btn = document.getElementById("addExpenseBtn");
-      btn.textContent = wasEditing ? "✓ 已更新" : "✓ 已加入";
-      btn.classList.add("btn-success");
-      setTimeout(()=>{
-        btn.classList.remove("btn-success");
-        btn.textContent = "加入這筆支出";
-      }, 1100);
 
       // 觸發「實體收據印出 ➔ 飛入帳本」動畫
       if(!wasEditing && typeof window.triggerReceiptFlyAnimation === "function"){
@@ -1742,6 +1790,15 @@
       setAddonMode("custom");
       const addonsPreview = document.getElementById("expAddonsPreview");
       if(addonsPreview) addonsPreview.classList.add("hidden");
+
+      await resetExpWizardToStep0();
+      btn.textContent = wasEditing ? "✓ 已更新" : "✓ 已加入";
+      btn.classList.add("btn-success");
+      setTimeout(()=>{
+        btn.classList.remove("btn-success");
+        btn.textContent = "下一步";
+      }, 1100);
+
       await refreshExpenses();
     });
   }
@@ -2020,7 +2077,7 @@
     setAddonMode("custom");
     document.getElementById("editBanner").classList.remove("hidden");
     document.getElementById("expFormTitle").textContent = "✎ 編輯支出";
-    document.getElementById("addExpenseBtn").textContent = "更新這筆支出";
+    resetExpWizardToStep0();
 
     const expAmtInp = document.getElementById("expAmount");
     const singlePayerCalc = (e.payers && e.payers.length === 1 && e.payers[0].calc) || "";
@@ -2050,11 +2107,11 @@
       const expTaxInp = document.getElementById("expTaxAmount");
       if(expTaxInp) expTaxInp.value = restoredTax;
       const expTaxBody = document.getElementById("expTaxBody");
-      const expTaxToggle = document.getElementById("expTaxToggle");
-      const expTaxCaret = document.getElementById("expTaxCaret");
+      const expTaxHasYesBtn = document.getElementById("expTaxHasYesBtn");
+      const expTaxHasNoBtn = document.getElementById("expTaxHasNoBtn");
       if(expTaxBody) expTaxBody.classList.remove("hidden");
-      if(expTaxToggle) expTaxToggle.classList.add("open");
-      if(expTaxCaret) expTaxCaret.classList.add("open");
+      if(expTaxHasYesBtn) expTaxHasYesBtn.classList.add("active");
+      if(expTaxHasNoBtn) expTaxHasNoBtn.classList.remove("active");
     } else {
       collapseTaxBody();
     }
@@ -2150,7 +2207,7 @@
   if(cancelEditBtn){
     cancelEditBtn.addEventListener("click", ()=>{
       exitEditMode();
-      document.getElementById("addExpenseBtn").textContent = "加入這筆支出";
+      resetExpWizardToStep0();
       document.getElementById("expAmount").value = "";
       const expTaxInp = document.getElementById("expTaxAmount");
       if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
@@ -2853,10 +2910,14 @@
   const liveSearchInp = document.getElementById("historyLiveSearch");
   const liveSearchClear = document.getElementById("historyLiveSearchClear");
   if(liveSearchInp){
+    // 加防抖動：紀錄一多，每打一個字就整批重新過濾、重畫列表會感覺到卡，
+    // 停手 200ms 後才真的重新整理，打字當下只是單純的輸入框反應。
+    let liveSearchDebounceTimer = null;
     liveSearchInp.addEventListener("input", ()=>{
       liveSearchKeyword = liveSearchInp.value.trim().toLowerCase();
       if(liveSearchClear) liveSearchClear.classList.toggle("hidden", !liveSearchKeyword);
-      applyFiltersAndRenderBoth();
+      clearTimeout(liveSearchDebounceTimer);
+      liveSearchDebounceTimer = setTimeout(()=>{ applyFiltersAndRenderBoth(); }, 200);
     });
   }
   if(liveSearchClear){
@@ -3879,10 +3940,8 @@
   // ==========================================================
   // 催款提醒：呼叫 send_debt_reminder 這支資料庫 RPC，直接寫一筆進
   // notifications 表給欠錢的人看（節流判斷交給後端 RPC，同一組人同一個
-  // 幣別 24 小時內只能提醒一次）。矩陣明細彈窗跟「最簡還款法」建議路徑
-  // 兩邊的「提醒對方」按鈕共用這一份邏輯，只是按鈕本身的顯示/隱藏各自
-  // 判斷（見 showPairDetail 的 canRemind、renderDebtSuggestions 的
-  // canRemind）。
+  // 幣別 24 小時內只能提醒一次）。矩陣明細彈窗的「提醒對方」按鈕
+  // （見 showPairDetail 的 canRemind）用的是這份邏輯。
   // ==========================================================
   async function sendDebtReminderFromBtn(btn){
     const debtorId = btn.dataset.debtor;
@@ -3926,167 +3985,6 @@
     await sbAlert(`✓ 已提醒 ${memberById[debtorId] || "對方"}！`, "🔔 Splitbill 通知");
   }
 
-  // ==========================================================
-  // 💡 建議還款路徑：把 simplifyDebts() 算出來的最少轉帳筆數，畫成
-  // 債務關係表上方的一張卡片。每一條路徑按「記錄還款」，走的是跟矩陣
-  // 明細彈窗裡「記錄還款」按鈕完全一樣的流程（跳到還款分頁、帶入
-  // 付款人/收款人/金額），不是另外一套邏輯，寫進去的還款一樣會反映
-  // 回矩陣跟這裡本身（下次 refreshExpenses 重新算就會跟著更新/消失）。
-  // ==========================================================
-  function renderDebtSuggestions(owed, memberIds){
-    const listEl = document.getElementById("debtSuggestList");
-    if(!listEl) return;
-
-    const routes = (typeof simplifyDebts === "function") ? simplifyDebts(owed, memberIds) : [];
-    window.cachedSimplifiedRouteCount = routes.length;
-    const myId = myMember && myMember.id;
-    const isOfficial = debtDisplayMode === "simplified";
-
-    if(!routes.length){
-      listEl.innerHTML = `
-        <div class="debt-all-settled-card">
-          <div class="debt-all-settled-icon">🎉</div>
-          <div class="debt-all-settled-title">全團帳務已完全結清！</div>
-          <div class="debt-all-settled-desc">目前沒有任何未結款項，大家都不互欠囉 ✨</div>
-        </div>
-      `;
-      return;
-    }
-
-    listEl.innerHTML = routes.map(r => {
-      const isFromMe = myId && r.from === myId;
-      const isToMe = myId && r.to === myId;
-      const canRemind = isOfficial && isToMe && !isFromMe;
-      
-      const debtorName = memberById[r.from] || "某成員";
-      const creditorName = memberById[r.to] || "某成員";
-      const debtorObj = memberRows.find(m => m.id === r.from) || { id: r.from, name: debtorName };
-      const creditorObj = memberRows.find(m => m.id === r.to) || { id: r.to, name: creditorName };
-      const debtorLeft = debtorObj.left_at ? `<span class="member-tag-left">已退出</span>` : "";
-      const creditorLeft = creditorObj.left_at ? `<span class="member-tag-left">已退出</span>` : "";
-      const twdHint = conversionHintText(r.amount);
-
-      return `
-        <div class="debt-flow-card ${isFromMe ? 'is-my-debt' : isToMe ? 'is-my-credit' : ''}">
-          <div class="debt-flow-path">
-            <div class="debt-party debt-party-from ${isFromMe ? 'is-me' : ''}">
-              <div class="debt-party-avatar">
-                ${renderAvatarHTML(debtorObj, "avatar-sm")}
-                ${isFromMe ? '<span class="debt-me-mini-badge">我</span>' : ''}
-              </div>
-              <div class="debt-party-meta">
-                <span class="debt-party-role">付款人</span>
-                <span class="debt-party-name" title="${escapeHtml(debtorName)}">${escapeHtml(debtorName)} ${debtorLeft}</span>
-              </div>
-            </div>
-
-            <div class="debt-flow-arrow-wrap" aria-hidden="true">
-              <span class="debt-flow-arrow-icon">➔</span>
-            </div>
-
-            <div class="debt-party debt-party-to ${isToMe ? 'is-me' : ''}">
-              <div class="debt-party-meta">
-                <span class="debt-party-role">收款人</span>
-                <span class="debt-party-name" title="${escapeHtml(creditorName)}">${escapeHtml(creditorName)} ${creditorLeft}</span>
-              </div>
-              <div class="debt-party-avatar">
-                ${renderAvatarHTML(creditorObj, "avatar-sm")}
-                ${isToMe ? '<span class="debt-me-mini-badge">我</span>' : ''}
-              </div>
-            </div>
-          </div>
-
-          <div class="debt-flow-middle">
-            <div class="debt-flow-status-tag">
-              ${isFromMe ? '<span class="tag-pay-out">⚡ 你需轉帳給對方</span>' : isToMe ? '<span class="tag-receive-in">🎉 對方需轉帳給你</span>' : '<span class="tag-neutral">成員間結算</span>'}
-            </div>
-            <div class="debt-flow-amount-block">
-              <span class="debt-flow-amount">${SYM}${formatAmt(r.amount)}</span>
-              ${twdHint ? `<span class="debt-flow-twd-hint">${escapeHtml(twdHint)}</span>` : ''}
-            </div>
-          </div>
-
-          <div class="debt-flow-footer">
-            <div class="debt-flow-actions">
-              ${canRemind ? `<button type="button" class="btn-flow-action btn-remind debt-suggest-remind-btn" data-debtor="${r.from}" data-creditor="${r.to}" data-amt="${r.amount}">🔔 提醒付款</button>` : ''}
-              <button type="button" class="btn-flow-action ${isFromMe ? 'btn-pay-primary' : 'btn-repay-secondary'} debt-suggest-repay-btn" data-from="${r.from}" data-to="${r.to}" data-amt="${r.amount}" ${isOfficial ? '' : 'disabled title="非群組官方採用方法，僅供檢視"'}>
-                ${isFromMe ? '💸 立即記還款' : isToMe ? '💸 記錄已收款' : isOfficial ? '📝 記錄還款' : '👁️ 僅供檢視'}
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    listEl.querySelectorAll(".debt-suggest-remind-btn").forEach(btn => {
-      btn.addEventListener("click", () => sendDebtReminderFromBtn(btn));
-    });
-
-    listEl.querySelectorAll(".debt-suggest-repay-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const fromId = btn.dataset.from;
-        const toId = btn.dataset.to;
-        const amt = btn.dataset.amt;
-
-        const repayTabBtn = document.querySelector('.app-tab[data-tab="repay"]');
-        if(repayTabBtn) repayTabBtn.click();
-
-        const repayFromEl = document.getElementById("repayFrom");
-        const repayToEl = document.getElementById("repayTo");
-        const repayAmountEl = document.getElementById("repayAmount");
-        if(repayFromEl) repayFromEl.value = fromId;
-        if(repayToEl) repayToEl.value = toId;
-        if(repayAmountEl) repayAmountEl.value = amt;
-        if(repayFromEl) enhanceSelect(repayFromEl);
-        if(repayToEl) enhanceSelect(repayToEl);
-
-        setTimeout(()=>{
-          if(repayAmountEl){
-            repayAmountEl.scrollIntoView({ behavior:"smooth", block:"center" });
-            repayAmountEl.focus();
-          }
-        }, 150);
-      });
-    });
-  }
-
-  // 「最佳化結算」跟「逐筆債務表」切換：
-  // 最佳化結算直接展示現代 Fintech 轉帳流向卡片；
-  // 逐筆債務表展示專屬操作按鈕與完整熱圖矩陣。
-  function applyDebtModeUI(mode){
-    const suggestPane = document.getElementById("debtSuggestPane");
-    const matrixPane = document.getElementById("debtMatrixPane");
-    const isSimplified = mode === "simplified";
-
-    if(suggestPane) suggestPane.classList.toggle("hidden", !isSimplified);
-    if(matrixPane) matrixPane.classList.toggle("hidden", isSimplified);
-
-    document.querySelectorAll("#debtModeToggle .debt-mode-btn, #debtModeToggle .debt-segment-btn").forEach(btn=>{
-      btn.classList.toggle("active", btn.dataset.debtMode === mode);
-    });
-  }
-
-  // 「目前正在看哪一個」（debtViewMode，切分頁就會變）跟「群組實際採用
-  // 哪一個」（debtDisplayMode，只有建立者能在設定頁改）是兩件事，光靠
-  // 切換鈕的 active 狀態容易搞混——這裡在採用中的按鈕上加一個固定的
-  // 「✓ 使用中」徽章，不會因為切分頁而移動，同時把上面的提示文字也改成
-  // 直接講白：目前採用的是哪一種。只有在 debtDisplayMode 改變時才需要
-  // 重算一次（群組資料一開始讀回來、或設定頁改了之後回來這裡才會變），
-  // 不用每次切換檢視分頁都重跑。
-  function markOfficialDebtMode(mode){
-    document.querySelectorAll("#debtModeToggle .debt-mode-btn, #debtModeToggle .debt-segment-btn").forEach(btn => {
-      const isOfficialBtn = btn.dataset.debtMode === mode;
-      btn.classList.toggle("is-official-mode", isOfficialBtn);
-      // 移除按鈕內部擠壓文字的長徽章，避免手機窄螢幕折行跳掉
-      const badge = btn.querySelector(".debt-mode-official-badge, .debt-segment-badge");
-      if(badge) badge.remove();
-    });
-    const hintEl = document.querySelector(".debt-mode-shared-hint");
-    if(hintEl){
-      const label = mode === "detailed" ? "🧮 逐筆債務表" : "💡 最佳化結算";
-      hintEl.textContent = `👥 目前採用「${label}」• 僅建群者可修改`;
-    }
-  }
 
   // 每人淨餘額改成呼叫資料庫的 member_balances() 函式算，不在前端重算，
   // 跟總覽頁共用同一份邏輯，不會有算法不一致的風險。
@@ -4150,8 +4048,6 @@
     const owedForRender = buildDebtMatrix(expenses, repayments);
     renderSettlement(expenses, repayments, owedForRender);
     renderDebtMatrix(expenses, repayments, owedForRender);
-    renderDebtSuggestions(owedForRender, memberRows.map(m => m.id));
-    applyDebtModeUI(debtViewMode);
 
     // 📈 渲染電腦端 4 大 KPI 核心數據指標橫條 (Desktop KPI Strip)
     if(typeof renderDesktopKpiStrip === "function"){
@@ -4160,8 +4056,10 @@
         const p = (e.payers || []).find(x => x.member_id === (myMember && myMember.id));
         return s + (p ? Number(p.amount || 0) : 0);
       }, 0);
-      const unsettledRoutes = typeof simplifyDebts === "function" ? simplifyDebts(owedForRender, memberRows.map(m => m.id)) : null;
-      const unsettledCount = (unsettledRoutes && unsettledRoutes.length) || 0;
+      let unsettledCount = 0;
+      Object.keys(owedForRender).forEach(creditorId => {
+        unsettledCount += Object.keys(owedForRender[creditorId] || {}).length;
+      });
       renderDesktopKpiStrip("desktopKpiContainer", {
         totalGroupSpend,
         myTotalPaid,
@@ -5247,21 +5145,6 @@ function renderDebtMatrix(
 }
 
 // ==========================================================
-// 「最簡還款法」／「逐筆債務表」切換——這裡只是切換使用者「目前正在
-// 看」哪一個分頁（debtViewMode），純本機顯示狀態，不會寫回資料庫。
-// 官方採用哪一種（debtDisplayMode）只有建立者能在設定頁修改；兩者不
-// 一致時，該分頁的「記錄還款」按鈕會在渲染時被標成僅供檢視。
-// ==========================================================
-document.querySelectorAll("#debtModeToggle .debt-mode-btn, #debtModeToggle .debt-segment-btn").forEach(btn => {
-  btn.addEventListener("click", ()=>{
-    const mode = btn.dataset.debtMode;
-    if(!mode || mode === debtViewMode) return;
-    debtViewMode = mode;
-    applyDebtModeUI(mode);
-  });
-});
-
-// ==========================================================
 // 債務關係表：只看跟我相關 / 完整矩陣 切換
 // ==========================================================
 const matrixFilterMeBtn = document.getElementById("matrixFilterMeBtn");
@@ -5280,7 +5163,7 @@ function syncMatrixFilterMeBtn(){
 }
 
 // ==========================================================
-// 一鍵複製 LINE 結算文字（支援最簡還款法與逐筆債務表）
+// 一鍵複製 LINE 結算文字
 // ==========================================================
 const copySettlementBtn = document.getElementById("copySettlementBtn");
 if(copySettlementBtn){
@@ -5291,36 +5174,26 @@ if(copySettlementBtn){
     const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
     let text = "";
 
-    if(debtViewMode === "simplified"){
-      const routes = (typeof simplifyDebts === "function") ? simplifyDebts(owed, ids) : [];
-      if(!routes.length){
-        text = `🎉【Splitbill 最佳化結算建議】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
-      } else {
-        const routeLines = routes.map((r, idx) => `${idx + 1}. ${memberById[r.from] || "某成員"} ➔ ${memberById[r.to] || "某成員"}：${SYM}${formatAmt(r.amount)}`).join("\n");
-        text = `🧾【Splitbill 最佳化結算建議】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 最佳化轉帳路徑（共 ${routes.length} 筆）：\n${routeLines}\n------------------------\n✨ 只要完成以上轉帳即可全團帳務完全平衡結清！`;
-      }
-    } else {
-      const activeDebts = [];
-      ids.forEach(creditorId => {
-        ids.forEach(debtorId => {
-          if(creditorId === debtorId) return;
-          const amt = owed[creditorId] && owed[creditorId][debtorId];
-          if(amt && amt > 0.05){
-            activeDebts.push({
-              debtor: memberById[debtorId] || "某成員",
-              creditor: memberById[creditorId] || "某成員",
-              amount: amt
-            });
-          }
-        });
+    const activeDebts = [];
+    ids.forEach(creditorId => {
+      ids.forEach(debtorId => {
+        if(creditorId === debtorId) return;
+        const amt = owed[creditorId] && owed[creditorId][debtorId];
+        if(amt && amt > 0.05){
+          activeDebts.push({
+            debtor: memberById[debtorId] || "某成員",
+            creditor: memberById[creditorId] || "某成員",
+            amount: amt
+          });
+        }
       });
+    });
 
-      if(activeDebts.length === 0){
-        text = `🎉【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
-      } else {
-        const debtLines = activeDebts.map(d => `• ${d.debtor} 應付 ${d.creditor}：${SYM}${formatAmt(d.amount)}`).join("\n");
-        text = `🧾【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 應結清款項明細（共 ${activeDebts.length} 筆）：\n${debtLines}\n------------------------\n✨ 請確認後完成轉帳！`;
-      }
+    if(activeDebts.length === 0){
+      text = `🎉【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
+    } else {
+      const debtLines = activeDebts.map(d => `• ${d.debtor} 應付 ${d.creditor}：${SYM}${formatAmt(d.amount)}`).join("\n");
+      text = `🧾【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 應結清款項明細（共 ${activeDebts.length} 筆）：\n${debtLines}\n------------------------\n✨ 請確認後完成轉帳！`;
     }
 
     try {
@@ -6947,19 +6820,14 @@ function showPairDetail(
     }
 
     if(remainingDebt > 0.01){
-      // 逐筆債務表不是群組官方採用的計算方法時，這裡的記錄還款／臺幣結算
-      // 一律鎖成僅供檢視，「提醒對方」直接不顯示，理由跟「最簡還款法」
-      // 那邊的按鈕一樣。
-      const isOfficial = debtDisplayMode === "detailed";
-      const disabledAttr = isOfficial ? "" : ' disabled title="這不是群組目前採用的還款計算方法，僅供檢視——只有建立者能在設定頁切換"';
-      const canRemind = isOfficial && myMember && creditorId === myMember.id && debtorId !== myMember.id;
+      const canRemind = myMember && creditorId === myMember.id && debtorId !== myMember.id;
       html += `
         <div class="debt-repay-action-wrap" style="display:flex;flex-direction:column;gap:8px;">
-          <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}"${disabledAttr}>
-            💸 ${isOfficial ? "記錄還款" : "僅供檢視"}（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
+          <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
+            💸 記錄還款（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
           </button>
           ${CURRENCY !== "TWD" ? `
-            <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}"${disabledAttr}>
+            <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
               💱 以臺幣結算
             </button>
           ` : ""}
@@ -7284,7 +7152,7 @@ function showPairDetail(
   }
 
   // 催款提醒：只有債權人（欠款表裡的「該收」那一方）自己看得到這顆
-  // 按鈕，實際發送邏輯是跟「最簡還款法」建議路徑共用的 sendDebtReminderFromBtn()。
+  // 按鈕，實際發送邏輯是 sendDebtReminderFromBtn()。
   const remindBtn = document.getElementById("matrixDetailRemindBtn");
   if(remindBtn){
     remindBtn.onclick = () => sendDebtReminderFromBtn(remindBtn);

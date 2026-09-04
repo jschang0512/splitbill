@@ -142,3 +142,57 @@ export function computeCustomSplitShares({ subtotal, taxAmount, taxSplitMode, ro
     return obj;
   });
 }
+
+// ============================================================
+// 📝 Step-by-step 表單導覽：「新增支出」跟「快速記帳」欄位結構、驗證
+// 時機幾乎一樣（都是 支出內容→誰付的錢→怎麼分攤→備註與日期 四步），
+// 這裡只抽「顯示/隱藏哪個區塊、目前第幾步、下一步前擋不擋得住」這件
+// 事本身，完全不碰欄位讀取或驗證細節（那些留在呼叫端，因為兩邊 DOM
+// id 前綴不一樣）。呼叫端負責：build steps 陣列（每步給一個 sectionEl
+// + validate()）、把回傳的 goNext/goBack 接到自己的按鈕上。
+//
+// steps: [{ id, sectionEl, validate }]
+//   sectionEl：這一步要顯示的區塊 DOM 元素
+//   validate：() => { ok, message }，不傳就視為永遠通過
+// onStepChange(index, step)：每次切換步驟後呼叫，用來更新進度圓點/
+//   標題文字、或是把「下一步」按鈕在最後一步換成「送出」文字
+// ============================================================
+export function createFormWizard({ steps, onStepChange }){
+  let currentStepIndex = 0;
+
+  function applyVisibility(){
+    steps.forEach((step, idx) => {
+      if(step.sectionEl) step.sectionEl.classList.toggle("hidden", idx !== currentStepIndex);
+    });
+  }
+
+  function goToStep(index){
+    if(index < 0 || index >= steps.length) return;
+    currentStepIndex = index;
+    applyVisibility();
+    if(onStepChange) onStepChange(currentStepIndex, steps[currentStepIndex]);
+  }
+
+  function goNext(){
+    const step = steps[currentStepIndex];
+    const result = (step && step.validate) ? step.validate() : { ok: true };
+    if(!result || result.ok === false) return result || { ok: false };
+    if(currentStepIndex < steps.length - 1) goToStep(currentStepIndex + 1);
+    return { ok: true };
+  }
+
+  function goBack(){
+    if(currentStepIndex > 0) goToStep(currentStepIndex - 1);
+  }
+
+  applyVisibility();
+  if(onStepChange) onStepChange(currentStepIndex, steps[currentStepIndex]);
+
+  return {
+    goNext,
+    goBack,
+    goToStep,
+    getCurrentIndex: () => currentStepIndex,
+    getStepCount: () => steps.length
+  };
+}

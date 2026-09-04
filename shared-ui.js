@@ -173,7 +173,37 @@ async function loadGroupMembers(sb, currentUser, showLeftMembers){
     : null;
   const memberRows = showLeftMembers ? MEMBERS : MEMBERS.filter(m => !m.left_at);
 
+  // 舊帳號的頭貼還是存整張圖片的 Base64 文字（v680 以前的做法，塞在
+  // avatar_url 欄位裡，每次抓成員清單都要整包一起傳）——這裡偷偷在背景
+  // 把它搬去 Storage，只存一個網址回去，不擋畫面渲染，也不用另外跑一次
+  // 遷移指令碼：每個人下次登入自己就會被治好，失敗也沒關係，下次登入
+  // 再試一次就好。
+  if(myMember && myMember.avatar_url && myMember.avatar_url.startsWith("data:") && currentUser){
+    migrateLegacyBase64Avatar(sb, currentUser, myMember).catch(()=>{});
+  }
+
   return { MEMBERS, memberById, myMember, memberRows };
+}
+
+async function migrateLegacyBase64Avatar(sb, currentUser, myMember){
+  const blob = await (await fetch(myMember.avatar_url)).blob();
+  const path = `${currentUser.id}/avatar.jpg`;
+  const { error: uploadErr } = await sb.storage.from("avatars").upload(path, blob, {
+    contentType: "image/jpeg",
+    upsert: true
+  });
+  if(uploadErr) throw uploadErr;
+  const { data: pub } = sb.storage.from("avatars").getPublicUrl(path);
+  const avatarUrl = pub.publicUrl + "?t=" + Date.now();
+
+  const { error: memberErr } = await sb.from("members").update({ avatar_url: avatarUrl }).eq("user_id", currentUser.id);
+  if(memberErr) throw memberErr;
+  sb.auth.updateUser({ data: { avatar_url: avatarUrl } }).catch(()=>{});
+
+  myMember.avatar_url = avatarUrl;
+  localStorage.setItem("sb_avatar_" + myMember.id, avatarUrl);
+  if(myMember.user_id) localStorage.setItem("sb_avatar_" + myMember.user_id, avatarUrl);
+  localStorage.setItem("sb_my_avatar", avatarUrl);
 }
 
 // ---------- 全站統一的自訂下拉選單：外觀跟債務趨勢圖的日/週/月/年選單一致。

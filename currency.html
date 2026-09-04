@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=672">
-<link rel="stylesheet" href="shared.css?v=672">
+<link rel="stylesheet" href="theme.css?v=683">
+<link rel="stylesheet" href="shared.css?v=683">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=672"></script>
-<script src="version.js?v=672"></script>
-<script src="shared-ui.js?v=672"></script>
-<script src="theme.js?v=672" defer></script>
+<script src="currencies.js?v=683"></script>
+<script src="version.js?v=683"></script>
+<script src="shared-ui.js?v=683"></script>
+<script src="theme.js?v=683" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -218,51 +218,27 @@ if("serviceWorker" in navigator){
         </div>
       </div>
 
-      <div class="card card-wide debt-settlement-master-card">
+      <div class="card card-wide">
         <div class="debt-card-header">
-          <div class="debt-segmented-control" id="debtModeToggle">
-            <button type="button" class="debt-segment-btn active" data-debt-mode="simplified">
-              <span class="debt-segment-icon">💡</span>
-              <span class="debt-segment-label">最佳化結算</span>
-            </button>
-            <button type="button" class="debt-segment-btn" data-debt-mode="detailed">
-              <span class="debt-segment-icon">🧮</span>
-              <span class="debt-segment-label">逐筆債務表</span>
-            </button>
-          </div>
-          
-          <div class="debt-mode-status-row">
-            <div class="debt-mode-notice-pill" id="debtModeNoticePill">
-              <span class="debt-mode-status-dot"></span>
-              <span id="debtModeStatusText" class="debt-mode-shared-hint">👥 目前採用「💡 最佳化結算」• 僅建群者可修改</span>
-            </div>
-          </div>
+          <h2>🧮 逐筆債務表</h2>
         </div>
 
-        <!-- 💡 最佳化結算：直接展示現代 Fintech 轉帳流向卡片清單 -->
-        <div id="debtSuggestPane" class="debt-pane-content">
-          <div id="debtSuggestList" class="debt-suggest-flow-list"></div>
+        <div class="debt-matrix-toolbar" id="debtMatrixToolbar">
+          <button type="button" class="btn-tool-pill" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
+            <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
+          </button>
+          <button type="button" class="btn-tool-pill copy-settle-btn" id="copySettlementBtn" title="複製逐筆債務清單至剪貼簿">
+            <span>📋 複製逐筆清單</span>
+          </button>
+          <button type="button" class="btn-tool-pill copy-settle-btn" id="exportSettlementImgBtn" title="匯出矩陣圖">
+            <span>🖼️ 匯出矩陣圖</span>
+          </button>
         </div>
-
-        <!-- 🧮 逐筆債務表：專屬操作按鈕 + 完整成員對帳熱圖矩陣與點擊明細 -->
-        <div id="debtMatrixPane" class="debt-pane-content hidden">
-          <div class="debt-matrix-toolbar" id="debtMatrixToolbar">
-            <button type="button" class="btn-tool-pill" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
-              <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
-            </button>
-            <button type="button" class="btn-tool-pill copy-settle-btn" id="copySettlementBtn" title="複製逐筆債務清單至剪貼簿">
-              <span>📋 複製逐筆清單</span>
-            </button>
-            <button type="button" class="btn-tool-pill copy-settle-btn" id="exportSettlementImgBtn" title="匯出矩陣圖">
-              <span>🖼️ 匯出矩陣圖</span>
-            </button>
-          </div>
-          <p class="filter-hint summary-hint">💡 點擊儲存格可查看詳細借貸紀錄，餘數由系統自動分攤分配</p>
-          <div class="matrix-scroll">
-            <table class="debt-matrix" id="debtMatrix"></table>
-          </div>
-          <div id="matrixDetail"></div>
+        <p class="filter-hint summary-hint">💡 點擊儲存格可查看詳細借貸紀錄，餘數由系統自動分攤分配</p>
+        <div class="matrix-scroll">
+          <table class="debt-matrix" id="debtMatrix"></table>
         </div>
+        <div id="matrixDetail"></div>
       </div>
     </div>
 
@@ -273,6 +249,16 @@ if("serviceWorker" in navigator){
         </div>
         <div class="edit-banner hidden" id="editBanner">
           ✎ 編輯模式 <button type="button" class="link-btn" id="cancelEditBtn">取消編輯</button>
+        </div>
+
+        <div class="form-wizard-progress" id="expWizardProgress">
+          <div class="form-wizard-dots" id="expWizardDots">
+            <span class="form-wizard-dot active" data-step="0"></span>
+            <span class="form-wizard-dot" data-step="1"></span>
+            <span class="form-wizard-dot" data-step="2"></span>
+            <span class="form-wizard-dot" data-step="3"></span>
+          </div>
+          <div class="form-wizard-step-title" id="expWizardStepTitle">步驟 1 / 4・支出內容</div>
         </div>
 
         <div class="exp-form-section sec-content">
@@ -309,13 +295,14 @@ if("serviceWorker" in navigator){
             <button type="button" class="amt-row-calc-btn input-calc-btn" id="expAmountCalcBtn" title="小計算機">🧮</button>
           </div>
 
-          <!-- 服務費 / 稅：預設收合，大部分時候金額已含稅、不用理它。摘要卡片
+          <!-- 服務費 / 稅：預設「沒有」，大部分時候金額已含稅、不用理它。摘要卡片
                故意放在收合區塊外面，即使收合起來、只要有填資料就看得到組成 -->
           <div class="exp-lightweight-container" id="expTaxContainer">
-            <button type="button" class="exp-lightweight-toggle" id="expTaxToggle">
-              <span class="exp-lightweight-toggle-icon" id="expTaxCaret">+</span>
-              <span>這筆有另外加服務費或稅嗎？</span>
-            </button>
+            <label class="exp-addon-label">這筆有另外加服務費或稅嗎？</label>
+            <div class="filter-type-toggle">
+              <button type="button" class="split-mode-btn active" id="expTaxHasNoBtn" data-tax-has="no">沒有</button>
+              <button type="button" class="split-mode-btn" id="expTaxHasYesBtn" data-tax-has="yes">有，要另外加</button>
+            </div>
             <div class="exp-addons-body hidden" id="expTaxBody">
               <div class="exp-addons-hint">💡 若有餐廳服務費、消費稅或附加稅額，在此填入金額並選擇分配方式。系統會自動計算各成員最終應付金額。</div>
 
@@ -330,14 +317,12 @@ if("serviceWorker" in navigator){
                 <button type="button" class="ai-tax-btn active" data-manual-tax-mode="ratio" id="expManualTaxRatioBtn" title="依個人消費金額比例分攤服務費與稅額">依消費比例</button>
                 <button type="button" class="ai-tax-btn" data-manual-tax-mode="equal" id="expManualTaxEqualBtn" title="所有參與者平均分攤服務費與稅額">全員平分</button>
               </div>
-
-              <button type="button" class="link-btn exp-lightweight-clear" id="expTaxClearBtn">清除服務費/稅資料</button>
             </div>
             <div class="exp-tax-preview hidden exp-tax-preview-box" id="expTaxPreview"></div>
           </div>
         </div>
 
-        <div class="exp-form-section sec-payer">
+        <div class="exp-form-section sec-payer hidden">
           <div class="exp-form-section-head">
             <span class="exp-form-section-icon">💰</span>
             <span class="exp-form-section-title">誰付的錢</span>
@@ -355,7 +340,7 @@ if("serviceWorker" in navigator){
           <div class="sum-check" id="payerSumCheck"></div>
         </div>
 
-        <div class="exp-form-section sec-split">
+        <div class="exp-form-section sec-split hidden">
           <div class="exp-form-section-head">
             <span class="exp-form-section-icon">🤝</span>
             <span class="exp-form-section-title">怎麼分攤</span>
@@ -401,7 +386,7 @@ if("serviceWorker" in navigator){
           <div class="sum-check" id="shareSumCheck"></div>
         </div>
 
-        <div class="exp-form-section sec-note">
+        <div class="exp-form-section sec-note hidden">
           <div class="exp-form-section-head">
             <span class="exp-form-section-icon">🗒️</span>
             <span class="exp-form-section-title">備註與日期</span>
@@ -414,7 +399,10 @@ if("serviceWorker" in navigator){
           <input type="date" id="expDate" lang="en-CA">
         </div>
 
-        <button class="btn" id="addExpenseBtn">加入這筆支出</button>
+        <div class="form-wizard-nav" id="expWizardNav">
+          <button type="button" class="btn secondary form-wizard-back hidden" id="expWizardBackBtn">← 上一步</button>
+          <button class="btn" id="addExpenseBtn">下一步</button>
+        </div>
         <div class="msg" id="expMsg"></div>
       </div>
     </div>
@@ -866,8 +854,18 @@ if("serviceWorker" in navigator){
       </div>
     </div>
 
-    <!-- 步驟 3：點菜認領與直接記帳看板 -->
+    <!-- 步驟 3：點菜認領與直接記帳看板（拆成 品項認領 → 付款人/日期 → 分攤預覽送出 3 個子步驟） -->
     <div class="ai-receipt-screen hidden" id="aiReceiptClaimScreen">
+      <div class="form-wizard-progress" id="aiClaimWizardProgress">
+        <div class="form-wizard-dots" id="aiClaimWizardDots">
+          <span class="form-wizard-dot active" data-step="0"></span>
+          <span class="form-wizard-dot" data-step="1"></span>
+          <span class="form-wizard-dot" data-step="2"></span>
+        </div>
+        <div class="form-wizard-step-title" id="aiClaimWizardStepTitle">步驟 1 / 3・品項認領</div>
+      </div>
+
+      <div class="ai-claim-substep" id="aiClaimSubStep1">
       <!-- 頂部：店家名稱、總計列、服務費與稅金 (完整融入總額設定) -->
       <div class="ai-receipt-store-bar">
         <div class="ai-section-title">
@@ -955,12 +953,36 @@ if("serviceWorker" in navigator){
         <div class="ai-total-check-warning hidden" id="aiTotalMismatchWarning"></div>
       </div>
 
-      <!-- 💳 付款人與時間設定（置於總額之後） -->
+      <!-- 📋 品項清單（收據清單 + 防漏單進度條 + 氣泡流認領） -->
+      <div class="ai-receipt-items-container">
+        <div class="ai-section-title">
+          <span class="ai-section-title-text">📋 品項明細與認領</span>
+          <button type="button" class="link-btn ai-section-action-btn" id="aiReceiptAddItemBtn">+ 新增品項</button>
+        </div>
+
+        <!-- 防漏單即時進度儀表板 (方案 C) -->
+        <div class="ai-claim-progress-box" id="aiClaimProgressBox">
+          <div class="ai-claim-progress-info">
+            <span class="ai-claim-progress-title">⚡ 認領進度</span>
+            <span class="ai-claim-progress-stats" id="aiClaimProgressStats">0 / 0 品項已認領 (0%)</span>
+          </div>
+          <div class="ai-claim-progress-bar-bg">
+            <div class="ai-claim-progress-bar-fill" id="aiClaimProgressFill"></div>
+          </div>
+          <div class="ai-claim-progress-status" id="aiClaimProgressStatus">⚠️ 尚有品項尚未認領</div>
+        </div>
+
+        <div class="ai-receipt-items-list" id="aiReceiptItemsList"></div>
+      </div>
+      </div>
+
+      <div class="ai-claim-substep hidden" id="aiClaimSubStep2">
+      <!-- 💳 付款人與時間設定 -->
       <div class="ai-receipt-record-panel">
         <div class="ai-section-title">
           <span class="ai-section-title-text">💳 付款人與消費時間</span>
         </div>
-        
+
         <!-- 付款模式切換 -->
         <div class="ai-payer-mode-toggle">
           <button type="button" class="ai-payer-mode-btn active" id="aiPayerModeSingle">單人付款</button>
@@ -991,29 +1013,9 @@ if("serviceWorker" in navigator){
           </div>
         </div>
       </div>
-
-      <!-- 📋 品項清單（收據清單 + 防漏單進度條 + 氣泡流認領） -->
-      <div class="ai-receipt-items-container">
-        <div class="ai-section-title">
-          <span class="ai-section-title-text">📋 品項明細與認領</span>
-          <button type="button" class="link-btn ai-section-action-btn" id="aiReceiptAddItemBtn">+ 新增品項</button>
-        </div>
-
-        <!-- 防漏單即時進度儀表板 (方案 C) -->
-        <div class="ai-claim-progress-box" id="aiClaimProgressBox">
-          <div class="ai-claim-progress-info">
-            <span class="ai-claim-progress-title">⚡ 認領進度</span>
-            <span class="ai-claim-progress-stats" id="aiClaimProgressStats">0 / 0 品項已認領 (0%)</span>
-          </div>
-          <div class="ai-claim-progress-bar-bg">
-            <div class="ai-claim-progress-bar-fill" id="aiClaimProgressFill"></div>
-          </div>
-          <div class="ai-claim-progress-status" id="aiClaimProgressStatus">⚠️ 尚有品項尚未認領</div>
-        </div>
-
-        <div class="ai-receipt-items-list" id="aiReceiptItemsList"></div>
       </div>
 
+      <div class="ai-claim-substep hidden" id="aiClaimSubStep3">
       <!-- 👥 每人應付試算預覽 -->
       <div class="ai-receipt-claim-summary">
         <div class="ai-section-title">
@@ -1038,6 +1040,14 @@ if("serviceWorker" in navigator){
       <div class="ai-receipt-actions">
         <button type="button" class="btn secondary ai-receipt-retake-btn" id="aiReceiptRetakeBtn">📷 重選照片</button>
         <button type="button" class="btn ai-receipt-save-btn" id="aiReceiptDirectSaveBtn">💾 確認無誤，立即記帳</button>
+      </div>
+      </div>
+
+      <div class="msg" id="aiClaimWizardMsg"></div>
+
+      <div class="form-wizard-nav" id="aiClaimWizardNav">
+        <button type="button" class="btn secondary form-wizard-back hidden" id="aiClaimWizardBackBtn">← 上一步</button>
+        <button type="button" class="btn" id="aiClaimWizardNextBtn">下一步</button>
       </div>
     </div>
   </div>
@@ -1087,6 +1097,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=672"></script>
+<script src="app.js?v=683"></script>
 </body>
 </html>
