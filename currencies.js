@@ -563,6 +563,65 @@ function convertToTWD(amount, currencyCode){
 window.DEFAULT_RATES_TO_TWD = DEFAULT_RATES_TO_TWD;
 window.convertToTWD = convertToTWD;
 
+// ============================================================
+// 即時匯率背景更新：原本 convertToTWD() 讀的 window.cachedExchangeRates
+// 從來沒有人賦值過，永遠都是走上面那張寫死的 DEFAULT_RATES_TO_TWD，
+// 跟 currency.html 結清換算彈窗裡「⚡ 即時匯率」按鈕抓到的即時牌價是
+// 兩套互不相通的資料。這裡補上背景刷新，讓兩邊用同一份即時匯率——
+// 用 localStorage 快取 1 小時（跟按鈕文案講的「每小時同步最新牌價」
+// 一致，也避免每次開頁都打 API），開頁先套用快取（就算過期也比完全
+// 沒有好），過期才觸發背景重抓；全部來源都失敗就自然 fallback 回
+// 上面的固定表，不影響既有行為。
+// ============================================================
+(function initLiveExchangeRates(){
+  const CACHE_KEY = "splitbill_live_rates_to_twd";
+  const CACHE_TTL_MS = 60 * 60 * 1000; // 1 小時，跟結清彈窗文案講的頻率一致
+
+  let cached = null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(raw) cached = JSON.parse(raw);
+  } catch(e){}
+
+  if(cached && cached.rates) window.cachedExchangeRates = cached.rates;
+  if(cached && cached.fetchedAt && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) return;
+
+  async function fetchLiveRatesToTwd(){
+    // 跟 app.js 裡「⚡ 即時匯率」按鈕同一組來源，只是這裡改成一次抓
+    // base=TWD 的完整清單（1 TWD = 多少外幣），一次 API 呼叫換算出
+    // 所有幣別，不用像按鈕那樣一個一個幣別分開打。
+    const sources = [
+      { url: "https://open.er-api.com/v6/latest/TWD", parse: d => d && d.rates },
+      { url: "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/twd.json",
+        parse: d => d && d.twd && Object.fromEntries(Object.entries(d.twd).map(([k, v]) => [k.toUpperCase(), v])) },
+      { url: "https://latest.currency-api.pages.dev/v1/currencies/twd.json",
+        parse: d => d && d.twd && Object.fromEntries(Object.entries(d.twd).map(([k, v]) => [k.toUpperCase(), v])) }
+    ];
+    for(const src of sources){
+      try {
+        const res = await fetch(src.url);
+        if(!res.ok) continue;
+        const twdToForeign = src.parse(await res.json()); // 1 TWD = X 外幣
+        if(!twdToForeign) continue;
+        const ratesToTwd = {};
+        CURRENCIES.forEach(c => {
+          if(c.code === "TWD") return;
+          const perTwd = Number(twdToForeign[c.code]);
+          if(perTwd > 0) ratesToTwd[c.code] = 1 / perTwd; // 換成「1 外幣 = X 台幣」，跟 DEFAULT_RATES_TO_TWD 同單位
+        });
+        if(Object.keys(ratesToTwd).length) return ratesToTwd;
+      } catch(e){}
+    }
+    return null;
+  }
+
+  fetchLiveRatesToTwd().then(rates => {
+    if(!rates) return;
+    window.cachedExchangeRates = rates;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ rates, fetchedAt: Date.now() })); } catch(e){}
+  });
+})();
+
 function getCategoryMeta(desc, note, categoryCol){
   // 0. 有真正的 category 欄位資料就直接採用，不用再靠文字猜測
   if(categoryCol && CATEGORY_MAP[categoryCol]) return CATEGORY_MAP[categoryCol];
