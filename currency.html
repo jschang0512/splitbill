@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=748">
-<link rel="stylesheet" href="shared.css?v=748">
+<link rel="stylesheet" href="theme.css?v=752">
+<link rel="stylesheet" href="shared.css?v=752">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=748"></script>
-<script src="version.js?v=748"></script>
-<script src="shared-ui.js?v=748"></script>
-<script src="theme.js?v=748" defer></script>
+<script src="currencies.js?v=752"></script>
+<script src="version.js?v=752"></script>
+<script src="shared-ui.js?v=752"></script>
+<script src="theme.js?v=752" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -735,6 +735,7 @@ if("serviceWorker" in navigator){
       </div>
       <div class="settings-item-label-wrap">
         <button type="button" class="exp-debt-edit-btn" id="expDebtModalRestoreBtn" title="還原這筆跨幣別轉移">↺ 還原</button>
+        <button type="button" class="exp-debt-edit-btn hidden" id="expDebtModalViewReceiptBtn" title="查看收據原圖">📷 收據原圖</button>
         <button type="button" class="exp-debt-edit-btn" id="expDebtModalEditBtn" title="編輯此筆支出">✎ 編輯</button>
         <button type="button" class="calc-close" id="expDebtModalCloseBtn">✕</button>
       </div>
@@ -856,6 +857,7 @@ if("serviceWorker" in navigator){
       <div class="ai-receipt-store-bar">
         <div class="ai-section-title">
           <span class="ai-section-title-text">🏪 店家與總額設定</span>
+          <button type="button" class="ai-btn-copy-compact hidden" id="aiViewReceiptImgBtn">📷 查看收據原圖</button>
         </div>
         <div class="ai-receipt-store-wrap">
           <input type="text" class="ai-receipt-store-input" id="aiReceiptStoreInput" value="聚餐收據" placeholder="店家或分店名稱 (可點擊修改)">
@@ -1022,6 +1024,11 @@ if("serviceWorker" in navigator){
         <div class="ai-breakdown-content" id="aiBreakdownContent"></div>
       </div>
 
+      <label class="ai-receipt-keep-image-row" for="aiReceiptKeepImageChk">
+        <input type="checkbox" id="aiReceiptKeepImageChk">
+        <span>保留這張收據原圖（僅同群組成員看得到，180 天後自動清除）</span>
+      </label>
+
       <div class="ai-receipt-actions">
         <button type="button" class="btn secondary ai-receipt-retake-btn" id="aiReceiptRetakeBtn">📷 重選照片</button>
         <button type="button" class="btn ai-receipt-save-btn" id="aiReceiptDirectSaveBtn">💾 確認無誤，立即記帳</button>
@@ -1098,6 +1105,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=748"></script>
+<script src="app.js?v=752"></script>
 </body>
 </html>

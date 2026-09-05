@@ -7342,6 +7342,19 @@ input#aiExpenseTime {
   border-radius: 12px !important;
   margin: 0 !important;
 }
+.ai-receipt-keep-image-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  font-size: 12.5px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.ai-receipt-keep-image-row input[type="checkbox"] { flex-shrink: 0; width: 17px; height: 17px; cursor: pointer; }
 .ai-receipt-actions { display: flex; gap: 10px; margin-top: 16px; }
 .ai-receipt-retake-btn { padding: 11px 14px; font-size: 13.5px; width: auto; }
 .ai-receipt-save-btn { flex: 1; padding: 11px 16px; font-size: 14.5px; font-weight: 700; }

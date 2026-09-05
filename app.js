@@ -3333,6 +3333,7 @@
           ? `${xcurId ? `<button type="button" class="btn secondary small" id="historyDetailEditRateBtn">✎ 編輯匯率</button>` : ""}<button type="button" class="btn secondary small" id="historyDetailRestoreBtn">↺ 還原轉移</button>`
           : `<button type="button" class="btn secondary small" id="historyDetailEditBtn">✎ 編輯</button><button type="button" class="btn secondary small" id="historyDetailDeleteBtn">🗑️ 刪除</button>`
         ) : ""}
+        ${expense.receipt_image_path ? `<button type="button" class="btn secondary small" id="historyDetailViewReceiptBtn">📷 查看收據原圖</button>` : ""}
         <button type="button" class="btn small" id="historyDetailViewDebtBtn">查看債務關係</button>
       </div>
     `;
@@ -3346,6 +3347,28 @@
 
     const editBtn = document.getElementById("historyDetailEditBtn");
     if(editBtn) editBtn.addEventListener("click", () => startEditExpense(expense));
+
+    // receipts bucket 是不公開的，一定要透過 createSignedUrl() 換一次性
+    // 的短效網址才能打開，不能直接組 public URL（會被 RLS 擋掉）。跟
+    // ai-receipt.js 裡編輯畫面那顆按鈕邏輯一樣，這裡另外寫一份是因為
+    // ai-receipt.js 是動態 import 的模組，進「紀錄」頁當下不保證已載入。
+    const viewReceiptBtn = document.getElementById("historyDetailViewReceiptBtn");
+    if(viewReceiptBtn) viewReceiptBtn.addEventListener("click", async () => {
+      viewReceiptBtn.disabled = true;
+      const originalText = viewReceiptBtn.textContent;
+      viewReceiptBtn.textContent = "⏳ 載入中…";
+      try {
+        const { data, error } = await sb.storage.from("receipts").createSignedUrl(expense.receipt_image_path, 300);
+        if(error || !data || !data.signedUrl) throw error || new Error("找不到這張收據原圖");
+        window.open(data.signedUrl, "_blank", "noopener");
+      } catch(err){
+        console.error("開啟收據原圖失敗：", err);
+        await sbAlert("找不到這張收據原圖，可能已經超過 180 天保留期限被清除了。", "無法開啟");
+      } finally {
+        viewReceiptBtn.disabled = false;
+        viewReceiptBtn.textContent = originalText;
+      }
+    });
 
     const deleteBtn = document.getElementById("historyDetailDeleteBtn");
     if(deleteBtn) deleteBtn.addEventListener("click", async () => {
@@ -6067,6 +6090,34 @@ function showExpenseDebtDetail(e){
       };
     } else {
       expDebtModalRestoreBtn.style.display = "none";
+    }
+  }
+
+  // receipts bucket 不公開，一定要透過 createSignedUrl() 換一次性短效
+  // 網址才能打開，跟「紀錄」側邊欄那顆按鈕同一套邏輯。
+  const expDebtModalViewReceiptBtn = document.getElementById("expDebtModalViewReceiptBtn");
+  if(expDebtModalViewReceiptBtn){
+    if(!e.receipt_image_path){
+      expDebtModalViewReceiptBtn.classList.add("hidden");
+      expDebtModalViewReceiptBtn.onclick = null;
+    } else {
+      expDebtModalViewReceiptBtn.classList.remove("hidden");
+      expDebtModalViewReceiptBtn.onclick = async () => {
+        expDebtModalViewReceiptBtn.disabled = true;
+        const originalText = expDebtModalViewReceiptBtn.textContent;
+        expDebtModalViewReceiptBtn.textContent = "⏳ 載入中…";
+        try {
+          const { data, error } = await sb.storage.from("receipts").createSignedUrl(e.receipt_image_path, 300);
+          if(error || !data || !data.signedUrl) throw error || new Error("找不到這張收據原圖");
+          window.open(data.signedUrl, "_blank", "noopener");
+        } catch(err){
+          console.error("開啟收據原圖失敗：", err);
+          await sbAlert("找不到這張收據原圖，可能已經超過 180 天保留期限被清除了。", "無法開啟");
+        } finally {
+          expDebtModalViewReceiptBtn.disabled = false;
+          expDebtModalViewReceiptBtn.textContent = originalText;
+        }
+      };
     }
   }
 

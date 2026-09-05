@@ -25,6 +25,11 @@
   let currentReceiptData = null;
   let receiptClaimItems = [];
   let taxSplitMode = "ratio"; // "ratio" | "equal"
+  // 裁切完成、送去給 AI 辨識的那張圖（純 base64，不含 data: 前綴），只有
+  // 使用者在存檔畫面勾選「保留原圖」時才會真的上傳到 Storage；編輯既有
+  // 支出（不是重新拍照）時沒有這張圖可用，此時維持 null，存檔那邊會
+  // 自動跳過上傳。
+  let currentReceiptImageBase64 = null;
 
   function compressImageForAI(file, maxDimension = 2048, quality = 0.92){
     return new Promise((resolve, reject) => {
@@ -278,6 +283,21 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     throw lastErr || new Error("AI 辨識收據失敗，請確認網路連線或金鑰是否正確。");
   }
 
+  // 使用者在存檔畫面勾選「保留原圖」時才會呼叫：把裁切後送去給 AI 辨識
+  // 的同一張圖上傳到 receipts bucket（不公開，只有同群組成員讀得到），
+  // 上傳失敗只記 log、不擋主流程——支出本身已經存成功了，原圖只是加分
+  // 附件，不該讓這一步的失敗讓使用者誤以為整筆記帳失敗。
+  async function uploadReceiptImage(sb, groupId, expenseId, pureBase64){
+    try {
+      const blob = await (await fetch(`data:image/jpeg;base64,${pureBase64}`)).blob();
+      const path = `${groupId}/${expenseId}.jpg`;
+      const { error: upErr } = await sb.storage.from("receipts").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      if(upErr){ console.error("收據原圖上傳失敗：", upErr); return; }
+      const { error: updErr } = await sb.from("expenses").update({ receipt_image_path: path }).eq("id", expenseId);
+      if(updErr) console.error("收據原圖路徑寫入失敗：", updErr);
+    } catch(e){ console.error("收據原圖上傳異常：", e); }
+  }
+
   export function setupAiReceiptModal(deps){
     const modal = document.getElementById("aiReceiptModal");
     const openBtn = document.getElementById("aiReceiptBtn");
@@ -356,6 +376,36 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       return (c && c.label) || selectedReceiptCurrency;
     }
 
+    // 只有編輯「當初有勾選保留原圖」的既有支出時才會顯示這顆按鈕。
+    // receipts bucket 是不公開的，一定要透過 createSignedUrl() 換一次性
+    // 的短效網址才能打開，不能直接組 public URL（會被 RLS 擋掉）。
+    function setupViewReceiptImageButton(expense){
+      const btn = document.getElementById("aiViewReceiptImgBtn");
+      if(!btn) return;
+      if(!expense || !expense.receipt_image_path){
+        btn.classList.add("hidden");
+        btn.onclick = null;
+        return;
+      }
+      btn.classList.remove("hidden");
+      btn.onclick = async ()=>{
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "⏳ 載入中…";
+        try {
+          const { data, error } = await deps.sb.storage.from("receipts").createSignedUrl(expense.receipt_image_path, 300);
+          if(error || !data || !data.signedUrl) throw error || new Error("找不到這張收據原圖");
+          window.open(data.signedUrl, "_blank", "noopener");
+        } catch(err){
+          console.error("開啟收據原圖失敗：", err);
+          await sbAlert("找不到這張收據原圖，可能已經超過 180 天保留期限被清除了。", "無法開啟");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      };
+    }
+
     // 🌟 供外部編輯呼叫：開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
     window.openAiReceiptEditMode = function(expense, aiData){
       const modalEl = document.getElementById("aiReceiptModal");
@@ -426,6 +476,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(aiDirectSaveBtn){
           aiDirectSaveBtn.textContent = "💾 確認更新";
         }
+
+        setupViewReceiptImageButton(expense);
 
         renderClaimBoard();
 
@@ -718,6 +770,10 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       stopAiProgress();
       editingAiExpenseId = null;
       editingAiExpenseOriginal = null;
+      currentReceiptImageBase64 = null;
+      const keepImageChk = document.getElementById("aiReceiptKeepImageChk");
+      if(keepImageChk) keepImageChk.checked = false;
+      setupViewReceiptImageButton(null);
       if(aiDirectSaveBtn) aiDirectSaveBtn.textContent = "💾 確認無誤，立即記帳";
     }
 
@@ -1174,6 +1230,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
           const base64Data = offCanvas.toDataURL("image/jpeg", 0.92);
           const pureBase64 = base64Data.split(",")[1];
+          currentReceiptImageBase64 = pureBase64;
 
           const parsed = await parseReceiptWithGemini(pureBase64, "image/jpeg", key, deps.sb);
 
@@ -2211,8 +2268,16 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             await deps.refreshExpenses();
             await sbAlert(`🎉 已成功更新「${storeName}」支出明細！`, "更新成功");
           } else {
-            const { error } = await deps.sb.from("expenses").insert(payload);
+            const keepImageChk = document.getElementById("aiReceiptKeepImageChk");
+            const shouldKeepImage = !!(keepImageChk && keepImageChk.checked && currentReceiptImageBase64);
+
+            const { data: insertedRow, error } = await deps.sb.from("expenses").insert(payload).select("id").single();
             if(error) throw error;
+
+            if(shouldKeepImage && insertedRow){
+              const groupIdForUpload = (deps.getState().myMember && deps.getState().myMember.group_id) || activeMembers[0].group_id;
+              uploadReceiptImage(deps.sb, groupIdForUpload, insertedRow.id, currentReceiptImageBase64);
+            }
 
             closeModal();
 
