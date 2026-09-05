@@ -26,13 +26,13 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=728">
-<link rel="stylesheet" href="shared.css?v=728">
+<link rel="stylesheet" href="theme.css?v=746">
+<link rel="stylesheet" href="shared.css?v=746">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="currencies.js?v=728"></script>
-<script src="version.js?v=728"></script>
-<script src="shared-ui.js?v=728"></script>
-<script src="theme.js?v=728" defer></script>
+<script src="currencies.js?v=746"></script>
+<script src="version.js?v=746"></script>
+<script src="shared-ui.js?v=746"></script>
+<script src="theme.js?v=746" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -93,7 +93,6 @@ if("serviceWorker" in navigator){
 
 <div class="wrap">
   <div class="app-header">
-    <div class="eyebrow" id="pageEyebrow"></div>
     <div class="title-row">
       <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
         <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
@@ -159,79 +158,83 @@ if("serviceWorker" in navigator){
 
     <div class="app-panel active" id="panelSummary">
               <div class="card">
-                <div class="chart-title-row">
-                  <h2>📈 債務趨勢</h2>
-          <div class="chart-gran-select" id="chartGranSelect">
-            <button type="button" class="chart-gran-btn" id="chartGranBtn">
-              <span id="chartGranText">週</span>
-              <span class="chart-gran-caret">▾</span>
-            </button>
-            <div class="chart-gran-menu hidden" id="chartGranMenu">
-              <button type="button" class="chart-gran-option" data-value="day">日</button>
-              <button type="button" class="chart-gran-option active" data-value="week">週</button>
-              <button type="button" class="chart-gran-option" data-value="month">月</button>
-              <button type="button" class="chart-gran-option" data-value="year">年</button>
-            </div>
-          </div>
-        </div>
-        <div class="chart-range-nav">
-          <button type="button" class="chart-nav-btn" id="chartPrevBtn" aria-label="上一組">‹</button>
-          <span id="chartRangeLabel"></span>
-          <button type="button" class="chart-nav-btn" id="chartNextBtn" aria-label="下一組">›</button>
-        </div>
-        <div id="spendChartWrap">
-          <p class="filter-hint">載入中…</p>
-        </div>
-      </div>
+                <div class="donut-scope-tabs chart-toggle-tabs" id="summaryChartToggleTabs">
+                  <button type="button" class="donut-scope-tab chart-toggle-tab active" data-view="trend">📈 債務趨勢</button>
+                  <button type="button" class="donut-scope-tab chart-toggle-tab" data-view="donut">🍩 花費類別分佈</button>
+                </div>
 
-      <!-- 🍩 花費類別分析卡片 -->
-      <div class="card card-category-donut">
-        <div class="chart-title-row">
-          <h2>🍩 花費類別分佈</h2>
-          <div class="donut-controls-row">
-            <div class="chart-gran-select" id="donutTimeRangeSelect">
-              <button type="button" class="chart-gran-btn" id="donutTimeRangeBtn">
-                <span id="donutTimeRangeText">全部</span>
-                <span class="chart-gran-caret">▾</span>
-              </button>
-              <div class="chart-gran-menu hidden" id="donutTimeRangeMenu">
-                <button type="button" class="chart-gran-option active" data-value="all">全部</button>
-                <button type="button" class="chart-gran-option" data-value="week">近一週</button>
-                <button type="button" class="chart-gran-option" data-value="month">近一月</button>
-                <button type="button" class="chart-gran-option" data-value="year">近一年</button>
-                <button type="button" class="chart-gran-option" data-value="custom">自訂區間</button>
+                <div class="chart-toggle-view active" id="chartToggleViewTrend">
+                  <div class="chart-title-row chart-title-row-end">
+                    <div class="chart-gran-select" id="chartGranSelect">
+                      <button type="button" class="chart-gran-btn" id="chartGranBtn">
+                        <span id="chartGranText">週</span>
+                        <span class="chart-gran-caret">▾</span>
+                      </button>
+                      <div class="chart-gran-menu hidden" id="chartGranMenu">
+                        <button type="button" class="chart-gran-option" data-value="day">日</button>
+                        <button type="button" class="chart-gran-option active" data-value="week">週</button>
+                        <button type="button" class="chart-gran-option" data-value="month">月</button>
+                        <button type="button" class="chart-gran-option" data-value="year">年</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="chart-range-nav">
+                    <button type="button" class="chart-nav-btn" id="chartPrevBtn" aria-label="上一組">‹</button>
+                    <span id="chartRangeLabel"></span>
+                    <button type="button" class="chart-nav-btn" id="chartNextBtn" aria-label="下一組">›</button>
+                  </div>
+                  <div id="spendChartWrap">
+                    <p class="filter-hint">載入中…</p>
+                  </div>
+                </div>
+
+                <div class="chart-toggle-view" id="chartToggleViewDonut">
+                  <div class="chart-title-row chart-title-row-end">
+                    <div class="donut-controls-row">
+                      <div class="chart-gran-select" id="donutTimeRangeSelect">
+                        <button type="button" class="chart-gran-btn" id="donutTimeRangeBtn">
+                          <span id="donutTimeRangeText">全部</span>
+                          <span class="chart-gran-caret">▾</span>
+                        </button>
+                        <div class="chart-gran-menu hidden" id="donutTimeRangeMenu">
+                          <button type="button" class="chart-gran-option active" data-value="all">全部</button>
+                          <button type="button" class="chart-gran-option" data-value="week">近一週</button>
+                          <button type="button" class="chart-gran-option" data-value="month">近一月</button>
+                          <button type="button" class="chart-gran-option" data-value="year">近一年</button>
+                          <button type="button" class="chart-gran-option" data-value="custom">自訂區間</button>
+                        </div>
+                      </div>
+                      <div class="donut-scope-tabs" id="donutScopeTabs">
+                        <button type="button" class="donut-scope-tab active" data-scope="all">全團支出</button>
+                        <button type="button" class="donut-scope-tab" data-scope="my">我的支出</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="filter-date-row donut-custom-range hidden" id="donutCustomRangeRow">
+                    <input type="date" id="donutCustomFrom" lang="en-CA">
+                    <span class="filter-date-sep">～</span>
+                    <input type="date" id="donutCustomTo" lang="en-CA">
+                  </div>
+                  <div id="categoryDonutWrap" class="category-donut-wrap">
+                    <p class="filter-hint">載入中…</p>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div class="donut-scope-tabs" id="donutScopeTabs">
-              <button type="button" class="donut-scope-tab active" data-scope="all">全團支出</button>
-              <button type="button" class="donut-scope-tab" data-scope="my">我的支出</button>
-            </div>
-          </div>
-        </div>
-        <div class="filter-date-row donut-custom-range hidden" id="donutCustomRangeRow">
-          <input type="date" id="donutCustomFrom" lang="en-CA">
-          <span class="filter-date-sep">～</span>
-          <input type="date" id="donutCustomTo" lang="en-CA">
-        </div>
-        <div id="categoryDonutWrap" class="category-donut-wrap">
-          <p class="filter-hint">載入中…</p>
-        </div>
-      </div>
 
       <div class="card card-wide">
         <div class="debt-card-header">
-          <h2>🧮 逐筆債務表</h2>
+          <h2>🧮 債務關係表</h2>
         </div>
 
         <div class="debt-matrix-toolbar" id="debtMatrixToolbar">
           <button type="button" class="btn-tool-pill" id="matrixFilterMeBtn" title="切換只顯示跟我相關的欠款">
-            <span id="matrixFilterMeBtnText">👤 只看跟我相關</span>
+            <span id="matrixFilterMeBtnText">👤 與我相關</span>
           </button>
-          <button type="button" class="btn-tool-pill copy-settle-btn" id="copySettlementBtn" title="複製逐筆債務清單至剪貼簿">
-            <span>📋 複製逐筆清單</span>
+          <button type="button" class="btn-tool-pill" id="copySettlementBtn" title="複製逐筆債務清單至剪貼簿">
+            <span>📋 複製清單</span>
           </button>
-          <button type="button" class="btn-tool-pill copy-settle-btn" id="exportSettlementImgBtn" title="匯出矩陣圖">
-            <span>🖼️ 匯出矩陣圖</span>
+          <button type="button" class="btn-tool-pill" id="exportSettlementImgBtn" title="匯出矩陣圖">
+            <span>🖼️ 匯出圖片</span>
           </button>
         </div>
         <p class="filter-hint summary-hint">💡 點擊儲存格可查看詳細借貸紀錄，餘數由系統自動分攤分配</p>
@@ -435,80 +438,10 @@ if("serviceWorker" in navigator){
 
     <div class="app-panel" id="panelHistory">
       <div class="card">
-        <button type="button" class="filter-toggle-head" id="filterToggleHead">
-          <span class="filter-toggle-title">🔍 進階篩選 <span class="filter-count-badge hidden" id="filterCountBadge">0</span></span>
-          <span class="chevron">▾</span>
-        </button>
-        <div class="filter-body" id="filterBody">
-          <span class="filter-type-toggle">
-            <button type="button" class="split-mode-btn active" data-filter-type="expense">支出</button>
-            <button type="button" class="split-mode-btn" data-filter-type="repay">還款</button>
-          </span>
-          <label>日期區間</label>
-          <div class="filter-date-row">
-            <input type="date" id="filterFrom" lang="en-CA">
-            <span class="filter-date-sep">～</span>
-            <input type="date" id="filterTo" lang="en-CA">
-          </div>
-          <p class="filter-hint">預設只顯示近 14 天的紀錄，設定起始日期可以查更久以前的</p>
-          <label>關鍵字</label>
-          <input type="text" id="filterKeyword" placeholder="支出說明或還款備註">
-
-          <label>快速篩選</label>
-          <div class="history-multi-chips" id="filterQuickChips">
-            <button type="button" class="multi-chip" data-quick="payer_me">💳 我代墊的</button>
-            <button type="button" class="multi-chip" data-quick="addons">🍽️ 有個人自付</button>
-          </div>
-
-          <div id="filterExpenseFields">
-            <label>金額區間</label>
-            <div class="filter-amt-range-row">
-              <input type="number" id="filterMinAmount" placeholder="最低金額" min="0" step="any" class="filter-amt-inp">
-              <span class="filter-amt-sep">～</span>
-              <input type="number" id="filterMaxAmount" placeholder="最高金額" min="0" step="any" class="filter-amt-inp">
-            </div>
-            <div class="filter-amt-presets" id="filterAmtPresets">
-              <button type="button" class="amt-preset-btn active" data-range="all">全部金額</button>
-              <button type="button" class="amt-preset-btn" data-range="small">&le; $500</button>
-              <button type="button" class="amt-preset-btn" data-range="medium">$500 ~ $2,000</button>
-              <button type="button" class="amt-preset-btn" data-range="large">&gt; $2,000</button>
-            </div>
-
-            <label>支出類別（可多選）</label>
-            <div class="sb-multi-select" id="filterCategoryDropdown"></div>
-
-            <label>誰付的（可多選）</label>
-            <div class="sb-multi-select" id="filterPayerDropdown"></div>
-
-            <label>應付人（可多選）</label>
-            <div class="sb-multi-select" id="filterInvolvedDropdown"></div>
-          </div>
-          <div id="filterRepayFields" class="hidden">
-            <label>誰還錢（可多選）</label>
-            <div class="sb-multi-select" id="filterRepayFromDropdown"></div>
-
-            <label>誰收錢（可多選）</label>
-            <div class="sb-multi-select" id="filterRepayToDropdown"></div>
-          </div>
-
-          <button type="button" class="link-btn" id="filterClearBtn">清除全部篩選</button>
-        </div>
-      </div>
-      <div class="card">
         <div class="history-header-bar">
           <div class="history-type-toggle">
             <button type="button" class="history-type-btn active" data-history-type="expense">🧾 支出紀錄</button>
             <button type="button" class="history-type-btn" data-history-type="repay">💸 還款紀錄</button>
-          </div>
-          <div class="history-pagesize-wrap">
-            <span class="history-pagesize-label">每頁</span>
-            <select class="history-pagesize-select" id="historyPageSizeSelect">
-              <option value="5">5 筆</option>
-              <option value="10">10 筆</option>
-              <option value="20">20 筆</option>
-              <option value="50">50 筆</option>
-              <option value="100">100 筆</option>
-            </select>
           </div>
         </div>
 
@@ -520,9 +453,23 @@ if("serviceWorker" in navigator){
             <button type="button" class="search-clear-btn hidden" id="historyLiveSearchClear" aria-label="清除搜尋">✕</button>
           </div>
 
-          <!-- 🎛️ 常駐快捷 Chip：其餘篩選已收進「進階篩選」 -->
-          <div class="history-multi-chips" id="historyMultiChips">
-            <button type="button" class="multi-chip" data-quick="involved">👤 與我相關</button>
+          <div class="history-chips-row">
+            <!-- 🎛️ 常駐快捷 Chip：其餘篩選已收進「進階篩選」 -->
+            <div class="history-multi-chips" id="historyMultiChips">
+              <button type="button" class="multi-chip" data-quick="involved">👤 與我相關</button>
+              <button type="button" class="multi-chip" id="historyFilterOpenBtn">🔍 篩選 <span class="filter-count-badge hidden" id="filterCountBadge">0</span></button>
+            </div>
+
+            <div class="history-pagesize-wrap">
+              <span class="history-pagesize-label">每頁</span>
+              <select class="history-pagesize-select" id="historyPageSizeSelect">
+                <option value="5">5 筆</option>
+                <option value="10">10 筆</option>
+                <option value="20">20 筆</option>
+                <option value="50">50 筆</option>
+                <option value="100">100 筆</option>
+              </select>
+            </div>
           </div>
 
           <!-- 📊 篩選即時統計資訊列 -->
@@ -692,6 +639,69 @@ if("serviceWorker" in navigator){
     </div>
 
     <button type="button" class="btn" id="xcurRateEditSaveBtn">儲存新匯率</button>
+  </div>
+</div>
+
+<div class="calc-modal" id="historyFilterModal">
+  <div class="calc-card card">
+    <div class="calc-header">
+      <span class="calc-header-name">🔍 進階篩選</span>
+      <button type="button" class="calc-close" id="historyFilterCloseBtn">✕</button>
+    </div>
+    <div class="filter-body-modal" id="filterBody">
+      <span class="filter-type-toggle">
+        <button type="button" class="split-mode-btn active" data-filter-type="expense">支出</button>
+        <button type="button" class="split-mode-btn" data-filter-type="repay">還款</button>
+      </span>
+      <label>日期區間</label>
+      <div class="filter-date-row">
+        <input type="date" id="filterFrom" lang="en-CA">
+        <span class="filter-date-sep">～</span>
+        <input type="date" id="filterTo" lang="en-CA">
+      </div>
+      <p class="filter-hint">預設只顯示近 14 天的紀錄，設定起始日期可以查更久以前的</p>
+      <label>關鍵字</label>
+      <input type="text" id="filterKeyword" placeholder="支出說明或還款備註">
+
+      <label>快速篩選</label>
+      <div class="history-multi-chips" id="filterQuickChips">
+        <button type="button" class="multi-chip" data-quick="payer_me">💳 我代墊的</button>
+        <button type="button" class="multi-chip" data-quick="addons">🍽️ 有個人自付</button>
+      </div>
+
+      <div id="filterExpenseFields">
+        <label>金額區間</label>
+        <div class="filter-amt-range-row">
+          <input type="number" id="filterMinAmount" placeholder="最低金額" min="0" step="any" class="filter-amt-inp">
+          <span class="filter-amt-sep">～</span>
+          <input type="number" id="filterMaxAmount" placeholder="最高金額" min="0" step="any" class="filter-amt-inp">
+        </div>
+        <div class="filter-amt-presets" id="filterAmtPresets">
+          <button type="button" class="amt-preset-btn active" data-range="all">全部金額</button>
+          <button type="button" class="amt-preset-btn" data-range="small">&le; $500</button>
+          <button type="button" class="amt-preset-btn" data-range="medium">$500 ~ $2,000</button>
+          <button type="button" class="amt-preset-btn" data-range="large">&gt; $2,000</button>
+        </div>
+
+        <label>支出類別（可多選）</label>
+        <div class="sb-multi-select" id="filterCategoryDropdown"></div>
+
+        <label>誰付的（可多選）</label>
+        <div class="sb-multi-select" id="filterPayerDropdown"></div>
+
+        <label>應付人（可多選）</label>
+        <div class="sb-multi-select" id="filterInvolvedDropdown"></div>
+      </div>
+      <div id="filterRepayFields" class="hidden">
+        <label>誰還錢（可多選）</label>
+        <div class="sb-multi-select" id="filterRepayFromDropdown"></div>
+
+        <label>誰收錢（可多選）</label>
+        <div class="sb-multi-select" id="filterRepayToDropdown"></div>
+      </div>
+
+      <button type="button" class="link-btn" id="filterClearBtn">清除全部篩選</button>
+    </div>
   </div>
 </div>
 
@@ -1074,7 +1084,6 @@ const CURRENCY_LABEL = activeCurrency.label;
 const SHOW_CONVERSION = !!activeCurrency.convert;
 
 document.title = "Splitbill｜" + CURRENCY_LABEL + "區";
-document.getElementById("pageEyebrow").textContent = CURRENCY;
 document.getElementById("pageH1").textContent = CURRENCY_LABEL + "區";
 document.getElementById("myBalanceLabel").textContent = "我的款項（" + CURRENCY_LABEL + "）";
 document.getElementById("expAmountLabel").textContent = "支出總金額（已含稅/免稅，" + CURRENCY_LABEL + "）";
@@ -1089,6 +1098,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=728"></script>
+<script src="app.js?v=746"></script>
 </body>
 </html>

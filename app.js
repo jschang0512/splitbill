@@ -312,14 +312,20 @@
     moveTabIndicator(document.querySelector(".app-tab.active"));
   });
 
-  const filterToggleHead = document.getElementById("filterToggleHead");
-  if(filterToggleHead){
-    filterToggleHead.addEventListener("click", ()=>{
-      const head = document.getElementById("filterToggleHead");
-      const body = document.getElementById("filterBody");
-      const open = head.classList.toggle("open");
-      body.classList.toggle("open", open);
-      body.style.maxHeight = open ? (body.scrollHeight + "px") : "0px";
+  // 「進階篩選」原本是卡片內展開/收合的區塊，改成彈出視窗，觸發按鈕
+  // 移到「與我相關」旁邊的小 chip，篩選邏輯/欄位本身完全沒變，只是
+  // 換了個地方顯示。
+  const historyFilterModal = document.getElementById("historyFilterModal");
+  const historyFilterOpenBtn = document.getElementById("historyFilterOpenBtn");
+  const historyFilterCloseBtn = document.getElementById("historyFilterCloseBtn");
+  if(historyFilterOpenBtn && historyFilterModal){
+    historyFilterOpenBtn.addEventListener("click", ()=>{
+      historyFilterModal.classList.add("show");
+    });
+  }
+  if(historyFilterCloseBtn && historyFilterModal){
+    historyFilterCloseBtn.addEventListener("click", ()=>{
+      historyFilterModal.classList.remove("show");
     });
   }
 
@@ -2960,11 +2966,6 @@
     if(expFields) expFields.classList.toggle("hidden", !isExp);
     if(repFields) repFields.classList.toggle("hidden", isExp);
 
-    const body = document.getElementById("filterBody");
-    if(body && body.classList.contains("open")){
-      body.style.maxHeight = body.scrollHeight + "px";
-    }
-
     // 4. 重新渲染對應列表
     if(isExp){
       applyFiltersAndRenderHistory();
@@ -4348,6 +4349,24 @@
       if(modal) modal.classList.remove("show");
     });
   }
+  // 「債務趨勢」跟「花費類別分佈」合併成同一張卡片後，靠這組分頁切換
+  // 顯示哪一個內容——兩邊的圖表本來就會各自照原本邏輯載入/更新，這裡
+  // 只負責切換 .active class 決定顯示哪一塊，不用額外重新請求資料。
+  const summaryChartToggleTabs = document.getElementById("summaryChartToggleTabs");
+  if(summaryChartToggleTabs){
+    const trendView = document.getElementById("chartToggleViewTrend");
+    const donutView = document.getElementById("chartToggleViewDonut");
+    summaryChartToggleTabs.querySelectorAll(".chart-toggle-tab").forEach(tab => {
+      tab.addEventListener("click", ()=>{
+        summaryChartToggleTabs.querySelectorAll(".chart-toggle-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const view = tab.dataset.view;
+        if(trendView) trendView.classList.toggle("active", view === "trend");
+        if(donutView) donutView.classList.toggle("active", view === "donut");
+      });
+    });
+  }
+
   const donutScopeTabs = document.getElementById("donutScopeTabs");
   if(donutScopeTabs){
     donutScopeTabs.querySelectorAll(".donut-scope-tab").forEach(tab => {
@@ -4501,6 +4520,45 @@ function truncateNameChars(name, max){
   return name.length > max ? name.slice(0, max - 1) + "*" : name;
 }
 
+// 網頁上的債務關係表（renderDebtMatrix）跟「匯出矩陣圖」（
+// renderSettlementImageCanvas）曾經各自算一次「這張表要顯示哪些人、
+// 排列順序」，導致自己排第一個、以及「只看跟我相關」篩選這兩件事只有
+// 網頁版有做，匯出的圖沒有跟著做，兩邊看起來不一樣。抽出來共用同一個
+// 函式，兩邊呼叫都保證排序/篩選結果一致。
+function computeDebtMatrixIds(owed){
+  const allIds = memberRows.map(m => m.id);
+
+  // 自己排在第一個，一打開就先看到跟自己有關的那一行/列。
+  // 「顯示已退出／已銷毀成員」偏好關掉時，memberRows 可能把自己這筆
+  // （若剛好也標了已退出）濾掉，所以自己一定要強制留著，owed 本身不受
+  // memberRows 篩選影響，補回來一樣抓得到正確金額。
+  if(myMember && myMember.id){
+    const meIdx = allIds.indexOf(myMember.id);
+    if(meIdx === -1){
+      allIds.unshift(myMember.id);
+    } else if(meIdx > 0){
+      allIds.splice(meIdx, 1);
+      allIds.unshift(myMember.id);
+    }
+  }
+
+  // 「只看跟我相關」：把矩陣縮到只剩我自己，以及跟我之間有欠款往來
+  // （不管我欠他還是他欠我）的人，人數多的群組不用面對一大片空格子。
+  let ids = allIds;
+  if(matrixShowOnlyMine && myMember && myMember.id){
+    const relatedIds = new Set([myMember.id]);
+    allIds.forEach(otherId => {
+      if(otherId === myMember.id) return;
+      const oweMe = (owed[myMember.id] && owed[myMember.id][otherId]) || 0;
+      const iOwe = (owed[otherId] && owed[otherId][myMember.id]) || 0;
+      if(oweMe > 0.05 || iOwe > 0.05) relatedIds.add(otherId);
+    });
+    ids = allIds.filter(id => relatedIds.has(id));
+  }
+
+  return { allIds, ids };
+}
+
 function renderDebtMatrix(
   expenses,
   repayments,
@@ -4532,46 +4590,7 @@ function renderDebtMatrix(
   );
 
 
-  const allIds =
-    memberRows.map(
-      m => m.id
-    );
-
-  // 欄位順序把自己排在第一個，一打開就先看到跟自己有關的那一行/列，
-  // 不用先掃過其他人才找到自己。
-  //
-  // 這裡不能只用「排到第一個」處理：設定裡「顯示已退出／已銷毀成員」
-  // 這個偏好關掉時，memberRows 會把已退出的成員整個濾掉——如果剛好
-  // 我自己這筆成員紀錄也標了已退出（loadMembers() 找不到還在啟用中的
-  // 那筆時會退而求其次抓到這筆），我就會直接從 allIds 裡消失，債務
-  // 關係表變成完全看不到自己的欠款。這是「要不要顯示其他人」的顯示
-  // 偏好，不該連自己的欠款都跟著藏起來，所以自己一定要強制留著。
-  // owed 本身是直接從支出/還款原始紀錄算出來的（見 buildDebtMatrix()），
-  // 不受 memberRows 篩選影響，所以就算自己不在 memberRows 裡，補回來
-  // 一樣抓得到正確的欠款金額。
-  if(myMember && myMember.id){
-    const meIdx = allIds.indexOf(myMember.id);
-    if(meIdx === -1){
-      allIds.unshift(myMember.id);
-    } else if(meIdx > 0){
-      allIds.splice(meIdx, 1);
-      allIds.unshift(myMember.id);
-    }
-  }
-
-  // 「只看跟我相關」：把矩陣縮到只剩我自己，以及跟我之間有欠款往來
-  // （不管我欠他還是他欠我）的人，人數多的群組不用面對一大片空格子。
-  let ids = allIds;
-  if(matrixShowOnlyMine && myMember && myMember.id){
-    const relatedIds = new Set([myMember.id]);
-    allIds.forEach(otherId => {
-      if(otherId === myMember.id) return;
-      const oweMe = (owed[myMember.id] && owed[myMember.id][otherId]) || 0;
-      const iOwe = (owed[otherId] && owed[otherId][myMember.id]) || 0;
-      if(oweMe > 0.05 || iOwe > 0.05) relatedIds.add(otherId);
-    });
-    ids = allIds.filter(id => relatedIds.has(id));
-  }
+  const { allIds, ids } = computeDebtMatrixIds(owed);
 
   // 統計逐筆債務表中的總欠款筆數與個人欠款/被欠概況
   let totalActiveDebts = 0;
@@ -4964,7 +4983,7 @@ function syncMatrixFilterMeBtn(){
   if(!matrixFilterMeBtn) return;
   const textEl = document.getElementById("matrixFilterMeBtnText");
   matrixFilterMeBtn.classList.toggle("active", matrixShowOnlyMine);
-  if(textEl) textEl.textContent = matrixShowOnlyMine ? "🔗 查看完整矩陣" : "👤 只看跟我相關";
+  if(textEl) textEl.textContent = matrixShowOnlyMine ? "🔗 完整矩陣" : "👤 與我相關";
 }
 
 // ==========================================================
@@ -4974,14 +4993,16 @@ const copySettlementBtn = document.getElementById("copySettlementBtn");
 if(copySettlementBtn){
   copySettlementBtn.addEventListener("click", async ()=>{
     const owed = buildDebtMatrix(cachedExpenses, cachedRepayments);
-    const ids = memberRows.map(m => m.id);
+    const { ids } = computeDebtMatrixIds(owed);
     const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
     const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
     let text = "";
 
+    // 欠款人（debtor）排外層，同一個人要付給不同人的幾筆才會排在一起，
+    // 一次轉帳就能把自己那幾筆一起處理完，不用在清單裡跳來跳去找。
     const activeDebts = [];
-    ids.forEach(creditorId => {
-      ids.forEach(debtorId => {
+    ids.forEach(debtorId => {
+      ids.forEach(creditorId => {
         if(creditorId === debtorId) return;
         const amt = owed[creditorId] && owed[creditorId][debtorId];
         if(amt && amt > 0.05){
@@ -5169,7 +5190,7 @@ function getSettlementTheme(){
 // 分享出去的人不用捲動就能看到完整內容。
 function renderSettlementImageCanvas(){
   const owed = buildDebtMatrix(cachedExpenses, cachedRepayments);
-  const ids = memberRows.map(m => m.id);
+  const { ids } = computeDebtMatrixIds(owed);
   const n = ids.length;
   const T = getSettlementTheme();
   const dark = isSettlementDarkTheme();

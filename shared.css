@@ -1141,20 +1141,22 @@ button.dd-btn {
   }
 }
 .history-type-toggle{
-  display:inline-flex;
+  display:flex;
   align-items:center;
   gap:3px;
   padding:3px;
   border-radius:999px;
   background:rgba(0, 0, 0, 0.06);
   border:1px solid var(--line);
-  flex-shrink:0;
+  width:100%;
 }
 :root[data-theme="dark"] .history-type-toggle{
   background:rgba(0, 0, 0, 0.35);
   border:1px solid rgba(255, 255, 255, 0.1);
 }
 .history-type-toggle .history-type-btn{
+  flex:1;
+  text-align:center;
   background:transparent;
   border:1px solid transparent;
   border-radius:999px;
@@ -2048,6 +2050,9 @@ button.dd-btn {
 .filter-date-sep{ flex:0 0 auto; color:var(--ink-soft); font-size:12px; }
 .filter-hint{ font-size:11px; color:var(--ink-soft); margin:4px 0 0; }
 .chart-title-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:0 0 var(--sp-4); }
+/* 「債務趨勢」跟「花費類別分佈」合併後不再各自有 h2，這排只剩控制項，
+   改成靠右對齊，維持跟原本（h2 靠左、控制項靠右）一樣的視覺位置。 */
+.chart-title-row-end{ justify-content:flex-end; }
 .chart-title-row h2{ margin:0; }
 .donut-controls-row{
   display:flex;
@@ -2112,6 +2117,74 @@ button.dd-btn {
 }
 .chart-gran-option:hover{ background:rgba(122,107,158,.12); color:var(--btn-primary); }
 .chart-gran-option.active{ background:var(--btn-primary); color:#FFFFFF; font-weight:700; }
+
+/* ---------- 頂欄「更多」彈出選單（深色模式/通知/成就榜/設定/登出）----------
+   由畫面右上角 theme.js 那顆按鈕觸發，見 shared-ui.js initAppMenuPopover()。
+   .notif-panel 本身用 JS 算好的 fixed 定位（見下面通知夾註解），不依賴
+   父層是誰，所以鈴鐺搬進這個選單完全不影響它自己開合的定位。 */
+.app-menu-popover{
+  position:fixed;
+  top:56px;
+  right:16px;
+  z-index:190;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:180px;
+  padding:8px;
+  border-radius:16px;
+  background:var(--menu-bg);
+  backdrop-filter:blur(32px);
+  -webkit-backdrop-filter:blur(32px);
+  border:1px solid var(--menu-border);
+  box-shadow:var(--menu-shadow);
+  animation:sbLoginCardIn .18s cubic-bezier(.34,1.56,.64,1);
+}
+.app-menu-popover.hidden{ display:none; }
+.app-menu-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  padding:9px 10px;
+  border-radius:10px;
+  background:none;
+  border:none;
+  cursor:pointer;
+  font-size:13.5px;
+  font-family:"Noto Sans TC",sans-serif;
+  font-weight:600;
+  color:var(--ink);
+  text-align:left;
+  text-decoration:none;
+  transition:background .12s ease;
+}
+.app-menu-row:hover{ background:color-mix(in srgb, var(--btn-primary) 10%, transparent); }
+.app-menu-row-icon{ font-size:16px; line-height:1; flex-shrink:0; }
+.app-menu-row-label{ flex:1; }
+/* 被搬進選單裡的既有按鈕（原本是頂欄那種小圓形圖示鈕），重設成跟選單
+   其他列一樣的一般文字列樣式，元件本身的 id／事件監聽完全沒動。 */
+.app-menu-row .icon-btn,
+.app-menu-row .notif-bell-btn{
+  width:auto; height:auto;
+  border:none; background:none;
+  border-radius:0;
+  padding:0;
+  font-size:16px;
+  color:inherit;
+}
+.app-menu-row .notif-bell-wrap{ display:flex; align-items:center; gap:10px; width:100%; }
+.app-menu-row .btn.secondary.small{
+  width:100%;
+  text-align:left;
+  border:none;
+  background:none;
+  box-shadow:none;
+  padding:0;
+  font-size:13.5px;
+  font-weight:600;
+  color:var(--negative-text);
+}
 
 /* ---------- 🔔 站內通知夾 ---------- */
 .notif-bell-wrap{ position:relative; }
@@ -2457,6 +2530,24 @@ button.dd-btn {
   overflow:visible !important;
   max-height:none !important;
 }
+/* 「進階篩選」原本是卡片內展開的區塊，改成彈出視窗——欄位本身沒動，
+   只是換了個容器，內容比較多，卡片本身固定高度、內容區自己捲動，
+   標題列跟關閉鈕才不會被捲走。 */
+#historyFilterModal .calc-card{
+  max-width:380px;
+  max-height:85vh;
+  display:flex;
+  flex-direction:column;
+}
+#historyFilterModal .calc-header{
+  flex-shrink:0;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--line);
+}
+.filter-body-modal{
+  overflow-y:auto;
+  padding-top:14px;
+}
 .invite-qr-wrap{ display:flex; flex-direction:column; align-items:center; text-align:center; padding-bottom:4px; }
 .invite-qr-wrap #inviteQrCanvas{ display:flex; justify-content:center; }
 .invite-qr-wrap canvas, .invite-qr-wrap img{ max-width:100%; height:auto; border-radius:15px; background:#FFFFFF; padding:10px; }
@@ -2588,6 +2679,16 @@ button.dd-btn {
   font-family:"JetBrains Mono",monospace;
   color:var(--ink-soft);
   background:var(--card);
+}
+/* 整張表是用 innerHTML 整個重新產生（不是改單一儲存格），所以套用
+   transition 不會有效果——換成 animation，每次重繪時整批儲存格都會
+   重新播放一次進場動畫，數值/熱力圖顏色改變時才不會整格瞬間硬切換。 */
+#debtMatrix td, #debtMatrix th{
+  animation: matrixCellIn .3s cubic-bezier(.34,1.2,.4,1);
+}
+@keyframes matrixCellIn{
+  from{ opacity:0; transform:scale(.92); }
+  to{ opacity:1; transform:scale(1); }
 }
 .debt-matrix .matrix-cell.has-debt{
   color:#C2445F;
@@ -4493,6 +4594,52 @@ button.dd-btn {
   min-width:130px;
   left:0;
   right:auto;
+}
+
+/* currency.html 專用：群組切換器搬到標題上方的 eyebrow 位置（原本顯示
+   TWD/JPY 這種目前幣別代碼，跟下面「臺幣/日幣」分頁按鈕重複，改放更有用
+   的群組切換），維持 eyebrow 原本置中、等寬字體、小寫間距的觀感，只是
+   從純文字換成可以點的膠囊。*/
+#pageEyebrow{
+  display:flex;
+  justify-content:center;
+}
+#pageEyebrow .whoami-group-switcher{
+  flex:0 0 auto;
+  min-width:0;
+}
+#pageEyebrow .dd-select{
+  width:auto;
+  min-width:0;
+}
+#pageEyebrow .dd-btn{
+  width:auto;
+  min-width:0;
+  padding:3px 12px;
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  border-radius:999px;
+  background:transparent;
+  border:1px solid var(--line);
+  color:var(--ink-soft);
+  gap:6px;
+}
+#pageEyebrow .dd-btn:hover{
+  border-color:var(--accent-text);
+  color:var(--accent-text);
+}
+#pageEyebrow .dd-btn-text{
+  min-width:0;
+  max-width:160px;
+}
+#pageEyebrow .dd-caret{
+  font-size:8px;
+}
+#pageEyebrow .dd-menu{
+  min-width:140px;
 }
 .whoami-avatar{
   box-shadow:0 2px 6px rgba(122,107,158,.3);
@@ -7421,7 +7568,10 @@ input#aiExpenseTime {
   background: var(--input-bg);
   color: var(--ink);
   font-size: 13px;
-  padding: 0 32px 0 34px;
+  /* 手機寬度那條通用 input padding 重置規則是 !important，會蓋掉這裡
+     的左右留白，導致放大鏡圖示疊到文字——這裡也要用 !important 才擋
+     得住，維持左邊留給圖示、右邊留給清除鈕的空間。 */
+  padding: 0 32px 0 34px !important;
   outline: none;
   font-family: inherit;
   transition: all .15s ease;
@@ -7451,6 +7601,14 @@ input#aiExpenseTime {
   line-height: 1;
 }
 
+/* 快捷 chip 跟「每頁幾筆」放同一排，chip 靠左（太多可以橫向捲動）、
+   每頁幾筆固定靠右，不會被擠著跑。 */
+.history-chips-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .history-multi-chips {
   display: flex;
   gap: 6px;
@@ -7458,6 +7616,7 @@ input#aiExpenseTime {
   overscroll-behavior-x: contain;
   padding: 2px 2px 4px;
   scrollbar-width: none;
+  min-width: 0;
 }
 .history-multi-chips::-webkit-scrollbar { display: none; }
 .multi-chip {
@@ -7878,6 +8037,24 @@ body.dark-mode .sb-search-match {
   color:#fff;
   box-shadow:0 1px 4px rgba(0,0,0,0.15);
 }
+
+/* 「債務趨勢」跟「花費類別分佈」合併成同一張卡片，靠這組膠囊分頁切換
+   顯示——沿用跟 .donut-scope-tab 一樣的樣式，但這組是切換整個卡片內容，
+   字會長一點，所以份量（padding/字級）比原本「全團支出/我的支出」那組
+   稍微大一點。 */
+.chart-toggle-tabs{
+  display:flex;
+  width:100%;
+  margin-bottom:14px;
+}
+.chart-toggle-tab{
+  flex:1;
+  text-align:center;
+  font-size:12.5px;
+  padding:6px 14px;
+}
+.chart-toggle-view{ display:none; }
+.chart-toggle-view.active{ display:block; animation:panelIn .25s ease; }
 
 .category-donut-wrap{
   margin-top:12px;

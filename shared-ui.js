@@ -22,14 +22,20 @@ function escapeHtml(s){
 // 套上去，不是原生 <select> 那種瀏覽器預設樣式），選別的群組就直接呼叫
 // switch_active_group 切換過去並跳到 summary.html，不用特地跑一趟設定頁的
 // 「群組」分頁。只有一個群組時沒有切換的必要，維持原本純文字顯示。----------
-async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayName){
+// eyebrowElId：currency.html 這頁把切換器從頂欄搬到標題上方那排小字
+// （原本顯示 TWD/JPY 這種目前幣別代碼，跟下面「臺幣/日幣」分頁按鈕重複，
+// 騰出來放更有用的群組切換），這種情況下傳這個容器的 id 進來；其他頁面
+// （summary.html/settings.html）不傳，維持切換器長在頂欄姓名旁邊的原本行為。
+async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayName, eyebrowElId){
   const nameEl = document.getElementById("whoamiName");
   const textWrap = document.getElementById("whoamiText");
   if(!nameEl || !currentUser) return;
   const displayName = (typeof getDisplayName === "function" ? getDisplayName() : null) || (myMember && myMember.name) || currentUser.email;
   const currentGroupName = (myMember && myMember.groups && myMember.groups.name) || "";
+  const eyebrowEl = eyebrowElId ? document.getElementById(eyebrowElId) : null;
+  const mountEl = eyebrowEl || textWrap || nameEl.parentNode;
 
-  const oldSwitcher = textWrap && textWrap.querySelector(".whoami-group-switcher");
+  const oldSwitcher = mountEl && mountEl.querySelector(".whoami-group-switcher");
   if(oldSwitcher) oldSwitcher.remove();
 
   let groups = [];
@@ -44,7 +50,11 @@ async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayNa
   nameEl.textContent = displayName;
 
   if(!myMember || groups.length <= 1){
-    if(currentGroupName) nameEl.textContent = displayName + ` (${currentGroupName})`;
+    if(eyebrowEl){
+      eyebrowEl.textContent = currentGroupName || eyebrowEl.textContent;
+    } else if(currentGroupName){
+      nameEl.textContent = displayName + ` (${currentGroupName})`;
+    }
     return;
   }
 
@@ -61,7 +71,8 @@ async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayNa
   const wrap = document.createElement("span");
   wrap.className = "whoami-group-switcher";
   wrap.appendChild(sel);
-  (textWrap || nameEl.parentNode).appendChild(wrap);
+  if(eyebrowEl) eyebrowEl.textContent = "";
+  mountEl.appendChild(wrap);
   enhanceSelect(sel);
 
   sel.addEventListener("change", async ()=>{
@@ -521,6 +532,73 @@ window.showMemberProfileModal = showMemberProfileModal;
 
 // ============================================================
 // 🔔 站內通知夾：取代原本要靠瀏覽器/系統推播權限才會動的通知機制。
+// ============================================================
+// 頂欄「更多」彈出選單：summary.html/currency.html 原本 topbar-actions
+// 一次塞通知／成就榜／設定／登出四顆圖示，加上頭像/名字/群組切換那排，
+// 使用者反映頂部整體看起來太厚重。改成把這四顆收進一個彈出選單，
+// 沿用畫面右上角 theme.js 建立的那顆深色/淺色模式按鈕當開關——按鈕本身
+// 不再是按一下就直接切換主題，而是打開這個選單，深色模式變成選單裡的
+// 其中一行。四顆按鈕本身的 DOM 元素／既有事件監聽都原封不動搬過來，
+// 不重新實作一份，行為保證跟搬移前完全一樣。
+// ============================================================
+function initAppMenuPopover(){
+  const actionsBar = document.querySelector(".topbar-actions");
+  const themeBtn = document.querySelector(".theme-toggle");
+  if(!actionsBar || !themeBtn) return;
+
+  const popover = document.createElement("div");
+  popover.className = "app-menu-popover hidden";
+  popover.id = "appMenuPopover";
+
+  const themeRow = document.createElement("button");
+  themeRow.type = "button";
+  themeRow.className = "app-menu-row app-menu-theme-row";
+  function syncThemeRowLabel(){
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    themeRow.innerHTML = `<span class="app-menu-row-icon">${isDark ? "☀️" : "🌙"}</span><span class="app-menu-row-label">${isDark ? "切換淺色模式" : "切換深色模式"}</span>`;
+  }
+  syncThemeRowLabel();
+  themeRow.addEventListener("click", ()=>{
+    if(typeof window.splitbillToggleTheme === "function") window.splitbillToggleTheme();
+    syncThemeRowLabel();
+  });
+  window.addEventListener("splitbill-theme-change", syncThemeRowLabel);
+  popover.appendChild(themeRow);
+
+  // 把既有的通知鈴鐺容器／成就榜／設定／登出按鈕直接搬過來（原本各自的
+  // id、事件監聽都還在，只是換了父層），每個外面包一層 .app-menu-row
+  // 統一成選單列的排版，圖示旁邊視需要補一個文字說明。
+  function relocate(el, label){
+    if(!el) return;
+    const row = document.createElement("div");
+    row.className = "app-menu-row";
+    row.appendChild(el);
+    if(label){
+      const span = document.createElement("span");
+      span.className = "app-menu-row-label";
+      span.textContent = label;
+      row.appendChild(span);
+    }
+    popover.appendChild(row);
+  }
+  relocate(document.getElementById("notificationBellContainer"), "通知");
+  relocate(document.getElementById("openAchievementsModalBtn"), "成就榜");
+  relocate(document.getElementById("settingsBtn"), "設定");
+  relocate(document.getElementById("logoutBtn"), null);
+
+  actionsBar.remove();
+  document.body.appendChild(popover);
+
+  window.splitbillOpenThemeMenu = function(){
+    popover.classList.toggle("hidden");
+  };
+  document.addEventListener("click", (e)=>{
+    if(popover.classList.contains("hidden")) return;
+    if(popover.contains(e.target) || themeBtn.contains(e.target)) return;
+    popover.classList.add("hidden");
+  });
+}
+
 // Capacitor（原生 App）用 Google Firebase、網頁版用 Supabase 各自
 // 要另外處理推播權限，使用者常常沒開，通知等於白做——改成新增支出/
 // 還款、催款提醒都直接寫進 notifications 這張表，不管有沒有開任何

@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Splitbill 頂級手機版頁首設計實驗室 (Header Design Studio)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0A0D14;
+      color: #E6EDF3;
+      user-select: none;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Phone Frame */
+    .phone-container {
+      width: 390px;
+      height: 840px;
+      background: var(--phone-bg, #12141C);
+      border-radius: 48px;
+      box-shadow: 0 0 0 12px #202330, 0 25px 70px rgba(0,0,0,0.75);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 3px solid rgba(255,255,255,0.08);
+      transition: all 0.3s ease;
+    }
+    
+    .phone-light {
+      --phone-bg: #F4F5FA;
+      --phone-text: #191B23;
+      --phone-sub: #6A6E82;
+      --phone-card: #FFFFFF;
+      --phone-border: rgba(0, 0, 0, 0.08);
+      --phone-line: rgba(0, 0, 0, 0.06);
+      --phone-primary: #58448C;
+      --phone-primary-soft: rgba(88, 68, 140, 0.09);
+      --phone-card-shadow: 0 3px 14px rgba(0,0,0,0.04);
+      --phone-floating: rgba(255, 255, 255, 0.88);
+    }
+    .phone-dark {
+      --phone-bg: #11131B;
+      --phone-text: #F1F3F9;
+      --phone-sub: #9499B0;
+      --phone-card: #1A1D28;
+      --phone-border: rgba(255, 255, 255, 0.08);
+      --phone-line: rgba(255, 255, 255, 0.06);
+      --phone-primary: #8E79CA;
+      --phone-primary-soft: rgba(142, 121, 202, 0.15);
+      --phone-card-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      --phone-floating: rgba(26, 29, 40, 0.88);
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      width: 112px;
+      height: 28px;
+      background: #000000;
+      border-radius: 20px;
+      margin: 10px auto 4px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 11px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      flex-shrink: 0;
+    }
+
+    .phone-screen {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-bottom: 20px;
+      -webkit-overflow-scrolling: touch;
+      color: var(--phone-text);
+      position: relative;
+    }
+    .phone-screen::-webkit-scrollbar { display: none; }
+
+    .home-indicator {
+      width: 130px;
+      height: 4.5px;
+      background: var(--phone-sub);
+      opacity: 0.35;
+      border-radius: 4px;
+      margin: 8px auto 6px;
+      flex-shrink: 0;
+    }
+
+    /* Switcher Pills */
+    .seg-pill {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 3px;
+      display: inline-flex;
+    }
+    .seg-btn {
+      padding: 6px 12px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #8C94A6;
+      border: none;
+      background: transparent;
+      white-space: nowrap;
+    }
+    .seg-btn.active {
+      background: #5A478C;
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(90, 71, 140, 0.45);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-3 md:p-6">
+
+  <!-- Control Header Panel -->
+  <header class="w-full max-w-5xl mb-4 flex flex-col gap-3 bg-[#141722] p-4 rounded-2xl border border-gray-800 shadow-2xl">
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🏛️</span>
+          <h1 class="text-lg font-bold text-white tracking-wide">Splitbill 頂級手機版頁首設計實驗室</h1>
+          <span class="text-xs bg-purple-500/20 text-purple-300 font-semibold px-2 py-0.5 rounded-full border border-purple-500/30">Header Design Studio</span>
+        </div>
+        <p class="text-xs text-gray-400 mt-0.5">點擊下方切換 <b>4 種頂級頁首方案</b>，親身體驗單行極簡、沉浸大標與單手盲操的快感！</p>
+      </div>
+
+      <!-- Theme & Reset -->
+      <button onclick="toggleTheme()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-gray-700 transition self-end md:self-auto">
+        <span id="themeIcon">☀️</span>
+        <span id="themeText">切換淺色</span>
+      </button>
+    </div>
+
+    <!-- Switcher Rows -->
+    <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-800">
+      <!-- 4 Header Styles -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs text-purple-300 font-bold flex items-center gap-1"><span>✨</span> 頁首模式：</span>
+        <div class="seg-pill">
+          <button class="seg-btn active" id="btnHeaderA" onclick="switchHeaderStyle('styleA')">🌟 A. 標題下拉流 (Revolut)</button>
+          <button class="seg-btn" id="btnHeaderB" onclick="switchHeaderStyle('styleB')">🍎 B. 原生大標流 (iOS 18)</button>
+          <button class="seg-btn" id="btnHeaderC" onclick="switchHeaderStyle('styleC')">🏝️ C. 懸浮膠囊島 (Floating)</button>
+          <button class="seg-btn" id="btnHeaderD" onclick="switchHeaderStyle('styleD')">👇 D. 底部大拇指導覽 (Bottom Tab)</button>
+          <button class="seg-btn" id="btnHeaderOld" onclick="switchHeaderStyle('styleOld')">📦 現行雙層頁首</button>
+        </div>
+      </div>
+
+      <!-- Page Tabs -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs text-gray-400 font-bold">預覽頁面：</span>
+        <div class="seg-pill">
+          <button class="seg-btn active" id="btnPageCurrency" onclick="switchPage('currency')">🇯🇵 幣別 (Currency)</button>
+          <button class="seg-btn" id="btnPageSummary" onclick="switchPage('summary')">📊 總覽 (Summary)</button>
+          <button class="seg-btn" id="btnPageSettings" onclick="switchPage('settings')">⚙️ 設定 (Settings)</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Phone & Explanation Layout -->
+  <main class="flex flex-col lg:flex-row items-start justify-center gap-8 w-full max-w-5xl">
+
+    <!-- Phone Mockup Frame -->
+    <div class="phone-container phone-dark mx-auto" id="phoneMockup">
+      <!-- Dynamic Island -->
+      <div class="dynamic-island">
+        <span class="text-[9px] font-bold text-white tracking-wider ml-1">9:41</span>
+        <div class="flex items-center gap-1 mr-1">
+          <span class="text-[8px] text-gray-400">5G</span>
+          <div class="w-3.5 h-2 border border-gray-400 rounded-sm p-[1px] flex items-center">
+            <div class="w-full h-full bg-white rounded-2xs"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrollable Phone Screen -->
+      <div class="phone-screen" id="screenContent">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Bottom Tab Bar (Only displayed in Style D) -->
+      <div id="bottomTabBarContainer" class="hidden"></div>
+
+      <!-- Home Indicator -->
+      <div class="home-indicator"></div>
+    </div>
+
+    <!-- Detailed Explanation Card -->
+    <aside class="w-full lg:w-96 bg-[#141722] p-5 rounded-2xl border border-gray-800 shadow-xl flex flex-col gap-4 text-sm text-gray-300">
+      <div class="flex items-center gap-2 border-b border-gray-800 pb-3">
+        <span class="text-2xl" id="panelIcon">🌟</span>
+        <div>
+          <h2 class="font-bold text-white text-base" id="panelTitle">方案 A：整合式標題下拉流</h2>
+          <span class="text-xs text-purple-400 font-semibold" id="panelBadge">Revolut / Notion / Discord Style</span>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">設計核心思維</h3>
+        <p class="text-xs text-gray-300 leading-relaxed" id="panelConcept">
+          徹底消滅傳統網頁的第二行導覽列！將「群組切換」與「幣別切換」合而為一做成中央標題控制器，點擊即可下拉切換，全頁頂部高度僅 48px！
+        </p>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">好辨別與操作優勢</h3>
+        <ul class="space-y-2 text-xs leading-relaxed" id="panelAdvantages">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
+
+      <div class="bg-gray-900/80 p-3.5 rounded-xl border border-gray-800">
+        <h3 class="text-xs font-bold text-gray-300 mb-1 flex items-center gap-1.5">
+          <span>📐</span> 空間效益評估
+        </h3>
+        <p class="text-xs text-gray-400 leading-relaxed" id="panelMetricText">
+          垂直高度從原本的 185px 驟降至 <b>48px</b>，省下超過 <b>137px</b>！直接釋放手機開屏 35% 的可視空間。
+        </p>
+      </div>
+
+      <div class="mt-auto pt-3 border-t border-gray-800 flex justify-between items-center text-xs text-gray-500">
+        <span>跨頁面一鍵同步重構</span>
+        <span class="text-purple-400 font-semibold">Splitbill 官方品質</span>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Script Logic -->
+  <script>
+    let activeHeaderStyle = 'styleA'; // 'styleA', 'styleB', 'styleC', 'styleD', 'styleOld'
+    let activePage = 'currency';       // 'currency', 'summary', 'settings'
+    let isDark = true;
+    let isDropdownOpen = false;
+    let activeChartTab = 'trend';
+
+    function toggleTheme() {
+      isDark = !isDark;
+      const phone = document.getElementById('phoneMockup');
+      const icon = document.getElementById('themeIcon');
+      const text = document.getElementById('themeText');
+      if (isDark) {
+        phone.classList.remove('phone-light');
+        phone.classList.add('phone-dark');
+        icon.textContent = '☀️';
+        text.textContent = '切換淺色';
+      } else {
+        phone.classList.remove('phone-dark');
+        phone.classList.add('phone-light');
+        icon.textContent = '🌙';
+        text.textContent = '切換深色';
+      }
+      renderScreen();
+    }
+
+    function switchHeaderStyle(style) {
+      activeHeaderStyle = style;
+      isDropdownOpen = false;
+      document.querySelectorAll('[id^="btnHeader"]').forEach(b => b.classList.remove('active'));
+      const map = { styleA: 'btnHeaderA', styleB: 'btnHeaderB', styleC: 'btnHeaderC', styleD: 'btnHeaderD', styleOld: 'btnHeaderOld' };
+      document.getElementById(map[style]).classList.add('active');
+      renderScreen();
+      updateExplanation();
+    }
+
+    function switchPage(page) {
+      activePage = page;
+      isDropdownOpen = false;
+      document.querySelectorAll('[id^="btnPage"]').forEach(b => b.classList.remove('active'));
+      const map = { currency: 'btnPageCurrency', summary: 'btnPageSummary', settings: 'btnPageSettings' };
+      document.getElementById(map[page]).classList.add('active');
+      renderScreen();
+      updateExplanation();
+    }
+
+    function toggleDropdown() {
+      isDropdownOpen = !isDropdownOpen;
+      renderScreen();
+    }
+
+    function setChartTab(tab) {
+      activeChartTab = tab;
+      renderScreen();
+    }
+
+    function renderScreen() {
+      const screen = document.getElementById('screenContent');
+      const bottomBar = document.getElementById('bottomTabBarContainer');
+
+      // Check if Bottom Tab Bar is active
+      if (activeHeaderStyle === 'styleD') {
+        bottomBar.classList.remove('hidden');
+        bottomBar.innerHTML = renderBottomTabBar();
+      } else {
+        bottomBar.classList.add('hidden');
+        bottomBar.innerHTML = '';
+      }
+
+      // Render Header + Body
+      let html = '';
+      if (activeHeaderStyle === 'styleOld') {
+        html = renderOldHeader() + renderBodyContent();
+      } else if (activeHeaderStyle === 'styleA') {
+        html = renderHeaderStyleA() + renderBodyContent();
+      } else if (activeHeaderStyle === 'styleB') {
+        html = renderHeaderStyleB() + renderBodyContent();
+      } else if (activeHeaderStyle === 'styleC') {
+        html = renderHeaderStyleC() + renderBodyContent();
+      } else if (activeHeaderStyle === 'styleD') {
+        html = renderHeaderStyleD() + renderBodyContent();
+      }
+      screen.innerHTML = html;
+    }
+
+    /* -------------------------------------------------------------
+       Header Style A: Revolut / Notion 整合式標題下拉 (Single Row 48px)
+       ------------------------------------------------------------- */
+    function renderHeaderStyleA() {
+      const pageTitle = activePage === 'currency' ? '🇯🇵 JPY 日圓' : activePage === 'summary' ? '📊 帳務總覽' : '⚙️ 系統設定';
+      return `
+        <!-- Style A: 單行 48px 極致精準導航列 -->
+        <div class="sticky top-0 z-40 px-3.5 py-2.5 bg-[var(--phone-bg)]/95 backdrop-blur-md border-b border-[var(--phone-border)] flex items-center justify-between">
+          <!-- 左側：個人頭像與狀態 -->
+          <div class="flex items-center gap-1.5">
+            ${activePage === 'settings' ? `
+              <button onclick="switchPage('summary')" class="flex items-center gap-0.5 text-xs font-bold text-[var(--phone-primary)]">
+                <span class="text-sm">‹</span> 總覽
+              </button>
+            ` : `
+              <div class="relative cursor-pointer" onclick="switchPage('settings')">
+                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-[10px] flex items-center justify-center text-white font-extrabold shadow-sm">菘</div>
+                <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-[var(--phone-bg)]"></span>
+              </div>
+            `}
+          </div>
+
+          <!-- 中央：整合式標題控制器 (點擊展開群組/幣別切換) -->
+          <div class="relative">
+            <button onclick="toggleDropdown()" class="flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--phone-card)] border border-[var(--phone-border)] shadow-xs hover:border-[var(--phone-primary)] transition">
+              <span class="text-[11.5px] font-extrabold text-[var(--phone-text)]">東京自由行・${pageTitle}</span>
+              <span class="text-[9px] text-[var(--phone-sub)] transform ${isDropdownOpen ? 'rotate-180' : ''} transition">▾</span>
+            </button>
+
+            <!-- 下拉彈出選單 (模擬 iOS / Revolut 原生 Menu) -->
+            ${isDropdownOpen ? `
+              <div class="absolute left-1/2 -translate-x-1/2 top-9 w-56 rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] shadow-2xl p-2 z-50 text-xs">
+                <div class="text-[9px] font-bold text-[var(--phone-sub)] px-2 py-1 uppercase tracking-wider">切換幣別帳本</div>
+                <div class="space-y-0.5">
+                  <div onclick="switchPage('currency')" class="flex items-center justify-between p-2 rounded-xl ${activePage === 'currency' ? 'bg-[var(--phone-primary)]/15 text-[var(--phone-primary)] font-bold' : 'hover:bg-[var(--phone-border)]/30'} cursor-pointer">
+                    <span>🇯🇵 日圓 JPY</span>
+                    ${activePage === 'currency' ? '<span class="text-xs">✓</span>' : ''}
+                  </div>
+                  <div onclick="switchPage('summary')" class="flex items-center justify-between p-2 rounded-xl ${activePage === 'summary' ? 'bg-[var(--phone-primary)]/15 text-[var(--phone-primary)] font-bold' : 'hover:bg-[var(--phone-border)]/30'} cursor-pointer">
+                    <span>📊 跨幣別總覽</span>
+                    ${activePage === 'summary' ? '<span class="text-xs">✓</span>' : ''}
+                  </div>
+                  <div class="flex items-center justify-between p-2 rounded-xl hover:bg-[var(--phone-border)]/30 text-[var(--phone-sub)] cursor-pointer">
+                    <span>🇹🇼 新台幣 TWD</span>
+                  </div>
+                </div>
+                <div class="border-t border-[var(--phone-line)] my-1"></div>
+                <div class="text-[9px] font-bold text-[var(--phone-sub)] px-2 py-1 uppercase tracking-wider">切換所屬群組</div>
+                <div class="p-2 rounded-xl hover:bg-[var(--phone-border)]/30 text-xs cursor-pointer flex items-center justify-between">
+                  <span>🗾 東京五天四夜 (當前)</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                </div>
+                <div class="p-2 rounded-xl hover:bg-[var(--phone-border)]/30 text-xs text-[var(--phone-sub)] cursor-pointer">
+                  <span>🏖️ 沖繩自駕之旅</span>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- 右側：動作按鈕 -->
+          <div class="flex items-center gap-1.5">
+            <button class="w-7 h-7 rounded-full bg-[var(--phone-card)] border border-[var(--phone-border)] flex items-center justify-center text-[10px]">🔔</button>
+            <button onclick="switchPage('settings')" class="w-7 h-7 rounded-full bg-[var(--phone-card)] border border-[var(--phone-border)] flex items-center justify-center text-[10px]">⚙️</button>
+          </div>
+        </div>
+      `;
+    }
+
+    /* -------------------------------------------------------------
+       Header Style B: Apple iOS 18 原生 Large Title 沉浸大標題
+       ------------------------------------------------------------- */
+    function renderHeaderStyleB() {
+      const pageTitle = activePage === 'currency' ? '日圓 JPY' : activePage === 'summary' ? '帳務總覽' : '系統設定';
+      return `
+        <!-- Style B: iOS 18 Large Title -->
+        <div class="px-4 pt-3 pb-2 bg-transparent">
+          <!-- 頂部輕量導航列 (40px) -->
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-1.5">
+              ${activePage === 'settings' ? `
+                <button onclick="switchPage('summary')" class="text-xs font-bold text-[var(--phone-primary)]">‹ 返回</button>
+              ` : `
+                <span class="text-[11px] font-bold text-[var(--phone-sub)] bg-[var(--phone-border)] px-2 py-0.5 rounded-full">🗾 東京自由行 ▾</span>
+              `}
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="w-7 h-7 rounded-full bg-[var(--phone-card)] border border-[var(--phone-border)] flex items-center justify-center text-[10px]">🔔</button>
+              <button onclick="switchPage('settings')" class="w-7 h-7 rounded-full bg-[var(--phone-card)] border border-[var(--phone-border)] flex items-center justify-center text-[10px]">⚙️</button>
+            </div>
+          </div>
+
+          <!-- 沉浸式大標題 (Large Title) -->
+          <div class="flex items-end justify-between border-b border-[var(--phone-line)] pb-2">
+            <div>
+              <div class="text-[10px] font-bold text-purple-400 tracking-wider uppercase">SPLITBILL • ${activePage.toUpperCase()}</div>
+              <h1 class="text-2xl font-extrabold text-[var(--phone-text)] tracking-tight">${pageTitle}</h1>
+            </div>
+            <!-- 幣別快速微型膠囊 -->
+            ${activePage !== 'settings' ? `
+              <div class="flex bg-[var(--phone-card)] border border-[var(--phone-border)] rounded-full p-0.5 text-[10px] font-bold">
+                <button onclick="switchPage('currency')" class="px-2 py-0.5 rounded-full ${activePage === 'currency' ? 'bg-[var(--phone-primary)] text-white' : 'text-[var(--phone-sub)]'}">¥ JPY</button>
+                <button onclick="switchPage('summary')" class="px-2 py-0.5 rounded-full ${activePage === 'summary' ? 'bg-[var(--phone-primary)] text-white' : 'text-[var(--phone-sub)]'}">📊 總覽</button>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    /* -------------------------------------------------------------
+       Header Style C: Fintech 懸浮膠囊島 (Floating Island Pill - Cash App / Wise)
+       ------------------------------------------------------------- */
+    function renderHeaderStyleC() {
+      const pageTitle = activePage === 'currency' ? 'JPY ¥' : activePage === 'summary' ? '總覽' : '設定';
+      return `
+        <!-- Style C: 懸浮膠囊島 (Floating Pill) -->
+        <div class="sticky top-2 z-40 px-3.5 mb-2">
+          <div class="rounded-full bg-[var(--phone-floating)] border border-[var(--phone-border)] backdrop-blur-xl shadow-lg p-1.5 px-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-purple-600/30 text-[9px] flex items-center justify-center text-purple-300 font-bold">菘</span>
+              <div class="text-left">
+                <div class="text-[11px] font-extrabold text-[var(--phone-text)]">東京自由行</div>
+                <div class="text-[8.5px] text-[var(--phone-sub)]">當前：${pageTitle}</div>
+              </div>
+            </div>
+
+            <!-- 右側膠囊操作區 -->
+            <div class="flex items-center gap-1">
+              <button onclick="switchPage('currency')" class="px-2 py-0.5 rounded-full text-[10px] font-bold ${activePage === 'currency' ? 'bg-[var(--phone-primary)] text-white' : 'text-[var(--phone-sub)]'}">¥ 幣別</button>
+              <button onclick="switchPage('summary')" class="px-2 py-0.5 rounded-full text-[10px] font-bold ${activePage === 'summary' ? 'bg-[var(--phone-primary)] text-white' : 'text-[var(--phone-sub)]'}">📊 總覽</button>
+              <button onclick="switchPage('settings')" class="w-6 h-6 rounded-full bg-[var(--phone-border)] text-[9px] flex items-center justify-center">⚙️</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* -------------------------------------------------------------
+       Header Style D: 底部大拇指導覽列 (Bottom Tab Bar - 頂部超純淨，底部單手操作)
+       ------------------------------------------------------------- */
+    function renderHeaderStyleD() {
+      const pageTitle = activePage === 'currency' ? '日圓 JPY' : activePage === 'summary' ? '帳務總覽' : '設定';
+      return `
+        <!-- Style D 頂部：極致純粹超薄列 (36px) -->
+        <div class="px-4 py-2 flex items-center justify-between border-b border-[var(--phone-line)] bg-[var(--phone-card)]/40">
+          <div class="flex items-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-purple-600/30 text-[9px] flex items-center justify-center text-purple-300 font-bold">菘</span>
+            <span class="text-xs font-bold">東京五天四夜</span>
+          </div>
+          <div class="flex items-center gap-1 text-[11px] font-extrabold text-[var(--phone-text)]">
+            <span>${pageTitle}</span>
+            <span class="text-[10px]">🔔</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBottomTabBar() {
+      return `
+        <!-- 底部 iOS 原生 Tab Bar (大拇指盲操黃金區) -->
+        <div class="border-t border-[var(--phone-border)] bg-[var(--phone-card)]/95 backdrop-blur-md px-4 py-2 flex items-center justify-around text-center">
+          <button onclick="switchPage('summary')" class="flex flex-col items-center gap-0.5 ${activePage === 'summary' ? 'text-[var(--phone-primary)] font-bold' : 'text-[var(--phone-sub)]'}">
+            <span class="text-sm">📊</span>
+            <span class="text-[10px]">總覽</span>
+          </button>
+          <button onclick="switchPage('currency')" class="flex flex-col items-center gap-0.5 ${activePage === 'currency' ? 'text-[var(--phone-primary)] font-bold' : 'text-[var(--phone-sub)]'}">
+            <span class="text-sm">🇯🇵</span>
+            <span class="text-[10px]">日圓 JPY</span>
+          </button>
+          <button class="flex flex-col items-center gap-0.5 text-[var(--phone-sub)]">
+            <span class="text-sm">🇹🇼</span>
+            <span class="text-[10px]">台幣 TWD</span>
+          </button>
+          <button onclick="switchPage('settings')" class="flex flex-col items-center gap-0.5 ${activePage === 'settings' ? 'text-[var(--phone-primary)] font-bold' : 'text-[var(--phone-sub)]'}">
+            <span class="text-sm">⚙️</span>
+            <span class="text-[10px]">設定</span>
+          </button>
+        </div>
+      `;
+    }
+
+    /* -------------------------------------------------------------
+       現行版本雙層頁首 (Original Double Header)
+       ------------------------------------------------------------- */
+    function renderOldHeader() {
+      const pageTitle = activePage === 'currency' ? '日圓 JPY' : activePage === 'summary' ? '帳務總覽' : '設定';
+      return `
+        <div class="pt-2 pb-1 text-center border-b border-[var(--phone-border)] bg-[var(--phone-card)]/50">
+          <div class="text-[9px] font-mono tracking-widest text-[var(--phone-sub)] uppercase">SPLITBILL</div>
+          <div class="flex items-center justify-center gap-1.5 my-1">
+            <svg class="w-5 h-5" viewBox="0 0 512 512">
+              <path fill="#8E79CA" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+              <path fill="#C53A54" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+              <path fill="#248A46" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+            </svg>
+            <h1 class="text-lg font-extrabold text-[var(--phone-text)]">${pageTitle}</h1>
+          </div>
+          <div class="flex justify-center gap-1 overflow-x-auto px-2 py-1">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${activePage === 'summary' ? 'bg-[var(--phone-primary)] text-white' : 'bg-[var(--phone-border)] text-[var(--phone-text)]'}">總覽</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${activePage === 'currency' ? 'bg-[var(--phone-primary)] text-white' : 'bg-[var(--phone-border)] text-[var(--phone-text)]'}">日圓</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--phone-border)] text-[var(--phone-text)]">台幣</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--phone-border)] text-[var(--phone-sub)]">+ 幣別</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between px-3 py-2 border-b border-[var(--phone-line)] mb-3 bg-[var(--phone-card)]">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-6 h-6 rounded-full bg-purple-600/30 text-[10px] flex items-center justify-center text-purple-300 font-bold">菘</span>
+            <span class="text-xs font-bold truncate">TMU張家菘</span>
+            <span class="text-[9px] text-[var(--phone-sub)] bg-[var(--phone-border)] px-1 py-0.5 rounded">東京... ▾</span>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <span class="w-6 h-6 rounded-full bg-[var(--phone-border)] flex items-center justify-center text-[10px]">🔔</span>
+            <span class="w-6 h-6 rounded-full bg-[var(--phone-border)] flex items-center justify-center text-[10px]">🎖️</span>
+            <span class="w-6 h-6 rounded-full bg-[var(--phone-border)] flex items-center justify-center text-[10px]">⚙️</span>
+            <span class="text-[10px] bg-[var(--phone-border)] px-1.5 py-0.5 rounded font-semibold">登出</span>
+          </div>
+        </div>
+      `;
+    }
+
+    /* -------------------------------------------------------------
+       Body Content (Consistent Inset Grouping across 3 pages)
+       ------------------------------------------------------------- */
+    function renderBodyContent() {
+      if (activePage === 'currency') {
+        return `
+          <div class="px-3.5 pt-2 space-y-3">
+            <!-- 淨額 Hero 看板 -->
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-[var(--phone-primary)]/20 via-[var(--phone-card)] to-[var(--phone-card)] border border-[var(--phone-primary)]/30 shadow-[var(--phone-card-shadow)] flex items-center justify-between">
+              <div>
+                <span class="text-[10px] text-[var(--phone-sub)] font-semibold">你的應收待還淨額</span>
+                <div class="text-xl font-extrabold text-emerald-400 mono mt-0.5">+NT$ 1,791</div>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] bg-emerald-500/15 text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">待收款</span>
+                <div class="text-[9px] text-[var(--phone-sub)] mt-1">他人需轉帳給你</div>
+              </div>
+            </div>
+
+            <!-- 分頁膠囊 -->
+            <div class="flex rounded-xl bg-[var(--phone-card)] border border-[var(--phone-border)] p-1 text-xs font-bold text-center shadow-xs">
+              <div class="flex-1 py-1.5 rounded-lg bg-[var(--phone-primary)] text-white shadow-xs">📊 總表</div>
+              <div class="flex-1 py-1.5 text-[var(--phone-sub)]">🧾 支出</div>
+              <div class="flex-1 py-1.5 text-[var(--phone-sub)]">💸 還款</div>
+              <div class="flex-1 py-1.5 text-[var(--phone-sub)]">📋 紀錄</div>
+            </div>
+
+            <!-- 圖表二合一 -->
+            <div class="rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] p-3 shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-[var(--phone-text)]">📊 財務透視</span>
+                <div class="flex bg-[var(--phone-border)] p-0.5 rounded-lg text-[10px] font-bold">
+                  <button onclick="setChartTab('trend')" class="px-2 py-0.5 rounded-md ${activeChartTab === 'trend' ? 'bg-[var(--phone-primary)] text-white' : 'text-[var(--phone-sub)]'}">📈 趨勢</button>
+                  <button onclick="setChartTab('donut')" class="px-2 py-0.5 rounded-md ${activeChartTab === 'donut' ? 'bg-[var(--phone-primary)] text-white' : 'text-[var(--phone-sub)]'}">🍩 類別</button>
+                </div>
+              </div>
+              ${activeChartTab === 'trend' ? `
+                <svg viewBox="0 0 300 65" class="w-full h-16 overflow-visible">
+                  <defs>
+                    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#8E79CA" stop-opacity="0.35"/>
+                      <stop offset="100%" stop-color="#8E79CA" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M0,55 Q50,50 90,35 T180,25 T260,10 T300,5 L300,65 L0,65 Z" fill="url(#g1)"/>
+                  <path d="M0,55 Q50,50 90,35 T180,25 T260,10 T300,5" fill="none" stroke="#8E79CA" stroke-width="2.5"/>
+                  <circle cx="300" cy="5" r="3.5" fill="#8E79CA"/>
+                </svg>
+              ` : `
+                <div class="flex items-center justify-around py-1 text-[10px]">
+                  <div class="w-14 h-14 rounded-full border-4 border-amber-500 border-t-blue-500 border-r-emerald-500 flex items-center justify-center font-bold">65%</div>
+                  <div class="space-y-1">
+                    <div>🍜 美食餐飲 65%</div>
+                    <div>🚄 大眾交通 25%</div>
+                  </div>
+                </div>
+              `}
+            </div>
+
+            <!-- 單一結算：🧮 逐筆債務表 -->
+            <div class="rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] p-3 shadow-xs">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-[var(--phone-text)]">🧮 逐筆債務表</span>
+                <div class="flex gap-1">
+                  <button class="px-2 py-0.5 rounded-lg bg-[var(--phone-border)] text-[9px] font-bold">👤 跟我相關</button>
+                  <button class="px-2 py-0.5 rounded-lg bg-[var(--phone-border)] text-[9px] font-bold">📋 複製</button>
+                  <button class="px-2 py-0.5 rounded-lg bg-[var(--phone-border)] text-[9px] font-bold">🖼️ 匯出</button>
+                </div>
+              </div>
+              <div class="text-[9.5px] text-[var(--phone-sub)] mb-2">💡 點擊儲存格可查看詳細借貸紀錄，餘數由系統自動分攤分配</div>
+
+              <div class="overflow-x-auto text-[10px]">
+                <table class="w-full text-center border-collapse">
+                  <thead>
+                    <tr class="text-[var(--phone-sub)] border-b border-[var(--phone-line)]">
+                      <th class="p-1 text-left">債權↓ / 債務→</th>
+                      <th class="p-1 font-bold text-purple-400">我</th>
+                      <th class="p-1">測試A</th>
+                      <th class="p-1">測試B</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="border-b border-[var(--phone-line)]">
+                      <td class="p-1.5 text-left font-bold text-purple-400">我</td>
+                      <td class="p-1.5 text-gray-500">-</td>
+                      <td class="p-1.5 bg-rose-500/25 text-rose-300 font-bold mono rounded">1,791</td>
+                      <td class="p-1.5 text-gray-500">-</td>
+                    </tr>
+                    <tr>
+                      <td class="p-1.5 text-left font-bold">測試B</td>
+                      <td class="p-1.5 bg-emerald-500/25 text-emerald-300 font-bold mono rounded">150</td>
+                      <td class="p-1.5 text-gray-500">-</td>
+                      <td class="p-1.5 text-gray-500">-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (activePage === 'summary') {
+        return `
+          <div class="px-3.5 pt-2 space-y-3">
+            <!-- 跨幣別淨額 -->
+            <div class="p-3.5 rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] shadow-xs">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-[var(--phone-text)]">💰 我的跨幣別款項</span>
+                <span class="text-[10px] text-[var(--phone-sub)]">折合約 NT$ 1,341</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="p-2.5 rounded-xl bg-[var(--phone-border)]/20 border border-[var(--phone-border)] flex flex-col justify-between">
+                  <span class="text-[10px] text-[var(--phone-sub)]">🇯🇵 日圓 JPY</span>
+                  <span class="text-base font-extrabold text-emerald-400 mono mt-1">+¥ 8,420</span>
+                  <span class="text-[9px] text-emerald-400/80 mt-0.5">待收款</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-[var(--phone-border)]/20 border border-[var(--phone-border)] flex flex-col justify-between">
+                  <span class="text-[10px] text-[var(--phone-sub)]">🇹🇼 新台幣 TWD</span>
+                  <span class="text-base font-extrabold text-rose-400 mono mt-1">-NT$ 450</span>
+                  <span class="text-[9px] text-rose-400/80 mt-0.5">待付款</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 淨餘額長條圖 -->
+            <div class="p-3.5 rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] shadow-xs">
+              <div class="flex items-center justify-between mb-2.5">
+                <span class="text-xs font-bold text-[var(--phone-text)]">📊 成員淨餘額比較</span>
+                <span class="text-[10px] bg-[var(--phone-border)] px-2 py-0.5 rounded font-bold">日圓 JPY ▾</span>
+              </div>
+              <div class="space-y-2 text-xs">
+                <div>
+                  <div class="flex justify-between text-[10px] mb-0.5">
+                    <span class="font-bold text-purple-400">TMU張家菘 (我)</span>
+                    <span class="text-emerald-400 font-bold mono">+¥ 8,420</span>
+                  </div>
+                  <div class="w-full h-2 bg-[var(--phone-border)] rounded-full overflow-hidden">
+                    <div class="w-4/5 h-full bg-emerald-500 rounded-full"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[10px] mb-0.5">
+                    <span>測試A</span>
+                    <span class="text-rose-400 font-bold mono">-¥ 5,200</span>
+                  </div>
+                  <div class="w-full h-2 bg-[var(--phone-border)] rounded-full overflow-hidden">
+                    <div class="w-3/5 h-full bg-rose-500 rounded-full"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 群組留言 -->
+            <div class="p-3.5 rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] shadow-xs">
+              <span class="text-xs font-bold text-[var(--phone-text)] block mb-2">💬 群組即時留言</span>
+              <div class="flex gap-2">
+                <input type="text" placeholder="跟群組大家說點什麼..." class="flex-1 bg-[var(--phone-border)]/40 border border-[var(--phone-border)] rounded-xl px-3 py-1.5 text-xs text-[var(--phone-text)]">
+                <button class="px-3 py-1.5 rounded-xl bg-[var(--phone-primary)] text-white text-xs font-bold shadow-xs">發送</button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (activePage === 'settings') {
+        return `
+          <div class="px-3.5 pt-2 space-y-3">
+            <!-- 分頁 -->
+            <div class="flex rounded-xl bg-[var(--phone-card)] border border-[var(--phone-border)] p-1 text-xs font-bold text-center shadow-xs">
+              <div class="flex-1 py-1.5 rounded-lg bg-[var(--phone-primary)] text-white shadow-xs">👤 帳號</div>
+              <div class="flex-1 py-1.5 text-[var(--phone-sub)]">👥 群組</div>
+              <div class="flex-1 py-1.5 text-[var(--phone-sub)]">⚙️ 偏好</div>
+            </div>
+
+            <!-- 個人資料卡 -->
+            <div class="rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] overflow-hidden shadow-xs">
+              <div class="p-3.5 flex items-center gap-3 border-b border-[var(--phone-line)]">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-sm">菘</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-extrabold text-[var(--phone-text)] truncate">TMU張家菘</div>
+                  <div class="text-[10px] text-[var(--phone-sub)] truncate">jscha@gmail.com</div>
+                </div>
+                <button class="px-2.5 py-1 rounded-lg bg-[var(--phone-border)] text-[10px] font-bold">📷 更換</button>
+              </div>
+              <div class="p-3 flex items-center justify-between text-xs">
+                <span class="text-[var(--phone-sub)]">全域顯示名稱</span>
+                <span class="font-bold">小菘 ›</span>
+              </div>
+            </div>
+
+            <!-- 收款帳戶 -->
+            <div class="rounded-2xl bg-[var(--phone-card)] border border-[var(--phone-border)] p-3 shadow-xs">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-[var(--phone-text)]">💳 收款帳戶設定</span>
+                <button class="text-[10px] text-[var(--phone-primary)] font-bold">+ 新增</button>
+              </div>
+              <div class="p-2.5 rounded-xl bg-[var(--phone-border)]/20 border border-[var(--phone-border)] flex items-center justify-between text-xs">
+                <div>
+                  <span class="font-bold">玉山銀行 (808)</span>
+                  <div class="text-[10px] text-[var(--phone-sub)] font-mono">1234-5678-9012</div>
+                </div>
+                <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-semibold">啟用中</span>
+              </div>
+            </div>
+
+            <!-- 登出 -->
+            <button class="w-full py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-bold transition">
+              登出帳號
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function updateExplanation() {
+      const icon = document.getElementById('panelIcon');
+      const title = document.getElementById('panelTitle');
+      const badge = document.getElementById('panelBadge');
+      const concept = document.getElementById('panelConcept');
+      const adv = document.getElementById('panelAdvantages');
+      const metric = document.getElementById('panelMetricText');
+
+      if (activeHeaderStyle === 'styleA') {
+        icon.textContent = '🌟';
+        title.textContent = '方案 A：整合式標題下拉流 (推薦)';
+        badge.textContent = 'Revolut / Notion / Discord Style';
+        concept.textContent = '徹底消滅傳統網頁的第二行導覽列！把「群組切換」與「幣別切換」合而為一做成中央標題控制器，點擊直接展開 iOS 原生選單，全頁頂部高度僅 48px！';
+        adv.innerHTML = `
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>絕對極簡（僅單行 48px）</b>：頁面開屏直接進入帳務核心，不再有雜亂的次導航條。</li>
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>直覺選單互動</b>：點擊中央膠囊，即時切換群組與幣別，操作邏輯如同頂級 App。</li>
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>左頭像、右快捷</b>：左側個人資料、右側通知與設定，完美對稱。</li>
+        `;
+        metric.innerHTML = `頂部高度從原本的 185px 驟降至 <b>48px</b>，直接省下 <b>137px</b>（高達 74% 的頁首高度釋放）！`;
+      } else if (activeHeaderStyle === 'styleB') {
+        icon.textContent = '🍎';
+        title.textContent = '方案 B：iOS 18 原生 Large Title 沉浸大標';
+        badge.textContent = 'Apple Wallet / Fitness / Health Style';
+        concept.textContent = '完全遵循 Apple iOS 官方設計規範。頂部為超薄狀態列，頁面內部呈現呼吸感極佳的沉浸大標題，向上滾動時平滑過渡縮小吸頂！';
+        adv.innerHTML = `
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>純粹 iPhone 原生質感</b>：告別所有「網頁感」，彷彿在滑 iOS 內建 App。</li>
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>大標題右側微型膠囊</b>：可快速切換幣別，兼具排版美感與效率。</li>
+        `;
+        metric.innerHTML = `沉浸式大標題讓介面顯得開闊大氣，滾動後自動縮至 <b>44px</b> 吸頂，極具動態儀式感。`;
+      } else if (activeHeaderStyle === 'styleC') {
+        icon.textContent = '🏝️';
+        title.textContent = '方案 C：Fintech 懸浮膠囊島';
+        badge.textContent = 'Cash App / Wise Floating Island';
+        concept.textContent = '不再是通欄的實體頂欄，而是化為一枚精緻漂浮在螢幕上方的「毛玻璃膠囊島嶼」，內容在膠囊底下滾動模糊！';
+        adv.innerHTML = `
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>極富現代未來感</b>：像 Dynamic Island 一樣漂浮，通透感最強。</li>
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>群組與動作一島整合</b>：左側為群組名，右側直接放置快速切換鈕。</li>
+        `;
+        metric.innerHTML = `不遮擋全屏背景，兩側通透留白，營造懸浮在金融畫布之上的輕量視覺感受。`;
+      } else if (activeHeaderStyle === 'styleD') {
+        icon.textContent = '👇';
+        title.textContent = '方案 D：底部大拇指導覽列';
+        badge.textContent = 'Bottom Tab Bar (Thumb Zone)';
+        concept.textContent = '將切換核心（總覽、日圓、台幣、設定）移至手機螢幕最下方的原生 Tab Bar！頂部解放至極致純粹的 36px，專為單手大拇指盲操設計！';
+        adv.innerHTML = `
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>人體工學最好的操作體驗</b>：單手握持手機時，大拇指不需要費力伸到螢幕頂端！</li>
+          <li class="flex items-start gap-1.5"><span class="text-green-400 font-bold">✓</span> <b>頂部 100% 留給內容</b>：頂部幾乎不佔任何高度，開屏即全屏。</li>
+        `;
+        metric.innerHTML = `完全釋放頂部空間，將導覽下放至大拇指盲操黃金區，跨頁面切換只需輕輕一觸。`;
+      } else {
+        icon.textContent = '📦';
+        title.textContent = '現行版本：雙層獨立頁首';
+        badge.textContent = 'Original Double Header';
+        concept.textContent = '第一層包含大標題與幣別換行列，第二層包含誰是誰與 4 個動作按鈕，兩層垂直堆疊。';
+        adv.innerHTML = `
+          <li class="flex items-start gap-1.5"><span class="text-red-400 font-bold">⚠️</span> 垂直佔位高達 185px，開屏大半被文字與按鈕霸佔。</li>
+          <li class="flex items-start gap-1.5"><span class="text-red-400 font-bold">⚠️</span> 幣別按鈕換行時會強烈擠壓，視覺壓迫感較大。</li>
+        `;
+        metric.innerHTML = `佔用 185px 高度，需往下滑動很多才看得到真正的淨額與帳務。`;
+      }
+    }
+
+    // Init
+    renderScreen();
+    updateExplanation();
+  </script>
+</body>
+</html>
