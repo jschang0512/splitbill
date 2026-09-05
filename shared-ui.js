@@ -409,18 +409,25 @@ async function showMemberProfileModal(memberId){
     if(viewerId && viewerId !== memberId && typeof window.computePairNetBalanceByCurrency === "function"){
       const byCurrency = window.computePairNetBalanceByCurrency(viewerId, memberId, expenses, repayments);
       const allCurrencies = (typeof CURRENCIES !== "undefined" && CURRENCIES) || [];
-      const rows = Object.keys(byCurrency)
-        .map(cur => ({ cur, amt: byCurrency[cur] }))
-        .filter(x => Math.abs(x.amt) > 0.5)
-        .map(x => {
-          const curObj = allCurrencies.find(c => c.code === x.cur);
-          const sym = curObj ? curObj.symbol : x.cur;
-          const curLabel = curObj ? curObj.label : x.cur;
-          const amtText = window.formatAmt ? window.formatAmt(Math.abs(x.amt)) : Math.round(Math.abs(x.amt));
-          const cls = x.amt > 0 ? "pos" : "neg";
-          const label = x.amt > 0 ? `他欠你 ${sym}${amtText}` : `你欠他 ${sym}${amtText}`;
-          return `<div class="member-profile-relation-row ${cls}"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>${escapeHtml(label)}</div>`;
-        });
+      const rows = [];
+      Object.keys(byCurrency).forEach(cur => {
+        const curObj = allCurrencies.find(c => c.code === cur);
+        const sym = curObj ? curObj.symbol : cur;
+        const curLabel = curObj ? curObj.label : cur;
+        const round = v => window.roundToCurrency ? window.roundToCurrency(v, cur) : v;
+        const owesYou = round(byCurrency[cur].owesYou);
+        const youOwe = round(byCurrency[cur].youOwe);
+        // 一般情況下同一個幣別只會有一個方向非零；但跟「逐筆債務表」一樣，
+        // 兩個方向同時有欠款時不自動互相沖銷合併，各自誠實列一行。
+        if(owesYou > 0.5){
+          const amtText = window.formatAmt ? window.formatAmt(owesYou) : Math.round(owesYou);
+          rows.push(`<div class="member-profile-relation-row pos"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>他欠你 ${sym}${amtText}</div>`);
+        }
+        if(youOwe > 0.5){
+          const amtText = window.formatAmt ? window.formatAmt(youOwe) : Math.round(youOwe);
+          rows.push(`<div class="member-profile-relation-row neg"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>你欠他 ${sym}${amtText}</div>`);
+        }
+      });
       relationEl.innerHTML = rows.length ? rows.join("") : `<div class="member-profile-relation-row zero">目前沒有互相欠款</div>`;
       relationEl.classList.remove("hidden");
     } else {

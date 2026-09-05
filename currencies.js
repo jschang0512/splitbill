@@ -975,43 +975,207 @@ function computeMemberNetBalanceTWD(memberId, expenses, repayments){
 }
 window.computeMemberNetBalanceTWD = computeMemberNetBalanceTWD;
 
-// 「你」跟某個特定對象之間的淨結餘，逐幣別分開列出（不像成就徽章/整體
-// 淨結餘那樣換算成 TWD 合併成一個數字）——使用者反映這裡如果直接跨幣別
-// 合併，看不出來是哪個幣別區欠的。回傳 { 幣別代碼: 淨額 }，正數代表對方
-// 欠你、負數代表你欠對方。這裡不是拿真正的（事件時間軸式）債務明細演算法
-// 來算——那套演算法（computeExpenseDebts/buildDebtMatrix）只存在 app.js、
-// 是逐幣別運作，且 summary.html 沒載入 app.js 用不到；這裡只是給個人資料卡
-// 一個簡單、透明、看得懂算法的「跟你的關係」參考數字，不是取代「逐筆債務表」
-// 那個權威數字，共同支出裡三人以上同時有淨額時本來就沒有唯一正確的兩兩分法。
-function computePairNetBalanceByCurrency(viewerId, otherId, expenses, repayments){
-  const byCurrency = {}; // 正數：對方欠你；負數：你欠對方
+// ============================================================
+// 單筆支出的淨額拆算 + 事件時間軸債務矩陣
+// ============================================================
+// 這三個函式原本只存在 app.js（currency.html 專用），summary.html 沒載入
+// app.js 用不到，導致個人資料卡「跟你的關係」當初只能自己另外寫一套簡化
+// 版演算法，結果跟「逐筆債務表」的權威數字對不起來（同一對成員，資料卡
+// 顯示還有欠款、債務表卻顯示已結清）。搬來這裡（currencies.js 兩邊都會
+// 載入）之後，app.js 跟個人資料卡就能呼叫同一套算法，數字保證一致。
+//
+// 先把每個人「付的錢」跟「該負擔的錢」相抵，抵完還有剩的：
+// 剩多的人 = 這筆支出的債權人，剩少（欠）的人 = 債務人。
+// 再依債權人各自佔全部債權的比例，把每個債務人的欠款按比例分攤過去。
+function computeExpenseNets(e){
+  const paid = {};
+  const share = {};
 
-  (expenses || []).forEach(e => {
-    const cur = e.currency || "TWD";
-    const payers = e.payers || [];
-    const shares = e.shares || [];
-    const totalPaid = payers.reduce((s,p)=>s+(Number(p.amount)||0), 0);
-    if(totalPaid <= 0) return;
+  (e.payers || []).forEach(p=>{
+    const amount = Number(p.amount) || 0;
+    if(amount <= 0) return;
+    paid[p.member_id] = (paid[p.member_id] || 0) + amount;
+  });
 
-    const viewerPaid = payers.find(p => p.member_id === viewerId);
-    const otherShare = shares.find(s => s.member_id === otherId);
-    if(viewerPaid && otherShare){
-      const portion = (Number(viewerPaid.amount) || 0) / totalPaid;
-      byCurrency[cur] = (byCurrency[cur] || 0) + (Number(otherShare.amount) || 0) * portion;
+  (e.shares || []).forEach(s=>{
+    const amount = Number(s.amount) || 0;
+    if(amount <= 0) return;
+    share[s.member_id] = (share[s.member_id] || 0) + amount;
+  });
+
+  const ids = new Set([...Object.keys(paid), ...Object.keys(share)]);
+  const creditors = [];
+  const debtors = [];
+
+  ids.forEach(id=>{
+    const net = (paid[id] || 0) - (share[id] || 0);
+    if(net > 0.01) creditors.push({ id, amt: net });
+    else if(net < -0.01) debtors.push({ id, amt: -net });
+  });
+
+  const totalCredit = creditors.reduce((sum, c) => sum + c.amt, 0);
+
+  return { creditors, debtors, totalCredit };
+}
+window.computeExpenseNets = computeExpenseNets;
+
+// 同一筆支出內，債務人盡量只還給少數幾個債權人 —
+// 依「金額由大到小」配對（欠最多的人優先還給收最多的人），
+// 而不是每個債權人都分一點小額。
+// 債務關係表（buildDebtMatrix）跟債務明細（showPairDetail）
+// 都只呼叫這個函式，兩邊數字保證一致。
+function computeExpenseDebts(e){
+  const { creditors, debtors } = computeExpenseNets(e);
+
+  const cs = creditors.map(c => ({ ...c }))
+    .sort((a,b) => b.amt - a.amt || (a.id > b.id ? 1 : -1));
+  const ds = debtors.map(d => ({ ...d }))
+    .sort((a,b) => b.amt - a.amt || (a.id > b.id ? 1 : -1));
+
+  const result = {};
+  let i = 0, j = 0;
+  while(i < cs.length && j < ds.length){
+    const creditor = cs[i];
+    const debtor = ds[j];
+    const amount = Math.min(creditor.amt, debtor.amt);
+    if(amount > 0.01){
+      if(!result[creditor.id]) result[creditor.id] = {};
+      result[creditor.id][debtor.id] = (result[creditor.id][debtor.id] || 0) + amount;
+      creditor.amt -= amount;
+      debtor.amt -= amount;
+    }
+    if(creditor.amt <= 0.01) i++;
+    if(debtor.amt <= 0.01) j++;
+  }
+  return result;
+}
+window.computeExpenseDebts = computeExpenseDebts;
+
+// 支出跟還款依實際發生時間排成同一條時間軸，一筆一筆重演：一筆支出發生的
+// 當下才會被之後的還款拿去沖銷，不能反過來讓「之後才發生」的支出去彌補
+// 「之前就已經多還」的錢。這樣算出來的結果才會跟「債務明細」的往來紀錄
+// 時間軸完全一致——同一對人之間如果同時出現雙方互欠（例如提早多還、後來
+// 又欠了新的），不會自動幫你合併成一個淨數字，而是誠實地各自列出來，交給
+// 「一鍵抵銷」處理。傳入的 expenses/repayments 必須已經是同一個幣別的。
+function buildDebtMatrix(expenses, repayments){
+  const owed = {};
+
+  function addDebt(creditorId, debtorId, amount){
+    if(!creditorId) return;
+    if(!debtorId) return;
+    // 不允許自己欠自己
+    if(creditorId === debtorId) return;
+    if(!Number.isFinite(amount)) return;
+    if(amount <= 0.01) return;
+
+    if(!owed[creditorId]){
+      owed[creditorId] = {};
+    }
+    owed[creditorId][debtorId] = (owed[creditorId][debtorId] || 0) + amount;
+  }
+
+  const events = [];
+
+  expenses.forEach(e=>{
+    const debts = computeExpenseDebts(e);
+    Object.keys(debts).forEach(creditorId=>{
+      Object.keys(debts[creditorId]).forEach(debtorId=>{
+        events.push({
+          type: "expense",
+          creditorId,
+          debtorId,
+          amount: debts[creditorId][debtorId],
+          date: e.expense_date || "",
+          createdAt: e.created_at || ""
+        });
+      });
+    });
+  });
+
+  (repayments || []).forEach(r=>{
+    const payerId = r.from_member;
+    const receiverId = r.to_member;
+    const amount = Number(r.amount) || 0;
+    if(!payerId || !receiverId || payerId === receiverId || amount <= 0.01) return;
+    events.push({
+      type: "repayment",
+      payerId,
+      receiverId,
+      amount,
+      date: r.payment_date || "",
+      createdAt: r.created_at || ""
+    });
+  });
+
+  // 依實際發生時間正序排列（舊到新；同一天同時刻時，支出先於還款發生）
+  events.sort((a, b) => {
+    const timeA = a.createdAt || (a.date ? a.date + "T00:00:00.000Z" : "");
+    const timeB = b.createdAt || (b.date ? b.date + "T00:00:00.000Z" : "");
+    if(timeA && timeB && timeA !== timeB) return timeA.localeCompare(timeB);
+    const dA = a.date || "", dB = b.date || "";
+    if(dA !== dB) return dA.localeCompare(dB);
+    const aIsExp = a.type === "expense" ? 0 : 1;
+    const bIsExp = b.type === "expense" ? 0 : 1;
+    return aIsExp - bIsExp;
+  });
+
+  events.forEach(ev=>{
+    if(ev.type === "expense"){
+      addDebt(ev.creditorId, ev.debtorId, ev.amount);
+      return;
     }
 
-    const otherPaid = payers.find(p => p.member_id === otherId);
-    const viewerShare = shares.find(s => s.member_id === viewerId);
-    if(otherPaid && viewerShare){
-      const portion = (Number(otherPaid.amount) || 0) / totalPaid;
-      byCurrency[cur] = (byCurrency[cur] || 0) - (Number(viewerShare.amount) || 0) * portion;
+    const payerId = ev.payerId;
+    const receiverId = ev.receiverId;
+    let remaining = ev.amount;
+
+    const receiverDebts = owed[receiverId] || (owed[receiverId] = {});
+    const current = receiverDebts[payerId] || 0;
+    const paid = Math.min(current, remaining);
+    if(paid > 0){
+      receiverDebts[payerId] = current - paid;
+      if(receiverDebts[payerId] <= 0.01) delete receiverDebts[payerId];
+      remaining -= paid;
+    }
+    // 這筆還款發生的當下，能沖銷的欠款就這麼多，沖不完、多還的部分反過來
+    // 記一筆「receiver 欠 payer」——這代表事後編輯把支出改小、或本來就
+    // 多還了，都是真實的溢繳，不是錯誤，維持這個行為。
+    if(remaining > 0.01){
+      addDebt(payerId, receiverId, remaining);
     }
   });
 
+  return owed;
+}
+window.buildDebtMatrix = buildDebtMatrix;
+
+// 「你」跟某個特定對象之間的淨結餘，逐幣別分開列出（不像成就徽章/整體
+// 淨結餘那樣換算成 TWD 合併成一個數字）——使用者反映這裡如果直接跨幣別
+// 合併，看不出來是哪個幣別區欠的。回傳 { 幣別代碼: { owesYou, youOwe } }。
+// 內部呼叫的是跟「逐筆債務表」完全同一套 buildDebtMatrix() 演算法（按幣別
+// 分組後各自跑一次事件時間軸），數字保證跟債務表一致，不會再出現「資料卡
+// 顯示還欠錢、債務表卻顯示已結清」的矛盾。
+function computePairNetBalanceByCurrency(viewerId, otherId, expenses, repayments){
+  const expByCur = {};
+  (expenses || []).forEach(e => {
+    const cur = e.currency || "TWD";
+    (expByCur[cur] || (expByCur[cur] = [])).push(e);
+  });
+  const repByCur = {};
   (repayments || []).forEach(r => {
     const cur = r.currency || "TWD";
-    if(r.from_member === otherId && r.to_member === viewerId) byCurrency[cur] = (byCurrency[cur] || 0) - (Number(r.amount) || 0);
-    if(r.from_member === viewerId && r.to_member === otherId) byCurrency[cur] = (byCurrency[cur] || 0) + (Number(r.amount) || 0);
+    (repByCur[cur] || (repByCur[cur] = [])).push(r);
+  });
+
+  const allCurrencies = new Set([...Object.keys(expByCur), ...Object.keys(repByCur)]);
+  const byCurrency = {};
+  allCurrencies.forEach(cur => {
+    const owed = buildDebtMatrix(expByCur[cur] || [], repByCur[cur] || []);
+    const owesYou = (owed[viewerId] && owed[viewerId][otherId]) || 0;
+    const youOwe = (owed[otherId] && owed[otherId][viewerId]) || 0;
+    if(owesYou > 0.01 || youOwe > 0.01){
+      byCurrency[cur] = { owesYou, youOwe };
+    }
   });
 
   return byCurrency;
