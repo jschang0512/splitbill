@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=746">
-<link rel="stylesheet" href="shared.css?v=746">
+<link rel="stylesheet" href="theme.css?v=747">
+<link rel="stylesheet" href="shared.css?v=747">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=746"></script>
-<script src="version.js?v=746"></script>
-<script src="shared-ui.js?v=746"></script>
-<script src="theme.js?v=746" defer></script>
-<script src="app-banner.js?v=746" defer></script>
+<script src="currencies.js?v=747"></script>
+<script src="version.js?v=747"></script>
+<script src="shared-ui.js?v=747"></script>
+<script src="theme.js?v=747" defer></script>
+<script src="app-banner.js?v=747" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -1608,10 +1608,11 @@ if(backBtn){
       // 行動支付不用填帳號也能存，銀行轉帳沒填帳號的列才略過不存。
       }).filter(a => a.account || a.isWallet)
         .map(({ isWallet, ...rest }) => rest);
-      // 收款帳戶是「帳號」層級的設定、不分群組，所以跟大頭貼一樣用
-      // user_id 一次更新這個使用者在所有群組裡的 members 列，而不是只
-      // 更新目前這個群組的那一列。
-      const { error } = await sb.from("members").update({ payment_accounts: accounts }).eq("user_id", currentUser.id);
+      // 收款帳戶是「帳號」層級的設定、不分群組共用同一份，且內容已改成
+      // 用 Supabase Vault 加密存放（見 set_payment_accounts RPC），不再
+      // 是 members 表裡的明碼欄位，所以這裡改成呼叫 RPC 寫入，資料庫
+      // 那邊自己決定要新建 secret 還是更新既有 secret。
+      const { error } = await sb.rpc("set_payment_accounts", { p_accounts: accounts });
       if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
       await loadMembers();
       renderPaymentAccountRows(accounts);
@@ -1991,7 +1992,14 @@ if(backBtn){
       if(nameInp && myMember) nameInp.value = myMember.accountName || "";
       const nicknameInp = document.getElementById("settingsNickname");
       if(nicknameInp && myMember) nicknameInp.value = myMember.nickname || "";
-      if(myMember) renderPaymentAccountRows(myMember.payment_accounts || []);
+      // payment_accounts 已改存在 Supabase Vault 裡（不是 members 的明碼
+      // 欄位了），myMember 上不會再有這個欄位，要另外呼叫 RPC 解密拿回來。
+      if(myMember){
+        sb.rpc("get_my_payment_accounts").then(({ data, error })=>{
+          if(error){ console.error("讀取收款帳戶失敗：", error); return; }
+          renderPaymentAccountRows(Array.isArray(data) ? data : []);
+        });
+      }
       renderPaymentVisibilityList();
 
       // 掃 QR code 邀請碼進來時，index.html 的 <head> 那段腳本已經把邀請碼

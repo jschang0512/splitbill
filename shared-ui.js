@@ -148,12 +148,12 @@ async function loadGroupMembers(sb, currentUser, showLeftMembers){
 
   let MEMBERS = [];
   try {
-    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,payment_accounts_visible,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+    let query = sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts_visible,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
     if(activeGroupId) query = query.eq("group_id", activeGroupId);
     const { data, error } = await query;
     if(error){
       console.error("讀取群組成員失敗：", error);
-      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts,payment_accounts_visible,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
+      const { data: fallbackData } = await sb.from("members").select("id,user_id,group_id,name,nickname,email,avatar_url,payment_accounts_visible,shown_currencies,left_at,account_deleted_at,groups(name)").order("name");
       MEMBERS = fallbackData || [];
     } else {
       MEMBERS = data || [];
@@ -448,8 +448,21 @@ async function showMemberProfileModal(memberId){
 
   const paymentInfoEl = document.getElementById("memberProfilePaymentInfo");
   if(paymentInfoEl){
-    const visibleInThisGroup = member.payment_accounts_visible !== false;
-    const accounts = (visibleInThisGroup && Array.isArray(member.payment_accounts)) ? member.payment_accounts.filter(a => a && (a.bankName || a.account)) : [];
+    // 收款帳戶已改存在 Supabase Vault，member 物件上不會再直接帶明碼的
+    // payment_accounts 了，這裡開彈窗當下才呼叫 RPC 現查現解密——RPC
+    // 內部自己會重新檢查「顯示開關有沒有開」「呼叫者跟目標是不是同一個
+    // 還在的群組成員」，不符合就回傳空陣列，前端不用再自己判斷一次。
+    paymentInfoEl.classList.add("hidden");
+    paymentInfoEl.innerHTML = "";
+    let accounts = [];
+    try {
+      const sbClient = window.sb;
+      if(sbClient){
+        const { data, error } = await sbClient.rpc("get_member_payment_accounts", { p_member_id: memberId });
+        if(error) console.error("讀取收款帳戶失敗：", error);
+        else accounts = Array.isArray(data) ? data.filter(a => a && (a.bankName || a.account)) : [];
+      }
+    } catch(e){ console.error("讀取收款帳戶異常：", e); }
     if(accounts.length){
       paymentInfoEl.innerHTML = `<span class="member-profile-payment-label">💳 收款帳戶</span>` +
         accounts.map((acc, idx) => {
