@@ -7,33 +7,38 @@
 // 「顯示幣別」是勾選式的 toggle 按鈕（可以複選），清單順序就是
 // 照這裡的陣列順序排。
 // ============================================================
+// label 用 getter 讀 t("currencyName.XXX")，理由跟 CATEGORY_MAP.name 一樣：
+// 每次讀取都即時反映當下語言，不用整頁重畫就能拿到正確翻譯。
+function currencyDisplayName(code, fallback){
+  return (typeof t === "function") ? t("currencyName." + code) : fallback;
+}
 const CURRENCIES = [
-  { code: "TWD", symbol: "NT$",  label: "臺幣",       flag: "🇹🇼", convert: false, decimals: 0 },
-  { code: "JPY", symbol: "¥",    label: "日幣",       flag: "🇯🇵", convert: true,  decimals: 0 },
-  { code: "KRW", symbol: "₩",    label: "韓幣",       flag: "🇰🇷", convert: true,  decimals: 0 },
-  { code: "CNY", symbol: "CN¥",  label: "人民幣",     flag: "🇨🇳", convert: true,  decimals: 2 },
-  { code: "HKD", symbol: "HK$",  label: "港幣",       flag: "🇭🇰", convert: true,  decimals: 2 },
-  { code: "MOP", symbol: "MOP$", label: "澳門幣",     flag: "🇲🇴", convert: true,  decimals: 2 },
-  { code: "USD", symbol: "$",    label: "美金",       flag: "🇺🇸", convert: true,  decimals: 2 },
-  { code: "VND", symbol: "₫",    label: "越南盾",     flag: "🇻🇳", convert: true,  decimals: 0 },
-  { code: "THB", symbol: "฿",    label: "泰銖",       flag: "🇹🇭", convert: true,  decimals: 2 },
-  { code: "PHP", symbol: "₱",    label: "菲律賓披索", flag: "🇵🇭", convert: true,  decimals: 2 },
-  { code: "SGD", symbol: "S$",   label: "新加坡幣",   flag: "🇸🇬", convert: true,  decimals: 2 },
-  { code: "MYR", symbol: "RM",   label: "馬來幣",     flag: "🇲🇾", convert: true,  decimals: 2 },
-  { code: "IDR", symbol: "Rp",   label: "印尼盾",     flag: "🇮🇩", convert: true,  decimals: 0 },
-  { code: "KHR", symbol: "៛",    label: "柬埔寨瑞爾", flag: "🇰🇭", convert: true,  decimals: 0 },
-  { code: "EUR", symbol: "€",    label: "歐元",       flag: "🇪🇺", convert: true,  decimals: 2 },
-  { code: "GBP", symbol: "£",    label: "英鎊",       flag: "🇬🇧", convert: true,  decimals: 2 },
-  { code: "CHF", symbol: "Fr",   label: "瑞士法郎",   flag: "🇨🇭", convert: true,  decimals: 2 },
-  { code: "AUD", symbol: "A$",   label: "澳幣",       flag: "🇦🇺", convert: true,  decimals: 2 },
-  { code: "NZD", symbol: "NZ$",  label: "紐幣",       flag: "🇳🇿", convert: true,  decimals: 2 },
-  { code: "TRY", symbol: "₺",    label: "土耳其里拉", flag: "🇹🇷", convert: true,  decimals: 2 },
-  { code: "CZK", symbol: "Kč",   label: "捷克克朗",   flag: "🇨🇿", convert: true,  decimals: 2 },
-  { code: "HUF", symbol: "Ft",   label: "匈牙利福林", flag: "🇭🇺", convert: true,  decimals: 0 },
-  { code: "SEK", symbol: "kr",   label: "瑞典克朗",   flag: "🇸🇪", convert: true,  decimals: 2 },
-  { code: "NOK", symbol: "kr",   label: "挪威克朗",   flag: "🇳🇴", convert: true,  decimals: 2 },
-  { code: "DKK", symbol: "kr",   label: "丹麥克朗",   flag: "🇩🇰", convert: true,  decimals: 2 },
-  { code: "ISK", symbol: "kr",   label: "冰島克朗",   flag: "🇮🇸", convert: true,  decimals: 0 }
+  { code: "TWD", symbol: "NT$",  get label(){ return currencyDisplayName("TWD", "臺幣"); },       flag: "🇹🇼", convert: false, decimals: 0 },
+  { code: "JPY", symbol: "¥",    get label(){ return currencyDisplayName("JPY", "日幣"); },       flag: "🇯🇵", convert: true,  decimals: 0 },
+  { code: "KRW", symbol: "₩",    get label(){ return currencyDisplayName("KRW", "韓幣"); },       flag: "🇰🇷", convert: true,  decimals: 0 },
+  { code: "CNY", symbol: "CN¥",  get label(){ return currencyDisplayName("CNY", "人民幣"); },     flag: "🇨🇳", convert: true,  decimals: 2 },
+  { code: "HKD", symbol: "HK$",  get label(){ return currencyDisplayName("HKD", "港幣"); },       flag: "🇭🇰", convert: true,  decimals: 2 },
+  { code: "MOP", symbol: "MOP$", get label(){ return currencyDisplayName("MOP", "澳門幣"); },     flag: "🇲🇴", convert: true,  decimals: 2 },
+  { code: "USD", symbol: "$",    get label(){ return currencyDisplayName("USD", "美金"); },       flag: "🇺🇸", convert: true,  decimals: 2 },
+  { code: "VND", symbol: "₫",    get label(){ return currencyDisplayName("VND", "越南盾"); },     flag: "🇻🇳", convert: true,  decimals: 0 },
+  { code: "THB", symbol: "฿",    get label(){ return currencyDisplayName("THB", "泰銖"); },       flag: "🇹🇭", convert: true,  decimals: 2 },
+  { code: "PHP", symbol: "₱",    get label(){ return currencyDisplayName("PHP", "菲律賓披索"); }, flag: "🇵🇭", convert: true,  decimals: 2 },
+  { code: "SGD", symbol: "S$",   get label(){ return currencyDisplayName("SGD", "新加坡幣"); },   flag: "🇸🇬", convert: true,  decimals: 2 },
+  { code: "MYR", symbol: "RM",   get label(){ return currencyDisplayName("MYR", "馬來幣"); },     flag: "🇲🇾", convert: true,  decimals: 2 },
+  { code: "IDR", symbol: "Rp",   get label(){ return currencyDisplayName("IDR", "印尼盾"); },     flag: "🇮🇩", convert: true,  decimals: 0 },
+  { code: "KHR", symbol: "៛",    get label(){ return currencyDisplayName("KHR", "柬埔寨瑞爾"); }, flag: "🇰🇭", convert: true,  decimals: 0 },
+  { code: "EUR", symbol: "€",    get label(){ return currencyDisplayName("EUR", "歐元"); },       flag: "🇪🇺", convert: true,  decimals: 2 },
+  { code: "GBP", symbol: "£",    get label(){ return currencyDisplayName("GBP", "英鎊"); },       flag: "🇬🇧", convert: true,  decimals: 2 },
+  { code: "CHF", symbol: "Fr",   get label(){ return currencyDisplayName("CHF", "瑞士法郎"); },   flag: "🇨🇭", convert: true,  decimals: 2 },
+  { code: "AUD", symbol: "A$",   get label(){ return currencyDisplayName("AUD", "澳幣"); },       flag: "🇦🇺", convert: true,  decimals: 2 },
+  { code: "NZD", symbol: "NZ$",  get label(){ return currencyDisplayName("NZD", "紐幣"); },       flag: "🇳🇿", convert: true,  decimals: 2 },
+  { code: "TRY", symbol: "₺",    get label(){ return currencyDisplayName("TRY", "土耳其里拉"); }, flag: "🇹🇷", convert: true,  decimals: 2 },
+  { code: "CZK", symbol: "Kč",   get label(){ return currencyDisplayName("CZK", "捷克克朗"); },   flag: "🇨🇿", convert: true,  decimals: 2 },
+  { code: "HUF", symbol: "Ft",   get label(){ return currencyDisplayName("HUF", "匈牙利福林"); }, flag: "🇭🇺", convert: true,  decimals: 0 },
+  { code: "SEK", symbol: "kr",   get label(){ return currencyDisplayName("SEK", "瑞典克朗"); },   flag: "🇸🇪", convert: true,  decimals: 2 },
+  { code: "NOK", symbol: "kr",   get label(){ return currencyDisplayName("NOK", "挪威克朗"); },   flag: "🇳🇴", convert: true,  decimals: 2 },
+  { code: "DKK", symbol: "kr",   get label(){ return currencyDisplayName("DKK", "丹麥克朗"); },   flag: "🇩🇰", convert: true,  decimals: 2 },
+  { code: "ISK", symbol: "kr",   get label(){ return currencyDisplayName("ISK", "冰島克朗"); },   flag: "🇮🇸", convert: true,  decimals: 0 }
 ];
 
 // 依照幣別的「最小法定面額」四捨五入（例如美金到分＝2位小數，臺幣/日幣沒有角分＝整數），
@@ -61,37 +66,22 @@ function renderSplitbillNav(container, currentCode, shownCodes){
   if(!el) return;
 
   shownCodes = shownCodes || JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || ["TWD"];
-  
+
   // 篩選出勾選顯示的幣別；如果當前在特定幣別頁，確保該幣別出現在清單中
   const activeCurrencies = CURRENCIES.filter(c => shownCodes.includes(c.code) || c.code === currentCode);
   const isSummary = !currentCode || currentCode === "SUMMARY";
+  const overviewTabHtml = `<a href="summary.html"${isSummary ? ' class="current"' : ''}>${isSummary ? t("common.overview") : t("common.backToOverview")}</a>`;
 
-  // 第一顆固定是總覽
-  let tabsHtml = `<a href="summary.html"${isSummary ? ' class="current"' : ''}>${isSummary ? '總覽' : '← 總覽'}</a>`;
+  function currencyTabHtml(c){
+    const isCur = c.code === currentCode;
+    return `<a href="currency.html?c=${c.code}"${isCur ? ' class="current"' : ''}>${c.label}</a>`;
+  }
 
-  // 最多 4 顆：
-  // 若 activeCurrencies 數量 <= 3：全部直接排開（總覽 + 幣別1 + 幣別2 + 幣別3，共 <= 4 顆）
-  if(activeCurrencies.length <= 3){
-    activeCurrencies.forEach(c => {
-      const isCur = c.code === currentCode;
-      tabsHtml += `<a href="currency.html?c=${c.code}"${isCur ? ' class="current"' : ''}>${c.label}</a>`;
-    });
-  } else {
-    // 幣別 > 3 個時（總覽 + 前 2 幣別 + 更多 ▾，共 4 顆）：
-    const firstTwo = activeCurrencies.slice(0, 2);
-    const overflowList = activeCurrencies.slice(2);
-
-    firstTwo.forEach(c => {
-      const isCur = c.code === currentCode;
-      tabsHtml += `<a href="currency.html?c=${c.code}"${isCur ? ' class="current"' : ''}>${c.label}</a>`;
-    });
-
-    // 判斷當前頁面是否落在 overflowList 裡（例如第 4、5 個幣別）
+  function dropdownHtml(overflowList){
     const currentInOverflow = overflowList.find(c => c.code === currentCode);
-    const dropdownLabel = currentInOverflow ? `${currentInOverflow.label} ▾` : '更多 ▾';
+    const dropdownLabel = currentInOverflow ? `${currentInOverflow.label} ▾` : t("common.more");
     const isDropdownCurrent = !!currentInOverflow;
-
-    tabsHtml += `
+    return `
       <div class="nav-dropdown" id="navDropdownWrap">
         <button type="button" class="nav-dropdown-btn${isDropdownCurrent ? ' current' : ''}" id="navDropdownBtn">
           <span>${dropdownLabel}</span>
@@ -108,7 +98,27 @@ function renderSplitbillNav(container, currentCode, shownCodes){
     `;
   }
 
-  el.innerHTML = tabsHtml;
+  // 組出「前 n 個幣別直接排開＋剩下的收進更多」這個版本的 HTML。
+  // n === activeCurrencies.length 時沒有 overflow，不會出現「更多」。
+  function buildHtml(n){
+    const direct = activeCurrencies.slice(0, n);
+    const overflowList = activeCurrencies.slice(n);
+    let html = overviewTabHtml + direct.map(currencyTabHtml).join("");
+    if(overflowList.length) html += dropdownHtml(overflowList);
+    return html;
+  }
+
+  // 以前是寫死「幣別 > 3 個才收進更多」，但日文這種幣別名稱組出來的
+  // 分頁字數常常比中文長很多，就算只有 3 個幣別、一樣可能整排放不下。
+  // 改成先假設全部都放得下畫出來，量一次實際寬度有沒有超過容器，超過
+  // 就少放一個直接顯示的幣別、改收進「更多」，重畫再量一次，重複到
+  // 放得下為止（最壞情況：只剩「← 總覽」+「更多」兩顆）。
+  let n = activeCurrencies.length;
+  el.innerHTML = buildHtml(n);
+  while(n > 0 && el.scrollWidth > el.clientWidth + 1){
+    n--;
+    el.innerHTML = buildHtml(n);
+  }
 
   // 綁定下拉選單開關與點擊外部關閉
   const dropdownBtn = el.querySelector("#navDropdownBtn");
@@ -119,6 +129,20 @@ function renderSplitbillNav(container, currentCode, shownCodes){
       const isHidden = dropdownMenu.classList.contains("hidden");
       dropdownMenu.classList.toggle("hidden", !isHidden);
       dropdownBtn.classList.toggle("open", isHidden);
+    });
+  }
+
+  // 切換語言、或視窗寬度改變（例如手機轉橫向、電腦視窗縮放）都要重新
+  // 量一次寬度、重新決定收幾個進更多——每個呼叫端只會呼叫一次
+  // renderSplitbillNav，用 dataset 記一下避免同一個 container 重複掛
+  // 好幾個監聽器。
+  if(!el.dataset.navLangBound){
+    el.dataset.navLangBound = "1";
+    document.addEventListener("splitbill-lang-changed", ()=>{
+      renderSplitbillNav(container, currentCode, shownCodes);
+    });
+    window.addEventListener("resize", ()=>{
+      renderSplitbillNav(container, currentCode, shownCodes);
     });
   }
 }
@@ -137,7 +161,7 @@ document.addEventListener("click", (e)=>{
 // ============================================================
 // 全站統一優雅自訂彈窗 (取代瀏覽器原生 alert / confirm)
 // ============================================================
-function showSbDialog({ title = "🔔 Splitbill 通知", message = "", confirmText = "確定", cancelText = null }){
+function showSbDialog({ title = t("common.notifyDialogTitle"), message = "", confirmText = t("common.confirm"), cancelText = null }){
   return new Promise(resolve => {
     let modal = document.getElementById("sbDialogModal");
     if(!modal){
@@ -147,7 +171,7 @@ function showSbDialog({ title = "🔔 Splitbill 通知", message = "", confirmTe
       modal.innerHTML = `
         <div class="calc-card card sb-dialog-card">
           <div class="sb-dialog-header">
-            <div class="sb-dialog-title" id="sbDialogTitle">🔔 Splitbill 通知</div>
+            <div class="sb-dialog-title" id="sbDialogTitle">${t("common.notifyDialogTitle")}</div>
             <button type="button" class="calc-close" id="sbDialogCloseBtn">✕</button>
           </div>
           <div class="sb-dialog-body" id="sbDialogBody"></div>
@@ -200,12 +224,12 @@ function showSbDialog({ title = "🔔 Splitbill 通知", message = "", confirmTe
   });
 }
 
-function sbAlert(message, title = "🔔 Splitbill 通知"){
-  return showSbDialog({ title, message, confirmText: "確定" });
+function sbAlert(message, title = t("common.notifyDialogTitle")){
+  return showSbDialog({ title, message, confirmText: t("common.confirm") });
 }
 
-function sbConfirm(message, title = "🔔 Splitbill 確認"){
-  return showSbDialog({ title, message, confirmText: "確定", cancelText: "取消" });
+function sbConfirm(message, title = t("common.confirmDialogTitle")){
+  return showSbDialog({ title, message, confirmText: t("common.confirm"), cancelText: t("common.cancel") });
 }
 
 window.showSbDialog = showSbDialog;
@@ -216,19 +240,26 @@ window.sbConfirm = sbConfirm;
 // 支出類別自動分析與元資料引擎 (International Category Classification Engine)
 // 支援中、英、日、韓、東南亞常用日常、餐飲、交通、景點、購物等關鍵字
 // ============================================================
+// name 用 getter 而不是固定字串，這樣每次讀取 CATEGORY_MAP[x].name 都會
+// 即時呼叫 t() 拿當下語言的翻譯，不用等頁面重新整理，也不用到處另外呼叫
+// t("cat.xxx")——所有既有直接讀 .name 的地方（篩選器、圖表圖例、CSV 匯出
+// 等）都自動吃到正確語言。
+function categoryDisplayName(key, fallback){
+  return (typeof t === "function") ? t("catName." + key) : fallback;
+}
 const CATEGORY_MAP = {
-  general: { icon: "🧾", name: "一般支出", type: "general", color: "#868E96" },
-  food: { icon: "🍜", name: "美食餐飲", type: "food", color: "#F76707" },
-  drink: { icon: "☕", name: "飲料甜點", type: "drink", color: "#F59F00" },
-  transit: { icon: "🚄", name: "大眾交通", type: "transit", color: "#1C7ED6" },
-  car: { icon: "🚗", name: "租車用油", type: "car", color: "#0CA678" },
-  flight: { icon: "✈️", name: "機票航班", type: "flight", color: "#1098AD" },
-  hotel: { icon: "🏨", name: "住宿溫泉", type: "hotel", color: "#7048E8" },
-  ticket: { icon: "🎟️", name: "門票娛樂", type: "ticket", color: "#F59F00" },
-  shopping: { icon: "🛍️", name: "購物藥妝", type: "shopping", color: "#E64980" },
-  medical: { icon: "💊", name: "醫療藥品", type: "medical", color: "#FA5252" },
-  network: { icon: "📶", name: "網卡通訊", type: "network", color: "#40C057" },
-  xcur: { icon: "💱", name: "跨幣轉移", type: "xcur", color: "#5C7CFA" }
+  general: { icon: "🧾", get name(){ return categoryDisplayName("general", "一般支出"); }, type: "general", color: "#868E96" },
+  food: { icon: "🍜", get name(){ return categoryDisplayName("food", "美食餐飲"); }, type: "food", color: "#F76707" },
+  drink: { icon: "☕", get name(){ return categoryDisplayName("drink", "飲料甜點"); }, type: "drink", color: "#F59F00" },
+  transit: { icon: "🚄", get name(){ return categoryDisplayName("transit", "大眾交通"); }, type: "transit", color: "#1C7ED6" },
+  car: { icon: "🚗", get name(){ return categoryDisplayName("car", "租車用油"); }, type: "car", color: "#0CA678" },
+  flight: { icon: "✈️", get name(){ return categoryDisplayName("flight", "機票航班"); }, type: "flight", color: "#1098AD" },
+  hotel: { icon: "🏨", get name(){ return categoryDisplayName("hotel", "住宿溫泉"); }, type: "hotel", color: "#7048E8" },
+  ticket: { icon: "🎟️", get name(){ return categoryDisplayName("ticket", "門票娛樂"); }, type: "ticket", color: "#F59F00" },
+  shopping: { icon: "🛍️", get name(){ return categoryDisplayName("shopping", "購物藥妝"); }, type: "shopping", color: "#E64980" },
+  medical: { icon: "💊", get name(){ return categoryDisplayName("medical", "醫療藥品"); }, type: "medical", color: "#FA5252" },
+  network: { icon: "📶", get name(){ return categoryDisplayName("network", "網卡通訊"); }, type: "network", color: "#40C057" },
+  xcur: { icon: "💱", get name(){ return categoryDisplayName("xcur", "跨幣轉移"); }, type: "xcur", color: "#5C7CFA" }
 };
 window.CATEGORY_MAP = CATEGORY_MAP;
 
@@ -800,11 +831,11 @@ function renderAvatarHTML(memberOrName, sizeClass = "avatar-sm"){
 function triggerReceiptFlyAnimation(opts = {}){
   const {
     buttonEl,
-    desc = "支出項目",
+    desc = t("receipt.itemFallback"),
     amount = 0,
     symbol = "$",
     categoryIcon = "🧾",
-    payerName = "成員",
+    payerName = t("common.memberFallback"),
     splitCount = 1,
     targetListEl = null,
     onComplete = null
@@ -820,17 +851,17 @@ function triggerReceiptFlyAnimation(opts = {}){
   paper.className = "sb-receipt-paper";
   paper.innerHTML = `
     <div class="sb-receipt-head">
-      <div class="sb-receipt-store">${categoryIcon} <span>${typeof escapeHtml === "function" ? escapeHtml(desc || "新增支出") : (desc || "新增支出")}</span></div>
+      <div class="sb-receipt-store">${categoryIcon} <span>${typeof escapeHtml === "function" ? escapeHtml(desc || t("receipt.storeFallback")) : (desc || t("receipt.storeFallback"))}</span></div>
       <div class="sb-receipt-date">${dateStr}</div>
     </div>
     <div class="sb-receipt-body">
       <div class="sb-receipt-row">
-        <span class="sb-receipt-desc">${typeof escapeHtml === "function" ? escapeHtml(desc || "一般消費") : (desc || "一般消費")}</span>
+        <span class="sb-receipt-desc">${typeof escapeHtml === "function" ? escapeHtml(desc || t("receipt.descFallback")) : (desc || t("receipt.descFallback"))}</span>
         <span class="sb-receipt-amt">${symbol}${typeof formatAmt === "function" ? formatAmt(amount) : amount}</span>
       </div>
       <div class="sb-receipt-row sb-receipt-meta">
-        <span>付款: ${typeof escapeHtml === "function" ? escapeHtml(payerName) : payerName}</span>
-        <span>${splitCount > 1 ? `${splitCount} 人分攤` : "個人專屬"}</span>
+        <span>${t("receipt.paidLabel")} ${typeof escapeHtml === "function" ? escapeHtml(payerName) : payerName}</span>
+        <span>${splitCount > 1 ? t("receipt.splitAmong", {count: splitCount}) : t("receipt.personalOnly")}</span>
       </div>
     </div>
     <div class="sb-receipt-foot">
@@ -1248,8 +1279,8 @@ const BADGES_CATALOG = [
   {
     id: "big_spender",
     icon: "👑",
-    name: "代付大金主",
-    desc: "全團歷史累積代付總金額最高者（跨幣別）",
+    get name(){ return t("badge.bigSpenderName"); },
+    get desc(){ return t("badge.bigSpenderDesc"); },
     check: (m, expList, repList, membersList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       let allMembers = (membersList && membersList.length) ? membersList : (window.memberRows || window.MEMBERS || []);
@@ -1285,8 +1316,8 @@ const BADGES_CATALOG = [
   {
     id: "debt_demon",
     icon: "😈",
-    name: "欠款大魔王",
-    desc: "目前全團累積淨欠款最高者（跨幣別）",
+    get name(){ return t("badge.debtDemonName"); },
+    get desc(){ return t("badge.debtDemonDesc"); },
     check: (m, expList, repList, membersList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const reps = window.allGroupRepayments || repList || window.cachedRepayments || [];
@@ -1327,8 +1358,8 @@ const BADGES_CATALOG = [
   {
     id: "foodie",
     icon: "🍜",
-    name: "米其林老饕",
-    desc: "餐飲類別支出超過個人總支出的 25%（跨幣別）",
+    get name(){ return t("badge.foodieName"); },
+    get desc(){ return t("badge.foodieDesc"); },
     check: (m, expList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const memId = m.id || m;
@@ -1348,8 +1379,8 @@ const BADGES_CATALOG = [
   {
     id: "shopaholic",
     icon: "🛍️",
-    name: "購物狂熱者",
-    desc: "購物類別支出超過個人總支出的 25%（跨幣別）",
+    get name(){ return t("badge.shopaholicName"); },
+    get desc(){ return t("badge.shopaholicDesc"); },
     check: (m, expList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const memId = m.id || m;
@@ -1369,8 +1400,8 @@ const BADGES_CATALOG = [
   {
     id: "speedy_settler",
     icon: "⚡",
-    name: "秒速結清手",
-    desc: "全團最近一次完成結清還款的人（跨幣別）",
+    get name(){ return t("badge.speedySettlerName"); },
+    get desc(){ return t("badge.speedySettlerDesc"); },
     check: (m, expList, repList) => {
       const reps = window.allGroupRepayments || repList || window.cachedRepayments || [];
       if(!reps || !reps.length) return false;
@@ -1388,8 +1419,8 @@ const BADGES_CATALOG = [
   {
     id: "ai_master",
     icon: "🤖",
-    name: "AI 拆單達人",
-    desc: "全團使用 AI 照片收據自動拆單次數最多者（跨幣別）",
+    get name(){ return t("badge.aiMasterName"); },
+    get desc(){ return t("badge.aiMasterDesc"); },
     check: (m, expList, repList, membersList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       let allMembers = (membersList && membersList.length) ? membersList : (window.memberRows || window.MEMBERS || []);
@@ -1429,8 +1460,8 @@ const BADGES_CATALOG = [
   {
     id: "math_wizard",
     icon: "🎯",
-    name: "精算大師",
-    desc: "近兩週內參與分攤超過 10 筆支出（跨幣別）",
+    get name(){ return t("badge.mathWizardName"); },
+    get desc(){ return t("badge.mathWizardDesc"); },
     check: (m, expList) => {
       const exps = window.allGroupExpenses || expList || window.cachedExpenses || [];
       const memId = m.id || m;
@@ -1486,133 +1517,6 @@ function formatAmt(v){
 }
 
 // ============================================================
-// 🗂️ 電腦版固定導航側邊欄 (Desktop Sidebar)
-// ============================================================
-// 幣別帳本清單的顯示順序，直接照 shownCurrenciesList 陣列本身的順序排
-// （不是照 CURRENCIES 主清單的固定順序），這樣「幣別帳本」底下的項目
-// 才能拖拉調整順序、存起來下次還是同一個順序。
-// onReorder(newOrderCodes) 是選填的callback，拖放完成後會呼叫，讓呼叫端
-// （每一頁自己的 sb/myMember）決定怎麼存回資料庫——sidebar 本身不知道
-// 目前登入的是誰、要用哪個 supabase client，所以不自己直接寫資料庫。
-function renderDesktopSidebar(targetContainerId, activePage, currentCurrencyCode, shownCurrenciesList, onReorder){
-  const el = document.getElementById(targetContainerId);
-  if(!el) return;
-
-  const shown = shownCurrenciesList || window.shownCurrencies || ["TWD"];
-  const currenciesList = shown.map(code => CURRENCIES.find(c => c.code === code)).filter(Boolean);
-  const isSummaryActive = activePage === "SUMMARY";
-
-  el.innerHTML = `
-    <aside class="sb-desktop-sidebar">
-      <div class="sb-sidebar-brand">
-        <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
-          <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
-          <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
-          <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
-        </svg>
-        <span class="sb-sidebar-brand-title">Splitbill 帳務系統</span>
-      </div>
-
-      <div class="sb-sidebar-nav-list">
-        <a href="summary.html" class="sb-sidebar-nav-item ${isSummaryActive ? 'active' : ''}">
-          <span>📊 帳務總覽</span>
-          <span class="key-shortcut-hint">1</span>
-        </a>
-      </div>
-
-      <div class="sb-sidebar-section-title">幣別帳本</div>
-      <div class="sb-sidebar-nav-list" id="sbSidebarCurList">
-        ${currenciesList.map(c => `
-          <a href="currency.html?c=${c.code}" class="sb-sidebar-nav-item sb-sidebar-draggable ${(!isSummaryActive && currentCurrencyCode === c.code) ? 'active' : ''}" draggable="true" data-code="${c.code}">
-            <span>${c.flag || "💰"} ${c.label}</span>
-            <span class="sb-sidebar-badge">${c.code}</span>
-            <span class="sb-sidebar-grip" title="拖拉調整順序" aria-hidden="true">⠿</span>
-          </a>
-        `).join("")}
-      </div>
-
-      <div class="sb-sidebar-section-title">工具與設定</div>
-      <div class="sb-sidebar-nav-list">
-        <button type="button" class="sb-sidebar-nav-item" id="desktopOpenAchievementsBtn" style="border:none;background:transparent;cursor:pointer;width:100%;text-align:left;">
-          <span>🎖️ 成就榜</span>
-        </button>
-        <a href="settings.html" class="sb-sidebar-nav-item ${activePage === 'SETTINGS' ? 'active' : ''}">
-          <span>⚙️ 系統設定</span>
-        </a>
-      </div>
-
-      <div class="sb-sidebar-footer">
-        <button type="button" class="btn secondary small" id="desktopLogoutBtn" style="width:100%;">登出</button>
-      </div>
-    </aside>
-  `;
-
-  const achBtn = el.querySelector("#desktopOpenAchievementsBtn");
-  if(achBtn){
-    achBtn.addEventListener("click", () => {
-      const modal = document.getElementById("achievementsModal");
-      if(modal){
-        modal.classList.remove("hidden");
-        modal.classList.add("show");
-      }
-    });
-  }
-
-  const logoutBtn = el.querySelector("#desktopLogoutBtn");
-  if(logoutBtn){
-    logoutBtn.addEventListener("click", () => {
-      const origLogout = document.getElementById("logoutBtn");
-      if(origLogout) origLogout.click();
-    });
-  }
-
-  // ---------- 幣別帳本拖拉排序 ----------
-  const curListEl = el.querySelector("#sbSidebarCurList");
-  if(curListEl){
-    let dragEl = null;
-
-    curListEl.addEventListener("dragstart", (e) => {
-      const item = e.target.closest(".sb-sidebar-draggable");
-      if(!item) return;
-      dragEl = item;
-      item.classList.add("sb-sidebar-dragging");
-      if(e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-    });
-
-    curListEl.addEventListener("dragend", () => {
-      if(dragEl) dragEl.classList.remove("sb-sidebar-dragging");
-      curListEl.querySelectorAll(".sb-sidebar-drop-target").forEach(i => i.classList.remove("sb-sidebar-drop-target"));
-      dragEl = null;
-    });
-
-    curListEl.addEventListener("dragover", (e) => {
-      if(!dragEl) return;
-      e.preventDefault();
-      const item = e.target.closest(".sb-sidebar-draggable");
-      curListEl.querySelectorAll(".sb-sidebar-drop-target").forEach(i => i.classList.remove("sb-sidebar-drop-target"));
-      if(item && item !== dragEl) item.classList.add("sb-sidebar-drop-target");
-    });
-
-    curListEl.addEventListener("drop", (e) => {
-      e.preventDefault();
-      const target = e.target.closest(".sb-sidebar-draggable");
-      curListEl.querySelectorAll(".sb-sidebar-drop-target").forEach(i => i.classList.remove("sb-sidebar-drop-target"));
-      if(!target || !dragEl || target === dragEl) return;
-
-      const items = Array.from(curListEl.children);
-      const dragIdx = items.indexOf(dragEl);
-      const targetIdx = items.indexOf(target);
-      if(dragIdx < targetIdx) target.after(dragEl);
-      else target.before(dragEl);
-
-      const newOrder = Array.from(curListEl.children).map(a => a.dataset.code);
-      if(typeof onReorder === "function") onReorder(newOrder);
-    });
-  }
-}
-window.renderDesktopSidebar = renderDesktopSidebar;
-
-// ============================================================
 // ⌨️ 電腦版專屬：鍵盤快捷鍵體系 (Desktop Keyboard Shortcuts)
 // ============================================================
 function initDesktopShortcuts(){
@@ -1665,100 +1569,72 @@ function initDesktopShortcuts(){
 window.initDesktopShortcuts = initDesktopShortcuts;
 
 // ============================================================
-// 📈 電腦版專屬：4 大 KPI 數據橫條渲染 (Desktop KPI Metrics)
+// 📏 自適應字級：長標題自動縮小到剛好塞進一行 (Shrink-to-Fit Heading)
 // ============================================================
-function renderDesktopKpiStrip(containerId, stats){
-  const el = document.getElementById(containerId);
-  if(!el || !stats) return;
+// 有些語言的幣別名稱組出來的標題會比中文長很多（例如日文「マレーシア
+// リンギットエリア」），與其死板寫死一個小字級犧牲短標題的視覺效果，
+// 或是放任它換行撞到旁邊角落的語言切換/深淺色按鈕，這裡改成量測「這
+// 段文字如果不換行、目前字級真正需要多寬」跟「容器實際能給多寬」兩個
+// 數字，超過的話按比例縮小字級，直到剛好塞進一行；就算縮到最小字級
+// 還是塞不下（理論上不會發生，防呆用），才退回允許正常換行，不會被
+// 硬裁掉看不到字。
+function fitTextToOneLine(el, minFontSize, overrideAvailable){
+  if(!el) return;
+  minFontSize = minFontSize || 15;
+  const parent = el.parentElement;
+  if(!parent) return;
 
-  const { totalGroupSpend = 0, myTotalPaid = 0, myNetBalance = 0, unsettledCount = 0, currencySymbol = "$" } = stats;
-  const netCls = myNetBalance > 0.05 ? "pos" : myNetBalance < -0.05 ? "neg" : "zero";
-  const netSign = myNetBalance > 0.05 ? "+" : "";
+  el.style.whiteSpace = "nowrap";
+  el.style.fontSize = "";
+  const baseFontSize = parseFloat(getComputedStyle(el).fontSize) || 16;
 
-  el.innerHTML = `
-    <div class="desktop-kpi-grid">
-      <div class="desktop-kpi-card">
-        <div class="desktop-kpi-header">
-          <span>全團總支出</span>
-          <span class="desktop-kpi-icon">💰</span>
-        </div>
-        <div class="desktop-kpi-val">${currencySymbol}${formatAmt(totalGroupSpend)}</div>
-        <div class="desktop-kpi-sub">目前群組累積總花費</div>
-      </div>
-
-      <div class="desktop-kpi-card">
-        <div class="desktop-kpi-header">
-          <span>我的總代墊</span>
-          <span class="desktop-kpi-icon">👑</span>
-        </div>
-        <div class="desktop-kpi-val">${currencySymbol}${formatAmt(myTotalPaid)}</div>
-        <div class="desktop-kpi-sub">${totalGroupSpend > 0 ? `佔全團約 ${Math.round((myTotalPaid / totalGroupSpend) * 100)}%` : '尚未有代墊紀錄'}</div>
-      </div>
-
-      <div class="desktop-kpi-card">
-        <div class="desktop-kpi-header">
-          <span>我的淨餘額</span>
-          <span class="desktop-kpi-icon">⚖️</span>
-        </div>
-        <div class="desktop-kpi-val ${netCls}">${netSign}${currencySymbol}${formatAmt(myNetBalance)}</div>
-        <div class="desktop-kpi-sub">${myNetBalance > 0.05 ? '🎉 處於應收回款狀態' : myNetBalance < -0.05 ? '💸 需分攤給其他人' : '✨ 目前已結清'}</div>
-      </div>
-
-      <div class="desktop-kpi-card">
-        <div class="desktop-kpi-header">
-          <span>待結清筆數</span>
-          <span class="desktop-kpi-icon">👥</span>
-        </div>
-        <div class="desktop-kpi-val">${unsettledCount} 筆</div>
-        <div class="desktop-kpi-sub">建議還款路徑數</div>
-      </div>
-    </div>
-  `;
-}
-window.renderDesktopKpiStrip = renderDesktopKpiStrip;
-
-// ============================================================
-// 🔍 電腦版專屬：滑鼠懸停透視卡片 (Desktop Hover Inspector)
-// ============================================================
-function initDesktopHoverInspector(){
-  if(window.innerWidth < 9999) return;
-  let inspector = document.getElementById("sbDesktopHoverInspector");
-  if(!inspector){
-    inspector = document.createElement("div");
-    inspector.id = "sbDesktopHoverInspector";
-    inspector.className = "desktop-hover-inspector hidden";
-    document.body.appendChild(inspector);
+  // overrideAvailable 給那種「可用寬度不是單純扣掉同排手足元素就好」的
+  // 情況用——例如頁面標題左右兩側卡著的是 position:absolute、脫離文件
+  // 流的語言切換/深淺色按鈕，不是 parent 裡真正的手足節點，這裡沒辦法
+  // 從 parent.children 量出來，呼叫端量好實際淨空寬度直接傳進來即可。
+  let available;
+  if(typeof overrideAvailable === "number"){
+    available = overrideAvailable;
+  } else {
+    // 用 el 本身之外、扣掉同一行其他手足元素（例如標題旁邊的 logo）的
+    // 寬度，才是這段文字真正能用的空間；抓 parent 的寬度、扣掉手足元素
+    // 寬度＋間距，比只看 el 目前的寬度準（el 這時候可能已經被壓縮過）。
+    const siblingsWidth = Array.from(parent.children).reduce((sum, child) => {
+      return child === el ? sum : sum + child.getBoundingClientRect().width;
+    }, 0);
+    const gap = parseFloat(getComputedStyle(parent).gap) || 0;
+    const gapCount = parent.children.length > 1 ? parent.children.length - 1 : 0;
+    // clientWidth 含 parent 自己的 padding，但子元素只能用扣掉 padding
+    // 之後的內容區——沒扣掉的話算出來的「可用空間」會比實際能用的還寬，
+    // 導致明明會超出寬度卻誤判成「還放得下」。
+    const parentStyle = getComputedStyle(parent);
+    const parentPaddingX = (parseFloat(parentStyle.paddingLeft) || 0) + (parseFloat(parentStyle.paddingRight) || 0);
+    available = parent.clientWidth - parentPaddingX - siblingsWidth - (gap * gapCount) - 4;
   }
 
-  document.addEventListener("mousemove", (e) => {
-    if(!inspector.classList.contains("show")) return;
-    const offset = 16;
-    let x = e.clientX + offset;
-    let y = e.clientY + offset;
-    const rect = inspector.getBoundingClientRect();
-    if(x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
-    if(y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
-    inspector.style.left = x + "px";
-    inspector.style.top = y + "px";
-  });
-
-  document.addEventListener("mouseover", (e) => {
-    const cell = e.target.closest(".matrix-cell.has-debt, .matrix-cell.matrix-cell-settled");
-    if(!cell) return;
-    const title = cell.getAttribute("title") || "";
-    if(!title) return;
-    inspector.innerHTML = `<div class="desktop-hover-inspector-title">往來明細</div><div class="desktop-hover-inspector-row">${title}</div>`;
-    inspector.classList.remove("hidden");
-    inspector.classList.add("show");
-  });
-
-  document.addEventListener("mouseout", (e) => {
-    const cell = e.target.closest(".matrix-cell.has-debt, .matrix-cell.matrix-cell-settled");
-    if(!cell) return;
-    inspector.classList.remove("show");
-    inspector.classList.add("hidden");
-  });
+  const natural = el.scrollWidth;
+  if(available > 0 && natural > available){
+    let scaled = Math.max(minFontSize, Math.floor(baseFontSize * available / natural));
+    // 用 setProperty(..., "important") 而不是直接指定 el.style.fontSize——
+    // 手機版斷點對 .app-header h1 這類標題本來就下了 !important 縮小字級
+    // （見 shared.css 的 @media max-width:600px），一般行內樣式蓋不過
+    // 樣式表裡的 !important，只有行內也標成 !important 才蓋得過去。
+    el.style.setProperty("font-size", scaled + "px", "important");
+    // 字級跟文字寬度不是完美線性關係（尤其中日文字型的字距/子像素捨入），
+    // 照比例算出來的字級縮完一次不一定剛好卡在可用寬度內，這裡再逐 1px
+    // 微調幾次收斂，比只縮一次準，也比每次都整段跑二分搜尋便宜。
+    let guard = 0;
+    while(el.scrollWidth > available && scaled > minFontSize && guard < 8){
+      scaled -= 1;
+      el.style.setProperty("font-size", scaled + "px", "important");
+      guard++;
+    }
+    if(el.scrollWidth > available){
+      el.style.whiteSpace = "normal";
+    }
+  } else {
+    el.style.whiteSpace = "normal";
+  }
 }
-window.initDesktopHoverInspector = initDesktopHoverInspector;
-
+window.fitTextToOneLine = fitTextToOneLine;
 

@@ -143,6 +143,110 @@ export function computeCustomSplitShares({ subtotal, taxAmount, taxSplitMode, ro
   });
 }
 
+// 依比例分攤模式：跟均分邏輯幾乎一樣（先扣個人加點/共同品項、餘數優先
+// 給非代墊人、稅費依比例或平分加回去），差別只在於本金不是平分，而是
+// 依每個人設定的權重份數分配（例如房間比例 2:1:1、食量默契 3:2:1），
+// 權重不用加總到 100，函式內部自己正規化；沒有人填權重時自動退化成
+// 均分，不會讓整筆金額卡在 0。
+//
+// 參數：
+//   subtotal      不含稅金額
+//   taxAmount     服務費/稅額（0 表示沒有）
+//   taxSplitMode  "ratio"（依消費比例）或 "equal"（全員平分）
+//   rows          [{ member_id, weight }]，weight 是使用者填的正數份數
+//   payerIds      代墊付款人 id 陣列（用來決定餘數優先分給誰）
+//   addonAmounts  { memberId: 金額 } 個人加點/共同品項，已經是算好的最終金額
+export function computeRatioSplitShares({ subtotal, taxAmount, taxSplitMode, rows, payerIds, addonAmounts }){
+  const addons = addonAmounts || {};
+  const participantIds = rows.map(r => r.member_id);
+  const weights = {};
+  rows.forEach(r => { weights[r.member_id] = Number(r.weight) || 0; });
+
+  let totalAddon = 0;
+  participantIds.forEach(id => { totalAddon += Number(addons[id]) || 0; });
+  Object.keys(addons).forEach(id => { if(!participantIds.includes(id)) totalAddon += Number(addons[id]) || 0; });
+
+  const baseAmount = Math.max(0, subtotal - totalAddon);
+  const weightSum = participantIds.reduce((s, id) => s + (weights[id] || 0), 0);
+  // 沒有人填權重（或全部填 0）時退化成均分，不要讓整筆金額卡在 0 元。
+  const useEqualFallback = !(weightSum > 0);
+  const n = participantIds.length;
+
+  const floored = {};
+  let flooredSum = 0;
+  participantIds.forEach(id => {
+    const raw = useEqualFallback ? (baseAmount / n) : (baseAmount * weights[id] / weightSum);
+    const f = Math.floor(raw);
+    floored[id] = f;
+    flooredSum += f;
+  });
+  const remainder = Math.round(baseAmount - flooredSum);
+
+  const payerIdSet = new Set(payerIds || []);
+  const shuffle = arr => {
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const priority = [
+    ...shuffle(participantIds.filter(id => !payerIdSet.has(id))),
+    ...shuffle(participantIds.filter(id => payerIdSet.has(id)))
+  ];
+
+  const shareAmt = {};
+  const memberPreTax = {};
+  participantIds.forEach(id => { shareAmt[id] = floored[id]; memberPreTax[id] = floored[id]; });
+  priority.slice(0, remainder).forEach(id => { shareAmt[id] += 1; memberPreTax[id] += 1; });
+  participantIds.forEach(id => {
+    const add = Number(addons[id]) || 0;
+    if(add > 0){ shareAmt[id] += add; memberPreTax[id] += add; }
+  });
+
+  const memberTax = {};
+  if(taxAmount > 0){
+    if(taxSplitMode === "ratio" && subtotal > 0){
+      let taxSum = 0;
+      participantIds.forEach(id => {
+        const rawTax = Math.round((memberPreTax[id] / subtotal) * taxAmount);
+        memberTax[id] = rawTax;
+        taxSum += rawTax;
+      });
+      const taxDiff = taxAmount - taxSum;
+      if(taxDiff !== 0 && participantIds.length > 0) memberTax[participantIds[0]] += taxDiff;
+    } else {
+      const baseTax = Math.floor(taxAmount / n);
+      const taxRem = taxAmount - (baseTax * n);
+      participantIds.forEach((id, idx) => { memberTax[id] = baseTax + (idx < taxRem ? 1 : 0); });
+    }
+  }
+
+  const shares = participantIds.map(id => {
+    const baseVal = shareAmt[id];
+    const taxVal = memberTax[id] || 0;
+    const finalVal = baseVal + taxVal;
+    const add = Number(addons[id]) || 0;
+    const baseLabel = useEqualFallback ? `平分${baseVal - add}` : `比例${weights[id]}份${baseVal - add}`;
+    let calc = "";
+    if(add > 0 && taxVal > 0) calc = `${baseLabel}+自付${add}+稅額${taxVal}`;
+    else if(add > 0) calc = `${baseLabel}+自付${add}`;
+    else if(taxVal > 0) calc = `${baseLabel}+稅額${taxVal}`;
+    const obj = { member_id: id, amount: finalVal };
+    if(calc) obj.calc = calc;
+    return obj;
+  });
+
+  Object.keys(addons).forEach(id => {
+    if(participantIds.includes(id)) return;
+    const add = Number(addons[id]) || 0;
+    if(add > 0) shares.push({ member_id: id, amount: add, calc: `自付${add}` });
+  });
+
+  return shares;
+}
+
 // ============================================================
 // 📝 Step-by-step 表單導覽：「新增支出」跟「快速記帳」欄位結構、驗證
 // 時機幾乎一樣（都是 支出內容→誰付的錢→怎麼分攤→備註與日期 四步），

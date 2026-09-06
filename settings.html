@@ -26,15 +26,16 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=752">
-<link rel="stylesheet" href="shared.css?v=752">
+<link rel="stylesheet" href="theme.css?v=798">
+<link rel="stylesheet" href="shared.css?v=798">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="currencies.js?v=752"></script>
-<script src="version.js?v=752"></script>
-<script src="shared-ui.js?v=752"></script>
-<script src="theme.js?v=752" defer></script>
-<script src="app-banner.js?v=752" defer></script>
+<script src="i18n.js?v=798"></script>
+<script src="currencies.js?v=798"></script>
+<script src="version.js?v=798"></script>
+<script src="shared-ui.js?v=798"></script>
+<script src="theme.js?v=798" defer></script>
+<script src="app-banner.js?v=798" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -93,6 +94,7 @@ if("serviceWorker" in navigator){
 </svg>
 
 <div class="wrap">
+
   <div class="app-header">
     <div class="title-row">
       <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
@@ -100,13 +102,13 @@ if("serviceWorker" in navigator){
         <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
         <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
       </svg>
-      <h1>設定</h1>
+      <h1 data-i18n="settings.title">設定</h1>
     </div>
     <div class="nav-links" id="navLinks"></div>
   </div>
 
   <div id="configWarning" class="card hidden">
-    <h2>⚠️ 尚未設定 Supabase</h2>
+    <h2 data-i18n="configWarning.title">⚠️ 尚未設定 Supabase</h2>
     <p class="config-warning-text">
       打開這個檔案，把最下面 <code>&lt;script&gt;</code> 區塊裡的
       <code>SUPABASE_URL</code> 跟 <code>SUPABASE_ANON_KEY</code>
@@ -115,12 +117,6 @@ if("serviceWorker" in navigator){
   </div>
 
   <div id="appScreen">
-    <div class="sb-desktop-app-wrapper">
-      <!-- 🗂️ 電腦版固定導航側邊欄 -->
-      <div id="desktopSidebarContainer"></div>
-
-      <!-- 🖥️ 主內容區 -->
-      <div class="sb-desktop-content">
     <div class="topbar">
       <div class="whoami whoami-wrap" id="whoamiWrap">
         <span id="whoamiAvatar"></span>
@@ -128,109 +124,109 @@ if("serviceWorker" in navigator){
       </div>
       <div class="topbar-actions">
         <div id="notificationBellContainer"></div>
-        <button type="button" class="btn secondary small" id="backBtn">‹ 返回</button>
+        <button type="button" class="btn secondary small" id="backBtn" data-i18n="settings.back">‹ 返回</button>
       </div>
     </div>
 
     <div class="card">
       <div class="app-tabs" id="settingsTabs">
         <div class="tab-indicator" id="settingsTabIndicator"></div>
-        <button type="button" class="app-tab active" data-settings-tab="account">👤 帳號</button>
-        <button type="button" class="app-tab" data-settings-tab="group">👥 群組</button>
-        <button type="button" class="app-tab" data-settings-tab="prefs">⚙️ 偏好設定</button>
+        <button type="button" class="app-tab active" data-settings-tab="account" data-i18n="settings.tab.account">👤 帳號</button>
+        <button type="button" class="app-tab" data-settings-tab="group" data-i18n="settings.tab.group">👥 群組</button>
+        <button type="button" class="app-tab" data-settings-tab="prefs" data-i18n="settings.tab.prefs">⚙️ 偏好設定</button>
       </div>
 
       <div id="settingsTabAccount" class="settings-tab-panel">
 
         <div class="settings-group">
-          <div class="settings-section-title">基本資料</div>
+          <div class="settings-section-title" data-i18n="settings.basicInfoTitle">基本資料</div>
 
-          <label>個人大頭貼</label>
+          <label data-i18n="settings.avatarLabel">個人大頭貼</label>
           <div class="settings-avatar-card">
             <div class="settings-avatar-badge-wrap">
-              <div class="settings-avatar-preview" id="settingsAvatarPreview" title="點擊查看大圖"></div>
-              <button type="button" class="avatar-zoom-badge hidden" id="avatarZoomBtn" title="查看大頭貼相片" aria-label="查看相片">
+              <div class="settings-avatar-preview" id="settingsAvatarPreview" data-i18n-title="settings.avatarPreviewTitle" title="點擊查看大圖"></div>
+              <button type="button" class="avatar-zoom-badge hidden" id="avatarZoomBtn" data-i18n-title="settings.avatarViewPhoto" title="查看大頭貼相片" aria-label="查看相片">
                 🔍
               </button>
             </div>
             <div class="settings-avatar-info">
               <div class="settings-avatar-row">
                 <label class="btn secondary small avatar-btn-upload" for="avatarFileInput">
-                  📷 更換相片
+                  <span data-i18n="settings.avatarChangePhoto">📷 更換相片</span>
                   <input type="file" id="avatarFileInput" accept="image/*" class="hidden">
                 </label>
-                <button type="button" class="btn secondary small avatar-btn-remove hidden" id="removeAvatarBtn">
+                <button type="button" class="btn secondary small avatar-btn-remove hidden" id="removeAvatarBtn" data-i18n="settings.avatarRemove">
                   ✕ 移除
                 </button>
               </div>
-              <p class="settings-avatar-hint">點擊頭像或 🔍 放大鏡查看照片，支援相機與相簿裁切</p>
+              <p class="settings-avatar-hint" data-i18n="settings.avatarHint">點擊頭像或 🔍 放大鏡查看照片，支援相機與相簿裁切</p>
             </div>
           </div>
           <div class="msg" id="avatarMsg"></div>
 
-          <label>全域使用者名稱<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoAccountName">全站唯一，不能跟別人重複；登入頁可以直接打這個名稱登入，不用記信箱。改了會同步套用到你所有群組的預設顯示名稱——除非某個群組另外設定了暱稱，那個群組會繼續顯示暱稱，不受這裡影響。可以是中文、英文、數字、底線，2~20 個字。</p>
+          <label data-i18n="login.usernameLabel">全域使用者名稱<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoAccountName" data-i18n="settings.usernameInfo">全站唯一，不能跟別人重複；登入頁可以直接打這個名稱登入，不用記信箱。改了會同步套用到你所有群組的預設顯示名稱——除非某個群組另外設定了暱稱，那個群組會繼續顯示暱稱，不受這裡影響。可以是中文、英文、數字、底線，2~20 個字。</p>
           <div class="settings-field-row">
-            <input type="text" id="settingsName" placeholder="例如 小菘、chiasung" maxlength="20">
-            <button class="btn secondary small" id="saveNameBtn">儲存</button>
+            <input type="text" id="settingsName" data-i18n-placeholder="settings.usernamePlaceholder" placeholder="例如 小菘、chiasung" maxlength="20">
+            <button class="btn secondary small" id="saveNameBtn" data-i18n="common.save">儲存</button>
           </div>
           <div class="msg" id="nameMsg"></div>
 
-          <label>電子信箱<button type="button" class="info-btn" data-info-for="infoEmail" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoEmail">填了才能用忘記密碼救回帳號。</p>
+          <label data-i18n="login.emailLabel">電子信箱<button type="button" class="info-btn" data-info-for="infoEmail" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoEmail" data-i18n="settings.emailInfo">填了才能用忘記密碼救回帳號。</p>
           <div class="settings-field-row">
-            <input type="email" id="settingsEmail" placeholder="例如 you@gmail.com">
-            <button class="btn secondary small" id="saveEmailBtn">儲存</button>
+            <input type="email" id="settingsEmail" data-i18n-placeholder="login.emailPlaceholder" placeholder="例如 you@gmail.com">
+            <button class="btn secondary small" id="saveEmailBtn" data-i18n="common.save">儲存</button>
           </div>
           <p class="settings-hint" id="emailStatusHint"></p>
           <div class="msg" id="emailMsg"></div>
         </div>
 
         <div class="settings-group">
-          <div class="settings-section-title">收款帳戶</div>
+          <div class="settings-section-title" data-i18n="settings.paymentAccountsTitle">收款帳戶</div>
 
-          <p class="settings-hint" id="infoPaymentInfo">填寫後，其他成員點開你的頭像查看個人資料時就會看到，方便他們知道該轉帳到哪裡還你錢。可以依偏好順序，由上而下新增多筆帳戶。</p>
+          <p class="settings-hint" id="infoPaymentInfo" data-i18n="settings.paymentAccountsInfo">填寫後，其他成員點開你的頭像查看個人資料時就會看到，方便他們知道該轉帳到哪裡還你錢。可以依偏好順序，由上而下新增多筆帳戶。</p>
           <div class="payment-accounts-list" id="paymentAccountsList"></div>
           <div class="payment-account-add-row">
-            <button type="button" class="link-btn" id="addPaymentAccountBtn">+ 新增帳戶</button>
+            <button type="button" class="link-btn" id="addPaymentAccountBtn" data-i18n="settings.addPaymentAccount">+ 新增帳戶</button>
           </div>
-          <button class="btn secondary small payment-account-save-btn" id="savePaymentInfoBtn">儲存</button>
+          <button class="btn secondary small payment-account-save-btn" id="savePaymentInfoBtn" data-i18n="common.save">儲存</button>
           <div class="msg" id="paymentInfoMsg"></div>
         </div>
 
         <div class="settings-group">
-          <div class="settings-section-title">收款帳戶顯示範圍</div>
-          <p class="settings-hint">收款帳戶會同步顯示在你所在的每個群組，可以個別選擇要在哪些群組讓其他成員看到。</p>
+          <div class="settings-section-title" data-i18n="settings.paymentVisibilityTitle">收款帳戶顯示範圍</div>
+          <p class="settings-hint" data-i18n="settings.paymentVisibilityHint">收款帳戶會同步顯示在你所在的每個群組，可以個別選擇要在哪些群組讓其他成員看到。</p>
           <div id="paymentVisibilityList"></div>
         </div>
 
         <div class="settings-group">
-          <div class="settings-section-title">登入方式</div>
+          <div class="settings-section-title" data-i18n="settings.loginMethodTitle">登入方式</div>
 
           <div id="pwChangeSection">
-            <button type="button" class="btn-wide" id="pwChangeModalOpenBtn">🔑 重設密碼</button>
+            <button type="button" class="btn-wide" id="pwChangeModalOpenBtn" data-i18n="settings.resetPassword">🔑 重設密碼</button>
           </div>
-          <p class="settings-hint hidden" id="pwChangeLockedHint">🔒 請先在上面設定並確認信箱，才能在這裡修改密碼——不然以後忘記密碼會沒辦法用忘記密碼功能救回帳號。</p>
+          <p class="settings-hint hidden" id="pwChangeLockedHint" data-i18n="settings.pwChangeLockedHint">🔒 請先在上面設定並確認信箱，才能在這裡修改密碼——不然以後忘記密碼會沒辦法用忘記密碼功能救回帳號。</p>
 
-          <label>連結其他登入方式<button type="button" class="info-btn" data-info-for="infoLinkIdentity" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoLinkIdentity">把不同信箱的 Google/Discord 帳號連結到這個帳號，以後不管用哪一種方式登入，都是同一個帳號、同一批群組資料。建議現在就先連結起來，之後才不會因為信箱不一樣，不小心用 Google/Discord 登入又建立出一個新帳號。</p>
+          <label data-i18n="settings.linkIdentityLabel">連結其他登入方式<button type="button" class="info-btn" data-info-for="infoLinkIdentity" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoLinkIdentity" data-i18n="settings.linkIdentityInfo">把不同信箱的 Google/Discord 帳號連結到這個帳號，以後不管用哪一種方式登入，都是同一個帳號、同一批群組資料。建議現在就先連結起來，之後才不會因為信箱不一樣，不小心用 Google/Discord 登入又建立出一個新帳號。</p>
           <div class="settings-row">
             <span>Google</span>
-            <button class="btn secondary small" id="linkGoogleBtn">連結</button>
+            <button class="btn secondary small" id="linkGoogleBtn" data-i18n="settings.link">連結</button>
           </div>
           <div class="settings-row">
             <span>Discord</span>
-            <button class="btn secondary small" id="linkDiscordBtn">連結</button>
+            <button class="btn secondary small" id="linkDiscordBtn" data-i18n="settings.link">連結</button>
           </div>
           <div class="msg" id="linkIdentityMsg"></div>
         </div>
 
         <div class="settings-group settings-group-danger">
-          <div class="settings-section-title">危險區域</div>
+          <div class="settings-section-title" data-i18n="settings.dangerZoneTitle">危險區域</div>
 
-          <label>銷毀帳號</label>
-          <p class="settings-hint" id="infoDeleteAccount">會讓這個帳號沒辦法再登入，並讓你離開所有群組（歷史支出/還款紀錄會保留，其他人還是看得到）。如果你在任何群組裡還有沒結清的款項，沒辦法銷毀。</p>
-          <button class="btn-wide" id="deleteAccountBtn">銷毀帳號</button>
+          <label data-i18n="settings.deleteAccountLabel">銷毀帳號</label>
+          <p class="settings-hint" id="infoDeleteAccount" data-i18n="settings.deleteAccountInfo">會讓這個帳號沒辦法再登入，並讓你離開所有群組（歷史支出/還款紀錄會保留，其他人還是看得到）。如果你在任何群組裡還有沒結清的款項，沒辦法銷毀。</p>
+          <button class="btn-wide" id="deleteAccountBtn" data-i18n="settings.deleteAccountBtn">銷毀帳號</button>
           <div class="msg" id="deleteAccountMsg"></div>
         </div>
 
@@ -239,73 +235,73 @@ if("serviceWorker" in navigator){
       <div id="settingsTabGroup" class="settings-tab-panel hidden">
 
         <div class="settings-group">
-          <div class="settings-section-title">這個群組</div>
+          <div class="settings-section-title" data-i18n="settings.thisGroupTitle">這個群組</div>
 
-          <label>目前所在的群組<button type="button" class="info-btn" data-info-for="infoGroupSelect" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoGroupSelect">切換群組後頁面會重新整理，只會看到那個群組的資料。</p>
+          <label data-i18n="settings.currentGroupLabel">目前所在的群組<button type="button" class="info-btn" data-info-for="infoGroupSelect" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoGroupSelect" data-i18n="settings.currentGroupInfo">切換群組後頁面會重新整理，只會看到那個群組的資料。</p>
           <div class="settings-field-row">
             <select id="settingsGroupSelect"></select>
           </div>
           <div class="msg" id="settingsGroupMsg"></div>
 
-          <label>在這個群組顯示的暱稱<button type="button" class="info-btn" data-info-for="infoNickname" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoNickname">只影響這個群組看到的名字，不影響「帳號」分頁的全域使用者名稱、也不影響你在其他群組的名字。留空表示不特別設定，跟著全域使用者名稱走。</p>
+          <label data-i18n="settings.nicknameLabel">在這個群組顯示的暱稱<button type="button" class="info-btn" data-info-for="infoNickname" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoNickname" data-i18n="settings.nicknameInfo">只影響這個群組看到的名字，不影響「帳號」分頁的全域使用者名稱、也不影響你在其他群組的名字。留空表示不特別設定，跟著全域使用者名稱走。</p>
           <div class="settings-field-row">
-            <input type="text" id="settingsNickname" placeholder="這個群組看到的名字">
-            <button class="btn secondary small" id="saveNicknameBtn">儲存</button>
+            <input type="text" id="settingsNickname" data-i18n-placeholder="settings.nicknamePlaceholder" placeholder="這個群組看到的名字">
+            <button class="btn secondary small" id="saveNicknameBtn" data-i18n="common.save">儲存</button>
           </div>
           <div class="msg" id="nicknameMsg"></div>
 
-          <label>目前的群組名稱<button type="button" class="info-btn" data-info-for="infoGroupName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoGroupName">任何成員都可以改，不限建立者。</p>
+          <label data-i18n="settings.groupNameLabel">目前的群組名稱<button type="button" class="info-btn" data-info-for="infoGroupName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoGroupName" data-i18n="settings.groupNameInfo">任何成員都可以改，不限建立者。</p>
           <div class="settings-field-row">
-            <input type="text" id="settingsGroupName" placeholder="群組名稱">
-            <button class="btn secondary small" id="saveGroupNameBtn">儲存</button>
+            <input type="text" id="settingsGroupName" data-i18n-placeholder="groupChoice.groupNameLabel" placeholder="群組名稱">
+            <button class="btn secondary small" id="saveGroupNameBtn" data-i18n="common.save">儲存</button>
           </div>
           <div class="msg" id="groupNameMsg"></div>
         </div>
 
         <div class="settings-group">
-          <div class="settings-section-title">邀請與加入</div>
+          <div class="settings-section-title" data-i18n="settings.inviteJoinTitle">邀請與加入</div>
 
-          <label>邀請碼（給朋友，讓他們加入這個群組）</label>
+          <label data-i18n="settings.inviteCodeLabel">邀請碼（給朋友，讓他們加入這個群組）</label>
           <div class="settings-field-row">
-            <input type="text" id="settingsInviteCode" readonly title="點擊一鍵複製邀請碼">
-            <button class="btn secondary small" id="copyInviteCodeBtn">複製</button>
+            <input type="text" id="settingsInviteCode" readonly data-i18n-title="settings.inviteCodeTitle" title="點擊一鍵複製邀請碼">
+            <button class="btn secondary small" id="copyInviteCodeBtn" data-i18n="common.copy">複製</button>
           </div>
           <div class="msg" id="copyInviteCodeMsg"></div>
-          <button type="button" class="btn-wide" id="qrModalOpenBtn">📱 顯示 QR Code</button>
+          <button type="button" class="btn-wide" id="qrModalOpenBtn" data-i18n="settings.showQrCode">📱 顯示 QR Code</button>
 
-          <label>用邀請碼加入<button type="button" class="info-btn" data-info-for="infoJoinGroup" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoJoinGroup">會用「帳號」分頁設定的姓名加入，加入後自動切換過去，之後可以隨時用上面的下拉選單換回來，或是在這個群組另外設定暱稱。</p>
+          <label data-i18n="settings.joinByCodeLabel">用邀請碼加入<button type="button" class="info-btn" data-info-for="infoJoinGroup" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoJoinGroup" data-i18n="settings.joinByCodeInfo">會用「帳號」分頁設定的姓名加入，加入後自動切換過去，之後可以隨時用上面的下拉選單換回來，或是在這個群組另外設定暱稱。</p>
           <div class="settings-field-row">
-            <input type="text" id="settingsJoinCode" placeholder="邀請碼">
-            <button class="btn secondary small" id="settingsJoinGroupBtn">加入</button>
+            <input type="text" id="settingsJoinCode" data-i18n-placeholder="settings.inviteCodePlaceholder" placeholder="邀請碼">
+            <button class="btn secondary small" id="settingsJoinGroupBtn" data-i18n="common.join">加入</button>
           </div>
           <div class="msg" id="settingsJoinGroupMsg"></div>
 
-          <label>建立新群組</label>
-          <button type="button" class="btn-wide" id="createGroupModalOpenBtn">➕ 建立新群組</button>
+          <label data-i18n="settings.createNewGroupLabel">建立新群組</label>
+          <button type="button" class="btn-wide" id="createGroupModalOpenBtn" data-i18n="settings.createNewGroupBtn">➕ 建立新群組</button>
         </div>
 
         <div class="settings-group settings-group-danger">
-          <div class="settings-section-title">危險區域</div>
+          <div class="settings-section-title" data-i18n="settings.dangerZoneTitle">危險區域</div>
 
-          <label>退出目前這個群組</label>
-          <p class="settings-hint" id="infoLeaveGroup">退出後這個群組的資料就看不到了，歷史紀錄會保留（別人還是看得到你之前的支出/還款），之後可以再用邀請碼加回來。</p>
-          <button class="btn-wide" id="leaveGroupBtn">退出目前群組</button>
+          <label data-i18n="settings.leaveGroupLabel">退出目前這個群組</label>
+          <p class="settings-hint" id="infoLeaveGroup" data-i18n="settings.leaveGroupInfo">退出後這個群組的資料就看不到了，歷史紀錄會保留（別人還是看得到你之前的支出/還款），之後可以再用邀請碼加回來。</p>
+          <button class="btn-wide" id="leaveGroupBtn" data-i18n="settings.leaveGroupBtn">退出目前群組</button>
           <div class="msg" id="leaveGroupMsg"></div>
 
           <div id="groupManageSection" class="hidden">
             <div class="settings-divider"></div>
 
-            <label>建立者專屬：管理成員</label>
+            <label data-i18n="settings.manageMembers">建立者專屬：管理成員</label>
             <div class="checks" id="groupMemberManageList"></div>
             <div class="msg" id="groupMemberManageMsg"></div>
 
-            <label>刪除整個群組</label>
-            <p class="settings-hint" id="infoDeleteGroup">會把這個群組所有支出、還款、留言、成員都一起清掉，沒辦法復原。</p>
-            <button class="btn secondary small" id="deleteGroupBtn">刪除整個群組</button>
+            <label data-i18n="settings.deleteGroupLabel">刪除整個群組</label>
+            <p class="settings-hint" id="infoDeleteGroup" data-i18n="settings.deleteGroupInfo">會把這個群組所有支出、還款、留言、成員都一起清掉，沒辦法復原。</p>
+            <button class="btn secondary small" id="deleteGroupBtn" data-i18n="settings.deleteGroupBtn">刪除整個群組</button>
             <div class="msg" id="deleteGroupMsg"></div>
           </div>
         </div>
@@ -315,17 +311,17 @@ if("serviceWorker" in navigator){
       <div id="settingsTabPrefs" class="settings-tab-panel hidden">
 
         <div class="settings-group">
-          <div class="settings-section-title">顯示內容</div>
+          <div class="settings-section-title" data-i18n="settings.displayContentTitle">顯示內容</div>
 
-          <label>顯示幣別<button type="button" class="info-btn" data-info-for="infoCurrency" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoCurrency">勾選的幣別才會出現在總覽的導覽列、總表、我的款項；取消勾選不會刪除紀錄。</p>
+          <label data-i18n="settings.currencyLabel">顯示幣別<button type="button" class="info-btn" data-info-for="infoCurrency" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <p class="settings-hint hidden" id="infoCurrency" data-i18n="settings.currencyInfo">勾選的幣別才會出現在總覽的導覽列、總表、我的款項；取消勾選不會刪除紀錄。</p>
           <button type="button" class="btn-wide" id="currencyModalOpenBtn">
-            <span id="currencyToggleSummary">選擇要顯示的幣別</span>
+            <span id="currencyToggleSummary" data-i18n="settings.selectDisplayCurrencies">選擇要顯示的幣別</span>
           </button>
 
           <div class="settings-row settings-row-mt">
             <span class="settings-item-label-wrap">
-              顯示已退出／已銷毀成員
+              <span data-i18n="settings.showLeftMembersLabel">顯示已退出／已銷毀成員</span>
               <button type="button" class="info-btn" data-info-for="infoShowLeft" aria-label="說明"><span class="info-btn-i">i</span></button>
             </span>
             <label class="switch-toggle" for="showLeftMembersToggle">
@@ -333,21 +329,21 @@ if("serviceWorker" in navigator){
               <span class="switch-slider"></span>
             </label>
           </div>
-          <p class="settings-hint hidden" id="infoShowLeft">關閉後，總表、成員清單等畫面就不會再出現已經退出群組或帳號已銷毀的人（歷史支出/還款紀錄上的名字不受影響）。</p>
+          <p class="settings-hint hidden" id="infoShowLeft" data-i18n="settings.showLeftMembersInfo">關閉後，總表、成員清單等畫面就不會再出現已經退出群組或帳號已銷毀的人（歷史支出/還款紀錄上的名字不受影響）。</p>
         </div>
 
         <div class="settings-group">
-          <div class="settings-section-title">通知與外觀</div>
+          <div class="settings-section-title" data-i18n="settings.notifAppearanceTitle">通知與外觀</div>
 
           <div class="settings-row settings-row-clickable" id="notifyRow">
             <div class="settings-row-lead">
               <span class="settings-row-icon">🔔</span>
               <div>
-                <div class="settings-row-title">異動通知</div>
-                <div class="settings-hint settings-row-hint" id="notifyHint">有相關支出或還款異動就通知你</div>
+                <div class="settings-row-title" data-i18n="settings.changeNotifyTitle">異動通知</div>
+                <div class="settings-hint settings-row-hint" id="notifyHint" data-i18n="settings.changeNotifyHint">有相關支出或還款異動就通知你</div>
               </div>
             </div>
-            <button class="icon-btn" id="notifyBtn" title="開啟通知" aria-label="通知">🔔</button>
+            <button class="icon-btn" id="notifyBtn" data-i18n-title="settings.notifyTitleOn" title="開啟通知" aria-label="通知">🔔</button>
           </div>
 
           <div class="settings-divider settings-divider-compact"></div>
@@ -356,38 +352,51 @@ if("serviceWorker" in navigator){
             <div class="settings-row-lead">
               <span class="settings-row-icon" id="themeRowIcon">🌙</span>
               <div>
-                <div class="settings-row-title">深色模式</div>
-                <div class="settings-hint settings-row-hint">切換深色與淺色視覺主題</div>
+                <div class="settings-row-title" data-i18n="settings.darkModeTitle">深色模式</div>
+                <div class="settings-hint settings-row-hint" data-i18n="settings.darkModeHint">切換深色與淺色視覺主題</div>
               </div>
             </div>
-            <button class="icon-btn" id="settingsThemeBtn" aria-label="切換深色淺色模式">🌙</button>
+            <button class="icon-btn" id="settingsThemeBtn" data-i18n-title="settings.toggleThemeAria" aria-label="切換深色淺色模式">🌙</button>
+          </div>
+
+          <div class="settings-divider settings-divider-compact"></div>
+
+          <div class="settings-row-lang">
+            <div class="settings-row-lead">
+              <span class="settings-row-icon">🌐</span>
+              <div>
+                <div class="settings-row-title" data-i18n="settings.languageTitle">顯示語言</div>
+                <div class="settings-hint settings-row-hint" data-i18n="settings.languageHint">切換整個 App 的顯示語言</div>
+              </div>
+            </div>
+            <select id="settingsLangSelect" class="settings-lang-select"></select>
           </div>
         </div>
 
 
 
         <div class="settings-group">
-          <div class="settings-section-title">下載 App</div>
+          <div class="settings-section-title" data-i18n="settings.downloadAppTitle">下載 App</div>
 
-          <label>Android APK</label>
-          <p class="settings-hint" id="infoApk">這不是 Google Play 上架版，安裝時手機會提示「不明來源」，需要手動允許才能安裝——這是側載 APK 本來就會有的正常警告，跟 App 本身無關。<br>如果是 iOS 使用者請點擊分享後新增至主螢幕，以擁有似應用程式的使用體驗。</p>
-          <a class="btn-wide" href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk">下載 APK</a>
+          <label data-i18n="settings.apkLabel">Android APK</label>
+          <p class="settings-hint" id="infoApk" data-i18n-html="settings.apkInfo">這不是 Google Play 上架版，安裝時手機會提示「不明來源」，需要手動允許才能安裝——這是側載 APK 本來就會有的正常警告，跟 App 本身無關。<br>如果是 iOS 使用者請點擊分享後新增至主螢幕，以擁有似應用程式的使用體驗。</p>
+          <a class="btn-wide" href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk" data-i18n="settings.downloadApk">下載 APK</a>
         </div>
 
         <div class="settings-group">
-          <div class="settings-section-title">版本資訊</div>
+          <div class="settings-section-title" data-i18n="settings.versionInfoTitle">版本資訊</div>
 
           <div class="settings-row">
-            <span>目前版本</span>
+            <span data-i18n="settings.currentVersionLabel">目前版本</span>
             <span class="version-badge" id="settingsVerNum"></span>
           </div>
           <div class="settings-changelog-wrap settings-changelog-wrap-mt">
             <div class="settings-changelog-header" id="settingsChangelogHeader">✨ v642 最新更新項目：</div>
             <ul class="settings-changelog settings-changelog-list">
-              <li>「支出」「記一筆」「AI 拆單」三個記帳表單改成一步一步填寫，一次只需要處理一個區塊</li>
-              <li>「有另外加服務費或稅嗎」改成清楚的「有／沒有」按鈕，不用再猜要不要點開</li>
-              <li>修正歷史紀錄「✎ 編輯匯率」按鈕點了沒反應的問題</li>
-              <li>簡化進階篩選，整合重複的篩選項目</li>
+              <li data-i18n="settings.changelog1">「支出」「記一筆」「AI 拆單」三個記帳表單改成一步一步填寫，一次只需要處理一個區塊</li>
+              <li data-i18n="settings.changelog2">「有另外加服務費或稅嗎」改成清楚的「有／沒有」按鈕，不用再猜要不要點開</li>
+              <li data-i18n="settings.changelog3">修正歷史紀錄「✎ 編輯匯率」按鈕點了沒反應的問題</li>
+              <li data-i18n="settings.changelog4">簡化進階篩選，整合重複的篩選項目</li>
             </ul>
           </div>
         </div>
@@ -396,15 +405,13 @@ if("serviceWorker" in navigator){
     </div>
 
     <div class="app-footer" id="appFooter"></div>
-      </div><!-- /sb-desktop-content -->
-    </div><!-- /sb-desktop-app-wrapper -->
   </div><!-- /appScreen -->
 </div>
 
 <div class="calc-modal" id="currencyModal">
   <div class="calc-card card">
     <div class="calc-header">
-      <span class="calc-header-name">選擇要顯示的幣別</span>
+      <span class="calc-header-name" data-i18n="settings.selectCurrenciesModalTitle">選擇要顯示的幣別</span>
       <button type="button" class="calc-close" id="currencyModalCloseBtn">✕</button>
     </div>
     <div class="checks checks-wide" id="settingsCurrencyList"></div>
@@ -414,19 +421,19 @@ if("serviceWorker" in navigator){
 <div class="calc-modal" id="pwChangeModal">
   <div class="calc-card card">
     <div class="calc-header">
-      <span class="calc-header-name">重設密碼</span>
+      <span class="calc-header-name" data-i18n="settings.resetPasswordModalTitle">重設密碼</span>
       <button type="button" class="calc-close" id="pwChangeModalCloseBtn">✕</button>
     </div>
-    <label>新密碼（至少 6 碼）</label>
+    <label data-i18n="settings.newPasswordLabel">新密碼（至少 6 碼）</label>
     <div class="pw-input-wrap">
-      <input type="password" id="newPassword" placeholder="留空表示不變更">
-      <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+      <input type="password" id="newPassword" data-i18n-placeholder="settings.newPasswordPlaceholder" placeholder="留空表示不變更">
+      <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
     </div>
     <div class="pw-input-wrap">
-      <input type="password" id="newPasswordConfirm" placeholder="再輸入一次新密碼">
-      <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+      <input type="password" id="newPasswordConfirm" data-i18n-placeholder="recovery.confirmPlaceholder" placeholder="再輸入一次新密碼">
+      <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
     </div>
-    <button class="btn-wide" id="savePwBtn">儲存</button>
+    <button class="btn-wide" id="savePwBtn" data-i18n="common.save">儲存</button>
     <div class="msg" id="pwMsg"></div>
   </div>
 </div>
@@ -434,12 +441,12 @@ if("serviceWorker" in navigator){
 <div class="calc-modal" id="qrModal">
   <div class="calc-card card">
     <div class="calc-header">
-      <span class="calc-header-name">邀請 QR Code</span>
+      <span class="calc-header-name" data-i18n="settings.inviteQrTitle">邀請 QR Code</span>
       <button type="button" class="calc-close" id="qrModalCloseBtn">✕</button>
     </div>
     <div class="invite-qr-wrap">
       <div id="inviteQrCanvas"></div>
-      <p class="invite-qr-hint">用手機掃描，對方登入或註冊後會自動幫他填好這組邀請碼</p>
+      <p class="invite-qr-hint" data-i18n="settings.inviteQrHint">用手機掃描，對方登入或註冊後會自動幫他填好這組邀請碼</p>
     </div>
   </div>
 </div>
@@ -447,15 +454,15 @@ if("serviceWorker" in navigator){
 <div class="calc-modal" id="createGroupModal">
   <div class="calc-card card">
     <div class="calc-header">
-      <span class="calc-header-name">建立新群組</span>
+      <span class="calc-header-name" data-i18n="settings.createGroupModalTitle">建立新群組</span>
       <button type="button" class="calc-close" id="createGroupModalCloseBtn">✕</button>
     </div>
-    <label>群組名稱</label>
-    <input type="text" id="settingsCreateGroupName" placeholder="例如：日本旅遊團">
-    <label>建團授權碼<button type="button" class="info-btn" data-info-for="infoCreateGroup" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-    <p class="settings-hint hidden" id="infoCreateGroup">避免帳號被拿去亂開群組，需要跟開發者索取授權碼才能建立新群組。建立後會自動切換過去，之後可以隨時用上面的下拉選單換回來。</p>
-    <input type="text" id="settingsCreateGroupCode" placeholder="跟開發者索取">
-    <button class="btn-wide" id="settingsCreateGroupBtn">建立</button>
+    <label data-i18n="groupChoice.groupNameLabel">群組名稱</label>
+    <input type="text" id="settingsCreateGroupName" data-i18n-placeholder="groupChoice.groupNamePlaceholder" placeholder="例如：日本旅遊團">
+    <label data-i18n="settings.creationCodeLabel">建團授權碼<button type="button" class="info-btn" data-info-for="infoCreateGroup" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+    <p class="settings-hint hidden" id="infoCreateGroup" data-i18n="settings.creationCodeInfo">避免帳號被拿去亂開群組，需要跟開發者索取授權碼才能建立新群組。建立後會自動切換過去，之後可以隨時用上面的下拉選單換回來。</p>
+    <input type="text" id="settingsCreateGroupCode" data-i18n-placeholder="groupChoice.creationCodePlaceholder" placeholder="跟開發者索取">
+    <button class="btn-wide" id="settingsCreateGroupBtn" data-i18n="common.create">建立</button>
     <div class="msg" id="settingsCreateGroupMsg"></div>
   </div>
 </div>
@@ -463,11 +470,11 @@ if("serviceWorker" in navigator){
 <div class="calc-modal" id="avatarModal">
   <div class="calc-card card avatar-modal-card">
     <div class="avatar-modal-header">
-      <div class="avatar-modal-title">👤 個人大頭貼</div>
+      <div class="avatar-modal-title" data-i18n="settings.avatarModalTitle">👤 個人大頭貼</div>
       <button type="button" class="calc-close" id="avatarModalCloseBtn">✕</button>
     </div>
     <div class="avatar-modal-body">
-      <img id="avatarModalImg" src="" alt="大頭貼相片" class="avatar-modal-img">
+      <img id="avatarModalImg" src="" data-i18n-placeholder="settings.avatarAlt" alt="大頭貼相片" class="avatar-modal-img">
     </div>
   </div>
 </div>
@@ -475,18 +482,18 @@ if("serviceWorker" in navigator){
 <div class="calc-modal" id="avatarCropModal">
   <div class="calc-card card avatar-crop-modal-card">
     <div class="avatar-modal-header">
-      <div class="avatar-modal-title">✂️ 裁切大頭貼</div>
+      <div class="avatar-modal-title" data-i18n="settings.avatarCropModalTitle">✂️ 裁切大頭貼</div>
       <button type="button" class="calc-close" id="avatarCropCloseBtn">✕</button>
     </div>
     <div class="avatar-crop-stage" id="avatarCropStage">
       <img id="avatarCropImg" class="avatar-crop-img" draggable="false" alt="">
       <div class="avatar-crop-frame"></div>
     </div>
-    <p class="avatar-crop-hint">拖曳移動位置，滑動下方調整縮放</p>
+    <p class="avatar-crop-hint" data-i18n="settings.avatarCropHint">拖曳移動位置，滑動下方調整縮放</p>
     <input type="range" id="avatarCropZoom" min="100" max="300" value="100" class="avatar-crop-zoom-slider">
     <div class="avatar-crop-actions">
-      <button type="button" class="btn secondary small" id="avatarCropRetakeBtn">重新選擇</button>
-      <button type="button" class="btn small" id="avatarCropConfirmBtn">✓ 確認裁切</button>
+      <button type="button" class="btn secondary small" id="avatarCropRetakeBtn" data-i18n="settings.retake">重新選擇</button>
+      <button type="button" class="btn small" id="avatarCropConfirmBtn" data-i18n="common.confirmCropping">✓ 確認裁切</button>
     </div>
   </div>
 </div>
@@ -494,7 +501,10 @@ if("serviceWorker" in navigator){
 <script>
 document.getElementById("appFooter").textContent = "菘. v" + APP_VERSION;
 document.getElementById("settingsVerNum").textContent = "ver. " + APP_VERSION;
-document.getElementById("settingsChangelogHeader").textContent = "✨ v" + APP_VERSION + " 最新更新項目：";
+document.getElementById("settingsChangelogHeader").textContent = t("settings.changelogHeader", { ver: APP_VERSION });
+document.addEventListener("splitbill-lang-changed", ()=>{
+  document.getElementById("settingsChangelogHeader").textContent = t("settings.changelogHeader", { ver: APP_VERSION });
+});
 </script>
 
 <script>
@@ -528,8 +538,8 @@ if(backBtn){
 
   function friendlyAuthErr(error){
     const msg = (error && error.message) || "";
-    if(/captcha/i.test(msg)) return "安全驗證失敗，請稍後再試一次";
-    if(/already linked|already exists/i.test(msg)) return "這個帳號已經連結到另一個 Splitbill 帳號了，要先去那邊解除連結（或銷毀那個帳號）才能連過來這裡";
+    if(/captcha/i.test(msg)) return t("settings.msg.captchaFailed");
+    if(/already linked|already exists/i.test(msg)) return t("msg.accountAlreadyLinked");
     return null;
   }
 
@@ -569,7 +579,7 @@ if(backBtn){
       const show = input.type === "password";
       input.type = show ? "text" : "password";
       btn.textContent = show ? "🙈" : "👁️";
-      btn.setAttribute("aria-label", show ? "隱藏密碼" : "顯示密碼");
+      btn.setAttribute("aria-label", show ? t("login.hidePassword") : t("login.showPassword"));
     });
   });
 
@@ -642,7 +652,7 @@ if(backBtn){
   // ---------- 幣別偏好 ----------
   function updateCurrencyToggleSummary(){
     const summary = document.getElementById("currencyToggleSummary");
-    if(summary) summary.textContent = shownCurrencies.length ? `已選擇 ${shownCurrencies.length} 種幣別` : "選擇要顯示的幣別";
+    if(summary) summary.textContent = shownCurrencies.length ? t("settings.currenciesSelected", { n: shownCurrencies.length }) : t("settings.selectDisplayCurrencies");
   }
   const currencyModal = document.getElementById("currencyModal");
   const currencyModalOpenBtn = document.getElementById("currencyModalOpenBtn");
@@ -684,7 +694,7 @@ if(backBtn){
           localStorage.setItem("splitbill-shown-currencies", JSON.stringify(prevShown));
           renderSettingsCurrencyList();
           renderNavLinks();
-          await sbAlert("儲存失敗，請再試一次。", "🔔 Splitbill 錯誤");
+          await sbAlert(t("settings.msg.saveFailedRetry"), t("settings.errorTitle"));
         }
       });
     });
@@ -692,15 +702,15 @@ if(backBtn){
 
   // ---------- 群組切換／邀請碼／退出／管理成員／刪除群組 ----------
   function friendlyGroupErr(msg){
-    if(!msg) return "發生錯誤";
-    if(msg.includes("unsettled balance")) return "還有人沒結清（欠款或被欠款），沒辦法這麼做";
-    if(msg.includes("invalid creation code")) return "建團授權碼不對";
-    if(msg.includes("invalid invite code")) return "邀請碼不對";
-    if(msg.includes("already in this group")) return "已經在這個群組裡了";
-    if(msg.includes("only the group creator")) return "只有群組建立者能做這個動作";
-    if(msg.includes("duplicate name in group")) return "這個名稱已經有人用了，請改用其他名稱";
-    if(msg.includes("group name already taken")) return "這個群組名稱已經有人用了，請換一個";
-    if(msg.includes("group name required")) return "請輸入群組名稱";
+    if(!msg) return t("groupErr.generic");
+    if(msg.includes("unsettled balance")) return t("groupErr.unsettledBalance");
+    if(msg.includes("invalid creation code")) return t("groupErr.invalidCreationCode");
+    if(msg.includes("invalid invite code")) return t("groupErr.invalidInviteCode");
+    if(msg.includes("already in this group")) return t("groupErr.alreadyInGroup");
+    if(msg.includes("only the group creator")) return t("groupErr.onlyCreator");
+    if(msg.includes("duplicate name in group")) return t("groupErr.duplicateNameInGroup");
+    if(msg.includes("group name already taken")) return t("groupErr.groupNameTaken");
+    if(msg.includes("group name required")) return t("groupErr.groupNameRequired");
     return msg;
   }
   let myGroups = [];
@@ -731,24 +741,24 @@ if(backBtn){
     const { data } = await sb.from("members").select("id,name,avatar_url").eq("group_id", myMember.group_id).is("left_at", null).order("name");
     const others = (data || []).filter(m => m.id !== myMember.id);
     if(!others.length){
-      list.innerHTML = `<p class="filter-hint">目前沒有其他成員</p>`;
+      list.innerHTML = `<p class="filter-hint">${t("settings.noOtherMembers")}</p>`;
       return;
     }
     list.innerHTML = others.map(m => `
       <div class="check-pill member-manage-pill">
         ${renderAvatarHTML(m, "avatar-xs")}
         <span class="check-pill-name" title="${escapeHtml(memberById[m.id] || m.name)}">${escapeHtml(memberById[m.id] || m.name)}</span>
-        <button type="button" class="member-remove-btn" data-id="${m.id}" data-name="${escapeHtml(memberById[m.id] || m.name)}" title="移除">✕</button>
+        <button type="button" class="member-remove-btn" data-id="${m.id}" data-name="${escapeHtml(memberById[m.id] || m.name)}" title="${t("settings.delete")}">✕</button>
       </div>
     `).join("");
     list.querySelectorAll(".member-remove-btn").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         const msg = document.getElementById("groupMemberManageMsg");
-        const ok = await sbConfirm(`確定要把「${btn.dataset.name}」移出這個群組嗎？他的歷史紀錄會保留，但要重新用邀請碼才能加回來。`);
+        const ok = await sbConfirm(t("settings.removeMemberConfirm", { name: btn.dataset.name }));
         if(!ok) return;
         const { error } = await sb.rpc("remove_member", { p_member_id: btn.dataset.id });
-        if(error){ msg.textContent = "移除失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
-        msg.textContent = "已移除"; msg.className = "msg ok";
+        if(error){ msg.textContent = t("settings.msg.removeMemberFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
+        msg.textContent = t("settings.msg.memberRemoved"); msg.className = "msg ok";
         await renderGroupMemberManageList();
       });
     });
@@ -760,11 +770,11 @@ if(backBtn){
       const msg = document.getElementById("settingsGroupMsg");
       const targetGroupId = settingsGroupSelect.value;
       const targetGroupName = settingsGroupSelect.selectedOptions[0] ? settingsGroupSelect.selectedOptions[0].textContent : "";
-      msg.textContent = "切換中…"; msg.className = "msg";
+      msg.textContent = t("settings.msg.switching"); msg.className = "msg";
       const { error } = await sb.rpc("switch_active_group", { p_group_id: targetGroupId });
-      if(error){ msg.textContent = "切換失敗：" + error.message; msg.className = "msg error"; return; }
-      msg.textContent = "已切換！"; msg.className = "msg ok";
-      showToast("已切換群組", targetGroupName);
+      if(error){ msg.textContent = t("settings.msg.switchFailed", { msg: error.message }); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.switched"); msg.className = "msg ok";
+      showToast(t("settings.toast.groupSwitched"), targetGroupName);
       setTimeout(()=> location.href = "summary.html", 900);
     });
   }
@@ -774,11 +784,11 @@ if(backBtn){
     saveGroupNameBtn.addEventListener("click", async ()=>{
       const msg = document.getElementById("groupNameMsg");
       const newName = document.getElementById("settingsGroupName").value.trim();
-      if(!newName){ msg.textContent = "請輸入群組名稱"; msg.className = "msg error"; return; }
-      msg.textContent = "儲存中…"; msg.className = "msg";
+      if(!newName){ msg.textContent = t("settings.msg.groupNameRequired"); msg.className = "msg error"; return; }
+      msg.textContent = t("common.saving"); msg.className = "msg";
       const { error } = await sb.rpc("rename_group", { p_group_id: myMember.group_id, p_new_name: newName });
-      if(error){ msg.textContent = "儲存失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
-      msg.textContent = "已更新！"; msg.className = "msg ok";
+      if(error){ msg.textContent = t("common.updateFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
+      msg.textContent = t("common.updated"); msg.className = "msg ok";
       await renderSettingsGroupSection();
     });
   }
@@ -790,10 +800,10 @@ if(backBtn){
     if(!inviteInp || !inviteInp.value) return;
     try{
       await navigator.clipboard.writeText(inviteInp.value);
-      msg.textContent = "✓ 已複製邀請碼！"; msg.className = "msg ok";
+      msg.textContent = t("settings.msg.copiedInviteCode"); msg.className = "msg ok";
     }catch(e){
       inviteInp.select();
-      msg.textContent = "自動複製失敗，已幫你選取文字，手動複製即可"; msg.className = "msg error";
+      msg.textContent = t("settings.msg.copyFailedSelected"); msg.className = "msg error";
     }
   }
   if(copyInviteCodeBtn) copyInviteCodeBtn.addEventListener("click", doCopyInviteCode);
@@ -839,17 +849,17 @@ if(backBtn){
       const codeInp = document.getElementById("settingsJoinCode");
       const msg = document.getElementById("settingsJoinGroupMsg");
       const code = codeInp.value.trim();
-      if(!code){ msg.textContent = "請輸入邀請碼"; msg.className = "msg error"; return; }
+      if(!code){ msg.textContent = t("settings.msg.enterInviteCode"); msg.className = "msg error"; return; }
       settingsJoinGroupBtn.disabled = true;
-      msg.textContent = "加入中…"; msg.className = "msg";
+      msg.textContent = t("settings.msg.joining"); msg.className = "msg";
       const { error } = await sb.rpc("join_group", { p_invite_code: code, p_member_name: myMember.accountName });
       if(error){
         settingsJoinGroupBtn.disabled = false;
-        msg.textContent = "加入失敗：" + friendlyGroupErr(error.message); msg.className = "msg error";
+        msg.textContent = t("settings.msg.joinFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error";
         return;
       }
-      msg.textContent = "加入成功！正在切換過去…"; msg.className = "msg ok";
-      showToast("已加入群組", "正在切換過去…");
+      msg.textContent = t("settings.msg.joinedSwitching"); msg.className = "msg ok";
+      showToast(t("settings.toast.groupJoined"), t("settings.toast.switchingOver"));
       setTimeout(()=> location.href = "summary.html", 900);
     });
   }
@@ -860,17 +870,17 @@ if(backBtn){
       const groupName = document.getElementById("settingsCreateGroupName").value.trim();
       const code = document.getElementById("settingsCreateGroupCode").value.trim();
       const msg = document.getElementById("settingsCreateGroupMsg");
-      if(!groupName || !code){ msg.textContent = "請填寫所有欄位"; msg.className = "msg error"; return; }
+      if(!groupName || !code){ msg.textContent = t("settings.msg.fillAllFields"); msg.className = "msg error"; return; }
       settingsCreateGroupBtn.disabled = true;
-      msg.textContent = "建立中…"; msg.className = "msg";
+      msg.textContent = t("settings.msg.creating"); msg.className = "msg";
       const { error } = await sb.rpc("create_group", { p_group_name: groupName, p_member_name: myMember.accountName, p_creation_code: code });
       if(error){
         settingsCreateGroupBtn.disabled = false;
-        msg.textContent = "建立失敗：" + friendlyGroupErr(error.message); msg.className = "msg error";
+        msg.textContent = t("settings.msg.createFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error";
         return;
       }
-      msg.textContent = "建立成功！正在切換過去…"; msg.className = "msg ok";
-      showToast("已建立群組", groupName);
+      msg.textContent = t("settings.msg.createdSwitching"); msg.className = "msg ok";
+      showToast(t("settings.toast.groupCreated"), groupName);
       setTimeout(()=> location.href = "summary.html", 900);
     });
   }
@@ -880,13 +890,13 @@ if(backBtn){
     leaveGroupBtn.addEventListener("click", async ()=>{
       const msg = document.getElementById("leaveGroupMsg");
       const groupName = (myGroups.find(r => r.group_id === myMember.group_id) || {}).groups;
-      const typed = prompt(`確定要退出「${(groupName && groupName.name) || "目前這個群組"}」嗎？你的歷史紀錄會保留，之後要用邀請碼才能加回來。\n\n請輸入「退出群組」來確認：`);
+      const typed = prompt(t("settings.leaveGroupPrompt", { group: (groupName && groupName.name) || t("settings.leaveGroupDefaultName"), word: t("settings.leaveGroupConfirmWord") }));
       if(typed === null) return;
-      if(typed !== "退出群組"){ msg.textContent = "輸入不符，取消"; msg.className = "msg error"; return; }
-      msg.textContent = "退出中…"; msg.className = "msg";
+      if(typed !== t("settings.leaveGroupConfirmWord")){ msg.textContent = t("settings.msg.inputMismatchCancelled"); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.leaving"); msg.className = "msg";
       const { error } = await sb.rpc("leave_group", { p_group_id: myMember.group_id });
-      if(error){ msg.textContent = "退出失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
-      msg.textContent = "已退出"; msg.className = "msg ok";
+      if(error){ msg.textContent = t("settings.msg.leaveFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.left"); msg.className = "msg ok";
       location.reload();
     });
   }
@@ -895,14 +905,14 @@ if(backBtn){
   if(deleteGroupBtn){
     deleteGroupBtn.addEventListener("click", async ()=>{
       const msg = document.getElementById("deleteGroupMsg");
-      const groupName = ((myGroups.find(r => r.group_id === myMember.group_id) || {}).groups || {}).name || "這個群組";
-      const typed = prompt(`這個動作沒辦法復原，會刪掉「${groupName}」所有支出、還款、留言、成員資料。\n\n請輸入群組名稱「${groupName}」來確認：`);
+      const groupName = ((myGroups.find(r => r.group_id === myMember.group_id) || {}).groups || {}).name || t("settings.deleteGroupDefaultName");
+      const typed = prompt(t("settings.deleteGroupPrompt", { group: groupName }));
       if(typed === null) return;
-      if(typed !== groupName){ msg.textContent = "輸入的名稱不符，取消刪除"; msg.className = "msg error"; return; }
-      msg.textContent = "刪除中…"; msg.className = "msg";
+      if(typed !== groupName){ msg.textContent = t("settings.msg.nameMismatchCancelled"); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.deleting"); msg.className = "msg";
       const { error } = await sb.rpc("delete_group", { p_group_id: myMember.group_id });
-      if(error){ msg.textContent = "刪除失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
-      msg.textContent = "已刪除"; msg.className = "msg ok";
+      if(error){ msg.textContent = t("settings.msg.deleteFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.deleted"); msg.className = "msg ok";
       location.reload();
     });
   }
@@ -916,7 +926,7 @@ if(backBtn){
       const btn = document.getElementById(btnId);
       if(!btn) return;
       const linked = linkedIdentities.find(i => i.provider === provider);
-      btn.textContent = linked ? "解除連結" : "連結";
+      btn.textContent = linked ? t("settings.unlink") : t("settings.link");
     });
   }
   function wireLinkIdentityBtn(provider, btnId){
@@ -926,13 +936,13 @@ if(backBtn){
       const msg = document.getElementById("linkIdentityMsg");
       const linked = linkedIdentities.find(i => i.provider === provider);
       if(linked){
-        if(linkedIdentities.length <= 1){ msg.textContent = "這是唯一的登入方式，沒辦法解除連結"; msg.className = "msg error"; return; }
-        const ok = await sbConfirm(`確定要解除 ${provider === "google" ? "Google" : "Discord"} 的連結嗎？`);
+        if(linkedIdentities.length <= 1){ msg.textContent = t("settings.msg.onlyLoginMethod"); msg.className = "msg error"; return; }
+        const ok = await sbConfirm(t("settings.unlinkConfirm", { provider: provider === "google" ? "Google" : "Discord" }));
         if(!ok) return;
-        msg.textContent = "處理中…"; msg.className = "msg";
+        msg.textContent = t("common.processing"); msg.className = "msg";
         const { error } = await sb.auth.unlinkIdentity(linked);
-        if(error){ msg.textContent = friendlyAuthErr(error) || ("解除失敗：" + error.message); msg.className = "msg error"; return; }
-        msg.textContent = "已解除連結"; msg.className = "msg ok";
+        if(error){ msg.textContent = friendlyAuthErr(error) || t("settings.msg.unlinkFailed", { msg: error.message }); msg.className = "msg error"; return; }
+        msg.textContent = t("settings.msg.unlinked"); msg.className = "msg ok";
         await renderLinkedIdentities();
       } else {
         const isCapacitor = typeof window.Capacitor !== "undefined" && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform();
@@ -944,7 +954,7 @@ if(backBtn){
               skipBrowserRedirect: true
             }
           });
-          if(error){ msg.textContent = friendlyAuthErr(error) || ("連結失敗：" + error.message); msg.className = "msg error"; return; }
+          if(error){ msg.textContent = friendlyAuthErr(error) || t("settings.msg.linkFailed", { msg: error.message }); msg.className = "msg error"; return; }
           if(data && data.url){
             await window.Capacitor.Plugins.Browser.open({ url: data.url });
           }
@@ -953,7 +963,7 @@ if(backBtn){
             provider,
             options: { redirectTo: location.origin + location.pathname }
           });
-          if(error){ msg.textContent = friendlyAuthErr(error) || ("連結失敗：" + error.message); msg.className = "msg error"; }
+          if(error){ msg.textContent = friendlyAuthErr(error) || t("settings.msg.linkFailed", { msg: error.message }); msg.className = "msg error"; }
         }
       }
     });
@@ -997,7 +1007,7 @@ if(backBtn){
     if(!errorDesc) return;
     const msg = document.getElementById("linkIdentityMsg");
     if(msg){
-      msg.textContent = friendlyAuthErr({ message: errorDesc }) || ("連結失敗：" + errorDesc);
+      msg.textContent = friendlyAuthErr({ message: errorDesc }) || t("settings.msg.linkFailed", { msg: errorDesc });
       msg.className = "msg error";
     }
     history.replaceState(null, "", location.pathname);
@@ -1007,12 +1017,12 @@ if(backBtn){
   if(deleteAccountBtn){
     deleteAccountBtn.addEventListener("click", async ()=>{
       const msg = document.getElementById("deleteAccountMsg");
-      const typed = prompt(`這個動作沒辦法復原：會讓這個帳號沒辦法再登入，並讓你離開所有群組（歷史紀錄會保留）。如果有沒結清的款項會失敗。\n\n請輸入「銷毀帳號」來確認：`);
+      const typed = prompt(t("settings.deleteAccountPrompt", { word: t("settings.deleteAccountConfirmWord") }));
       if(typed === null) return;
-      if(typed !== "銷毀帳號"){ msg.textContent = "輸入不符，取消"; msg.className = "msg error"; return; }
-      msg.textContent = "處理中…"; msg.className = "msg";
+      if(typed !== t("settings.deleteAccountConfirmWord")){ msg.textContent = t("settings.msg.inputMismatchCancelled"); msg.className = "msg error"; return; }
+      msg.textContent = t("common.processing"); msg.className = "msg";
       const { error } = await sb.rpc("delete_account");
-      if(error){ msg.textContent = "銷毀失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      if(error){ msg.textContent = t("settings.msg.deleteAccountFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
       await sb.auth.signOut();
       location.href = "index.html";
     });
@@ -1064,7 +1074,7 @@ if(backBtn){
   function openAvatarModal(){
     const currentAvatar = getEffectiveAvatarUrl();
     if(!currentAvatar){
-      sbAlert("目前使用姓名首字頭像，上傳相片後即可查看大圖！", "👤 大頭貼");
+      sbAlert(t("settings.avatarPlaceholderMsg"), t("settings.avatarPlaceholderTitle"));
       return;
     }
     const modal = document.getElementById("avatarModal");
@@ -1103,7 +1113,7 @@ if(backBtn){
   // 換頭貼之後不會繼續顯示快取住的舊圖。
   async function uploadAvatarBase64(base64, msg){
     if(!currentUser || !currentUser.id){
-      if(msg){ msg.textContent = "尚未登入，無法上傳"; msg.className = "msg error"; }
+      if(msg){ msg.textContent = t("settings.msg.notLoggedInUpload"); msg.className = "msg error"; }
       return false;
     }
 
@@ -1120,14 +1130,14 @@ if(backBtn){
       avatarUrl = pub.publicUrl + "?t=" + Date.now();
     } catch(uploadErr){
       console.error("avatar storage upload error:", uploadErr);
-      if(msg){ msg.textContent = "圖片上傳失敗：" + (uploadErr.message || "請稍後再試"); msg.className = "msg error"; }
+      if(msg){ msg.textContent = t("settings.msg.uploadFailed", { msg: uploadErr.message || t("common.tryAgainLater") }); msg.className = "msg error"; }
       return false;
     }
 
     const { data: updateRes, error: updateErr } = await sb.auth.updateUser({ data: { avatar_url: avatarUrl } });
     if(updateErr){
       console.error("auth updateUser error:", updateErr);
-      if(msg){ msg.textContent = "雲端同步失敗：" + updateErr.message; msg.className = "msg error"; }
+      if(msg){ msg.textContent = t("settings.msg.cloudSyncFailed", { msg: updateErr.message }); msg.className = "msg error"; }
       return false;
     }
     if(updateRes && updateRes.user){
@@ -1164,7 +1174,7 @@ if(backBtn){
     const whoamiAvatarEl = document.getElementById("whoamiAvatar");
     if(whoamiAvatarEl && myMember) whoamiAvatarEl.innerHTML = renderAvatarHTML(myMember, "avatar-md whoami-avatar");
 
-    if(msg){ msg.textContent = "大頭貼已成功更新並同步至雲端！"; msg.className = "msg ok"; }
+    if(msg){ msg.textContent = t("settings.msg.avatarUpdated"); msg.className = "msg ok"; }
     return true;
   }
 
@@ -1274,7 +1284,7 @@ if(backBtn){
       if(!cropImgEl) return;
       const msg = document.getElementById("avatarMsg");
       avatarCropConfirmBtn.disabled = true;
-      avatarCropConfirmBtn.textContent = "處理中…";
+      avatarCropConfirmBtn.textContent = t("common.processing");
       try {
         const totalScale = cropBaseScale * cropZoom;
         const dispW = cropImgEl.naturalWidth * totalScale;
@@ -1291,12 +1301,12 @@ if(backBtn){
         ctx.drawImage(cropImgEl, srcX, srcY, srcSize, srcSize, 0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE);
         const base64 = canvas.toDataURL("image/jpeg", 0.85);
 
-        if(msg){ msg.textContent = "處理圖片中…"; msg.className = "msg"; }
+        if(msg){ msg.textContent = t("settings.processingImage"); msg.className = "msg"; }
         closeAvatarCropModal();
         await uploadAvatarBase64(base64, msg);
       } finally {
         avatarCropConfirmBtn.disabled = false;
-        avatarCropConfirmBtn.textContent = "✓ 確認裁切";
+        avatarCropConfirmBtn.textContent = t("common.confirmCropping");
       }
     });
   }
@@ -1308,7 +1318,7 @@ if(backBtn){
       if(!file) return;
       const msg = document.getElementById("avatarMsg");
       if(!file.type.startsWith("image/")){
-        if(msg){ msg.textContent = "請選擇圖片檔案"; msg.className = "msg error"; }
+        if(msg){ msg.textContent = t("settings.msg.selectImageFile"); msg.className = "msg error"; }
         return;
       }
       if(msg){ msg.textContent = ""; msg.className = "msg"; }
@@ -1317,12 +1327,12 @@ if(backBtn){
         const img = new Image();
         img.onload = () => openAvatarCropModal(img);
         img.onerror = () => {
-          if(msg){ msg.textContent = "無法讀取此圖片，請換一張再試"; msg.className = "msg error"; }
+          if(msg){ msg.textContent = t("settings.msg.imageReadFailed"); msg.className = "msg error"; }
         };
         img.src = re.target.result;
       };
       reader.onerror = () => {
-        if(msg){ msg.textContent = "讀取檔案失敗，請再試一次"; msg.className = "msg error"; }
+        if(msg){ msg.textContent = t("settings.msg.fileReadFailed"); msg.className = "msg error"; }
       };
       reader.readAsDataURL(file);
     });
@@ -1331,7 +1341,7 @@ if(backBtn){
   const removeAvatarBtn = document.getElementById("removeAvatarBtn");
   if(removeAvatarBtn){
     removeAvatarBtn.addEventListener("click", async ()=>{
-      const ok = await sbConfirm("確定要移除自訂大頭貼嗎？將恢復為姓名首字頭像。");
+      const ok = await sbConfirm(t("settings.removeAvatarConfirm"));
       if(!ok) return;
       const msg = document.getElementById("avatarMsg");
 
@@ -1381,7 +1391,7 @@ if(backBtn){
         console.warn("avatar storage 清除異常：", e);
       }
 
-      if(msg){ msg.textContent = "已移除大頭貼，恢復姓名首字頭像！"; msg.className = "msg ok"; }
+      if(msg){ msg.textContent = t("settings.msg.avatarRemoved"); msg.className = "msg ok"; }
     });
   }
 
@@ -1400,17 +1410,17 @@ if(backBtn){
       const newName = document.getElementById("settingsName").value.trim();
       const msg = document.getElementById("nameMsg");
       if(!USERNAME_FORMAT_RE.test(newName)){
-        msg.textContent = "只能是中文、英文、數字、底線，長度 2~20 個字";
+        msg.textContent = t("settings.msg.usernameFormatInvalid");
         msg.className = "msg error";
         return;
       }
       const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: newName });
       if(error){
-        if(error.code === "23505"){ msg.textContent = "這個名稱已經有人用了，換一個試試"; msg.className = "msg error"; return; }
-        msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return;
+        if(error.code === "23505"){ msg.textContent = t("settings.msg.usernameTakenRetry"); msg.className = "msg error"; return; }
+        msg.textContent = t("common.updateFailed", { msg: error.message }); msg.className = "msg error"; return;
       }
       await loadMembers();
-      msg.textContent = "已更新，之後登入可以直接打這個名字！"; msg.className = "msg ok";
+      msg.textContent = t("settings.msg.usernameUpdated"); msg.className = "msg ok";
     });
   }
 
@@ -1425,11 +1435,11 @@ if(backBtn){
       // （members_group_active_display_name_unique），撞到會是 23505。
       const { error } = await sb.from("members").update({ nickname: newNickname || null }).eq("id", myMember.id);
       if(error){
-        if(error.code === "23505"){ msg.textContent = "這個名字在這個群組裡已經有人用了，換一個試試"; msg.className = "msg error"; return; }
-        msg.textContent = "更新失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return;
+        if(error.code === "23505"){ msg.textContent = t("settings.msg.nicknameTakenRetry"); msg.className = "msg error"; return; }
+        msg.textContent = t("common.updateFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return;
       }
       await loadMembers();
-      msg.textContent = newNickname ? "暱稱已更新！" : "已清除暱稱，改用全域使用者名稱"; msg.className = "msg ok";
+      msg.textContent = newNickname ? t("settings.msg.nicknameUpdated") : t("settings.msg.nicknameCleared"); msg.className = "msg ok";
     });
   }
 
@@ -1454,9 +1464,9 @@ if(backBtn){
     const banks = all.filter(b => b.category !== "wallet");
     return `
       <div class="payment-bank-popover hidden">
-        <div class="payment-bank-group-label">行動支付</div>
+        <div class="payment-bank-group-label">${t("settings.bankGroupWallet")}</div>
         ${wallets.map(opt).join("")}
-        <div class="payment-bank-group-label">銀行</div>
+        <div class="payment-bank-group-label">${t("settings.bankGroupBank")}</div>
         ${banks.map(opt).join("")}
       </div>
     `;
@@ -1486,7 +1496,7 @@ if(backBtn){
           triggerEl.textContent = window.formatBankShortLabel ? window.formatBankShortLabel(code, bankNameForCode(code)) : code;
           popoverEl.querySelectorAll(".payment-bank-option").forEach(o => o.classList.toggle("active", o === optBtn));
           popoverEl.classList.add("hidden");
-          if(numInp) numInp.placeholder = isWalletCode(code) ? "帳號（選填）" : "帳號";
+          if(numInp) numInp.placeholder = isWalletCode(code) ? t("settings.accountPlaceholderOptional") : t("settings.accountPlaceholder");
         });
       });
     }
@@ -1515,14 +1525,14 @@ if(backBtn){
     const initialCode = (acc && acc.bankCode) || (firstOption ? firstOption.code : "");
     const initialShortLabel = window.formatBankShortLabel ? window.formatBankShortLabel(initialCode, bankNameForCode(initialCode)) : initialCode;
     row.innerHTML = `
-      <button type="button" class="payment-account-drag-handle" title="拖曳調整順序" aria-label="拖曳調整順序">⠿</button>
+      <button type="button" class="payment-account-drag-handle" title="${t("settings.dragToReorder")}" aria-label="${t("settings.dragToReorder")}">⠿</button>
       <div class="payment-bank-picker" data-code="${initialCode}">
         <button type="button" class="payment-bank-trigger">${escapeHtml(initialShortLabel)}</button>
         ${bankPopoverHtml(initialCode)}
       </div>
-      <input type="text" class="payment-account-num" placeholder="${isWalletCode(initialCode) ? "帳號（選填）" : "帳號"}" value="${escapeHtml((acc && acc.account) || "")}">
-      <button type="button" class="payment-account-copy" title="複製帳號" aria-label="複製帳號">📋</button>
-      <button type="button" class="payment-account-del" title="刪除這個帳戶" aria-label="刪除">✕</button>
+      <input type="text" class="payment-account-num" placeholder="${isWalletCode(initialCode) ? t("settings.accountPlaceholderOptional") : t("settings.accountPlaceholder")}" value="${escapeHtml((acc && acc.account) || "")}">
+      <button type="button" class="payment-account-copy" title="${t("settings.copyAccount")}" aria-label="${t("settings.copyAccount")}">📋</button>
+      <button type="button" class="payment-account-del" title="${t("settings.deleteThisAccount")}" aria-label="${t("settings.delete")}">✕</button>
     `;
     wrap.appendChild(row);
     wirePaymentAccountRow(row);
@@ -1613,10 +1623,10 @@ if(backBtn){
       // 是 members 表裡的明碼欄位，所以這裡改成呼叫 RPC 寫入，資料庫
       // 那邊自己決定要新建 secret 還是更新既有 secret。
       const { error } = await sb.rpc("set_payment_accounts", { p_accounts: accounts });
-      if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
+      if(error){ msg.textContent = t("common.updateFailed", { msg: error.message }); msg.className = "msg error"; return; }
       await loadMembers();
       renderPaymentAccountRows(accounts);
-      msg.textContent = accounts.length ? "收款帳戶已更新！" : "已清除收款帳戶"; msg.className = "msg ok";
+      msg.textContent = accounts.length ? t("settings.msg.paymentAccountsUpdated") : t("settings.msg.paymentAccountsCleared"); msg.className = "msg ok";
     });
   }
 
@@ -1631,7 +1641,7 @@ if(backBtn){
       .select("id, group_id, payment_accounts_visible, groups(name)")
       .eq("user_id", currentUser.id).is("left_at", null);
     if(error || !data || !data.length){
-      list.innerHTML = `<p class="filter-hint">目前沒有所屬群組</p>`;
+      list.innerHTML = `<p class="filter-hint">${t("settings.noGroupsYet")}</p>`;
       return;
     }
     list.innerHTML = data.map(r => `
@@ -1662,11 +1672,11 @@ if(backBtn){
       const newEmail = document.getElementById("settingsEmail").value.trim();
       const msg = document.getElementById("emailMsg");
       if(!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){
-        msg.textContent = "請輸入正確的信箱格式"; msg.className = "msg error"; return;
+        msg.textContent = t("settings.msg.invalidEmailFormat"); msg.className = "msg error"; return;
       }
       const { error } = await sb.auth.updateUser({ email: newEmail });
-      if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
-      msg.textContent = "已寄出確認信到新信箱，請去收信、點連結完成確認！"; msg.className = "msg ok";
+      if(error){ msg.textContent = t("common.updateFailed", { msg: error.message }); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.emailConfirmSent"); msg.className = "msg ok";
     });
   }
 
@@ -1685,9 +1695,27 @@ if(backBtn){
     syncSettingsThemeIcon();
     settingsThemeBtn.addEventListener("click", (e)=>{
       e.stopPropagation();
-      const realToggle = document.querySelector(".theme-toggle");
-      if(realToggle) realToggle.click();
+      // 深淺色現在只在設定頁管理，沒有浮動按鈕可以代打了，直接呼叫
+      // theme.js 開放出來的切換函式。
+      if(typeof window.splitbillToggleTheme === "function") window.splitbillToggleTheme();
       syncSettingsThemeIcon();
+    });
+  }
+  window.addEventListener("splitbill-theme-change", syncSettingsThemeIcon);
+
+  // 語言設定改到這裡管理，原本每一頁角落浮動的語言切換鈕拿掉了。
+  // SUPPORTED_LANGS／LANG_LABELS 是 i18n.js 開放出來的全域清單，直接
+  // 拿來組一個下拉選單，不用自己重複寫一份語言清單。用全站共用的
+  // enhanceSelect() 包裝，跟其他設定項目的下拉選單樣式一致。
+  const langSelectEl = document.getElementById("settingsLangSelect");
+  if(langSelectEl && typeof window.SUPPORTED_LANGS !== "undefined"){
+    const current = window.getLang ? window.getLang() : "zh-Hant";
+    langSelectEl.innerHTML = window.SUPPORTED_LANGS.map(code => `
+      <option value="${code}"${code === current ? " selected" : ""}>${window.LANG_LABELS[code] || code}</option>
+    `).join("");
+    if(typeof enhanceSelect === "function") enhanceSelect(langSelectEl);
+    langSelectEl.addEventListener("change", () => {
+      if(typeof window.setLang === "function") window.setLang(langSelectEl.value);
     });
   }
   if(themeRow){
@@ -1715,11 +1743,11 @@ if(backBtn){
       const pw = document.getElementById("newPassword").value;
       const pwConfirm = document.getElementById("newPasswordConfirm").value;
       const msg = document.getElementById("pwMsg");
-      if(!pw || pw.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className="msg error"; return; }
-      if(pw !== pwConfirm){ msg.textContent = "兩次輸入的密碼不一樣"; msg.className = "msg error"; return; }
+      if(!pw || pw.length < 6){ msg.textContent = t("recovery.passwordTooShort"); msg.className="msg error"; return; }
+      if(pw !== pwConfirm){ msg.textContent = t("recovery.passwordMismatch"); msg.className = "msg error"; return; }
       const { error } = await sb.auth.updateUser({ password: pw });
-      if(error){ msg.textContent = "更新失敗：" + error.message; msg.className = "msg error"; return; }
-      msg.textContent = "密碼已更新！"; msg.className = "msg ok";
+      if(error){ msg.textContent = t("common.updateFailed", { msg: error.message }); msg.className = "msg error"; return; }
+      msg.textContent = t("settings.msg.passwordUpdated"); msg.className = "msg ok";
       document.getElementById("newPassword").value = "";
       document.getElementById("newPasswordConfirm").value = "";
     });
@@ -1751,10 +1779,8 @@ if(backBtn){
   // 沒有瀏覽器選單可以按，關閉通知的入口在手機系統設定的 App 權限裡，
   // 跟一般瀏覽器分頁的關閉方式不一樣，提示文字要分開寫。
   const isStandaloneApp = isCapacitor || !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-  const NOTIFY_HINT_DEFAULT = "開啟後，只要有跟你相關的支出或還款有異動就會通知你。";
-  const NOTIFY_HINT_BLOCKED = isStandaloneApp
-    ? "🔕 通知已經被關閉了，需要手動解除：\n手機系統設定 → App（應用程式）→ 帳務系統／Splitbill → 通知 → 改成允許\n改完後重新開啟這個 App 即可。\n\n提醒：用系統設定關閉通知後，這個開關不會馬上跟著變，要重新整理頁面才會抓到最新狀態。"
-    : "🔕 通知已經被瀏覽器封鎖了，需要手動解除：\n手機：瀏覽器選單 → 網站設定（或「這個網站的權限」）→ 通知 → 改成允許\n電腦：網址列左邊的鎖頭／ⓘ 圖示 → 通知 → 改成允許\n改完後重新整理網頁即可。";
+  function getNotifyHintDefault(){ return t("settings.notifyHintDefault"); }
+  function getNotifyHintBlocked(){ return isStandaloneApp ? t("settings.notifyHintBlockedStandalone") : t("settings.notifyHintBlockedBrowser"); }
 
   async function updateNotifyBtnState(){
     if(!notifyBtn) return;
@@ -1768,20 +1794,20 @@ if(backBtn){
         const perm = await window.Capacitor.Plugins.PushNotifications.checkPermissions();
         if(perm.receive === "denied"){
           notifyBtn.textContent = "🔕";
-          notifyBtn.title = "通知已被系統封鎖，點一下看怎麼打開";
+          notifyBtn.title = t("settings.notifyTitleSystemBlocked");
           notifyBtn.classList.remove("active");
-          if(notifyHint) notifyHint.textContent = NOTIFY_HINT_BLOCKED;
+          if(notifyHint) notifyHint.textContent = getNotifyHintBlocked();
           return;
         }
-        if(notifyHint) notifyHint.textContent = NOTIFY_HINT_DEFAULT;
+        if(notifyHint) notifyHint.textContent = getNotifyHintDefault();
         if(perm.receive === "granted"){
           notifyBtn.textContent = "🔔";
-          notifyBtn.title = "通知已開啟";
+          notifyBtn.title = t("settings.notifyTitleOn");
           notifyBtn.classList.add("active");
           return;
         }
         notifyBtn.textContent = "🔔";
-        notifyBtn.title = "點擊開啟通知";
+        notifyBtn.title = t("settings.notifyTitleClickToEnable");
         notifyBtn.classList.remove("active");
         return;
       }catch(err){
@@ -1792,24 +1818,24 @@ if(backBtn){
     // Web Fallback
     if(typeof Notification !== "undefined" && Notification.permission === "denied"){
       notifyBtn.textContent = "🔕";
-      notifyBtn.title = "通知已被瀏覽器封鎖，點一下看怎麼打開";
+      notifyBtn.title = t("settings.notifyTitleBrowserBlocked");
       notifyBtn.classList.remove("active");
-      if(notifyHint) notifyHint.textContent = NOTIFY_HINT_BLOCKED;
+      if(notifyHint) notifyHint.textContent = getNotifyHintBlocked();
       return;
     }
-    if(notifyHint) notifyHint.textContent = NOTIFY_HINT_DEFAULT;
+    if(notifyHint) notifyHint.textContent = getNotifyHintDefault();
     if(typeof Notification !== "undefined" && Notification.permission === "granted"){
       const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
       const sub = reg ? await reg.pushManager.getSubscription() : null;
       if(sub){
         notifyBtn.textContent = "🔔";
-        notifyBtn.title = "通知已開啟（點擊關閉）";
+        notifyBtn.title = t("settings.notifyTitleOnClickOff");
         notifyBtn.classList.add("active");
         return;
       }
     }
     notifyBtn.textContent = "🔔";
-    notifyBtn.title = "點擊開啟通知";
+    notifyBtn.title = t("settings.notifyTitleClickToEnable");
     notifyBtn.classList.remove("active");
   }
 
@@ -1821,7 +1847,7 @@ if(backBtn){
       try{
         let permStatus = await window.Capacitor.Plugins.PushNotifications.checkPermissions();
         if(permStatus.receive === "denied"){
-          await sbAlert(NOTIFY_HINT_BLOCKED, "🔔 瀏覽器通知設定");
+          await sbAlert(getNotifyHintBlocked(), t("settings.notifyBlockedTitle"));
           return;
         }
         if(permStatus.receive !== "granted"){
@@ -1879,7 +1905,7 @@ if(backBtn){
       if(error){
         console.error("推播訂閱寫入失敗：", error);
         await sub.unsubscribe();
-        await sbAlert("開啟通知失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
+        await sbAlert(t("settings.msg.enableNotifyFailed"), t("settings.errorTitle"));
       }
     }catch(e){
       console.error("推播訂閱失敗：", e);
@@ -1895,7 +1921,7 @@ if(backBtn){
       return;
     }
 
-    if(Notification.permission === "denied"){ await sbAlert(NOTIFY_HINT_BLOCKED, "🔔 瀏覽器通知設定"); return; }
+    if(Notification.permission === "denied"){ await sbAlert(getNotifyHintBlocked(), t("settings.notifyBlockedTitle")); return; }
     if(Notification.permission === "granted"){
       const reg = await navigator.serviceWorker.getRegistration();
       const sub = reg ? await reg.pushManager.getSubscription() : null;
@@ -1972,17 +1998,6 @@ if(backBtn){
         whoamiAvatarEl.innerHTML = renderAvatarHTML(myMember, "avatar-md whoami-avatar");
       }
 
-      if(typeof renderDesktopSidebar === "function"){
-        renderDesktopSidebar("desktopSidebarContainer", "SETTINGS", null, shownCurrencies, async (newOrder)=>{
-          shownCurrencies = newOrder;
-          localStorage.setItem("splitbill-shown-currencies", JSON.stringify(newOrder));
-          if(myMember && myMember.id){
-            const { error } = await sb.from("members").update({ shown_currencies: newOrder }).eq("id", myMember.id);
-            if(error) console.error("儲存幣別順序失敗：", error);
-          }
-          renderNavLinks();
-        });
-      }
       if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
       if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
 
@@ -2024,7 +2039,7 @@ if(backBtn){
 
       const emailStatusHint = document.getElementById("emailStatusHint");
       if(emailStatusHint){
-        emailStatusHint.textContent = currentEmail ? `目前信箱：${currentEmail}` : "目前無信箱資料";
+        emailStatusHint.textContent = currentEmail ? t("settings.currentEmailLabel", { email: currentEmail }) : t("settings.noEmailOnFile");
       }
 
       renderSettingsCurrencyList();
@@ -2049,7 +2064,7 @@ if(backBtn){
             const { data } = await sb.auth.getUser();
             const u = data && data.user;
             if(u && u.new_email && u.new_email !== u.email){
-              emailStatusHint.textContent = `⏳ 待確認新信箱：${u.new_email}（請去信箱點擊確認連結才會生效，不然會一直卡在這裡）`;
+              emailStatusHint.textContent = t("settings.pendingNewEmail", { email: u.new_email });
             }
           }
         })()

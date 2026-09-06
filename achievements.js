@@ -39,10 +39,10 @@
           ? unlockedHolders.map(m => `
               <span class="achievement-holder-chip">
                 ${renderAvatarHTML(m, "avatar-xs")}
-                <span>${escapeHtml(m.name || "成員")}</span>
+                <span>${escapeHtml(m.name || t("common.memberFallback"))}</span>
               </span>
             `).join("")
-          : `<span class="achievement-desc" style="color:var(--ink-soft);font-style:italic;">🔒 尚未有人解鎖，加油！</span>`;
+          : `<span class="achievement-desc" style="color:var(--ink-soft);font-style:italic;">${t("achievements.noneUnlockedYet")}</span>`;
 
         return `
           <div class="achievement-card ${isUnlocked ? 'unlocked' : ''}">

@@ -23,10 +23,11 @@
 <meta name="theme-color" content="#7A6B9E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=752">
-<link rel="stylesheet" href="shared.css?v=752">
-<script src="version.js?v=752"></script>
-<script src="theme.js?v=752" defer></script>
+<link rel="stylesheet" href="theme.css?v=798">
+<link rel="stylesheet" href="shared.css?v=798">
+<script src="i18n.js?v=798"></script>
+<script src="version.js?v=798"></script>
+<script src="theme.js?v=798" defer></script>
 <script src="app-banner.js" defer></script>
 </head>
 <body>
@@ -39,6 +40,18 @@
   </defs>
 </svg>
 <div class="wrap">
+  <div class="lang-switcher" id="langSwitcher">
+    <button type="button" class="lang-switch-toggle" id="langSwitchToggle" aria-haspopup="true" aria-expanded="false">
+      <span id="langSwitchCurrentLabel">中</span>
+      <span class="lang-switch-caret">▾</span>
+    </button>
+    <div class="lang-switch-menu hidden" id="langSwitchMenu">
+      <button type="button" class="lang-switch-option" data-lang="zh-Hant">繁體中文</button>
+      <button type="button" class="lang-switch-option" data-lang="ja">日本語</button>
+      <button type="button" class="lang-switch-option" data-lang="en">English</button>
+    </div>
+  </div>
+
   <div class="app-header">
     <div class="eyebrow">SPLIT BILL</div>
     <div class="title-row">
@@ -47,64 +60,64 @@
         <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
         <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
       </svg>
-      <h1>服務條款</h1>
+      <h1 data-i18n="terms.title">服務條款</h1>
     </div>
   </div>
 
   <div class="card legal-card">
-    <div class="legal-updated">最後更新：2026 年 9 月 6 日</div>
+    <div class="legal-updated" data-i18n="terms.lastUpdated">最後更新：2026 年 9 月 6 日</div>
 
-    <p>Splitbill（帳務系統）是一套免費、非營利性質之個人分帳與記帳工具，提供 Web 網頁版、PWA 與 Android 原生應用程式，專為朋友、出國旅伴、室友或合租小群體記錄共同開銷與試算清帳路徑使用。使用本服務前，請詳閱下列條款。</p>
+    <p data-i18n="terms.intro">Splitbill（帳務系統）是一套免費、非營利性質之個人分帳與記帳工具，提供 Web 網頁版、PWA 與 Android 原生應用程式，專為朋友、出國旅伴、室友或合租小群體記錄共同開銷與試算清帳路徑使用。使用本服務前，請詳閱下列條款。</p>
 
-    <h3>服務內容與範圍</h3>
-    <p>Splitbill 僅提供「帳目紀錄」、「多幣別匯率折算」與「雙向沖銷結算演算法」之記帳試算服務——由使用者自行輸入支出與還款金額，系統協助推算各成員之淨餘額與建議還款路徑。<b>Splitbill 本身不提供亦不涉及任何實際金流移轉或電子支付交易</b>，所有實體款項結清均由群組成員私下以現金或第三方轉帳完成，Splitbill 不介入亦不承擔任何金流責任。</p>
+    <h3 data-i18n="terms.scopeTitle">服務內容與範圍</h3>
+    <p data-i18n-html="terms.scopeText">Splitbill 僅提供「帳目紀錄」、「多幣別匯率折算」與「雙向沖銷結算演算法」之記帳試算服務——由使用者自行輸入支出與還款金額，系統協助推算各成員之淨餘額與建議還款路徑。<b>Splitbill 本身不提供亦不涉及任何實際金流移轉或電子支付交易</b>，所有實體款項結清均由群組成員私下以現金或第三方轉帳完成，Splitbill 不介入亦不承擔任何金流責任。</p>
 
-    <h3>AI 輔助拍照拆單聲明</h3>
-    <p>「📷 AI 照片自動拆單」功能運用光學文字辨識與多模態 AI 視覺模型進行收據發票分析，<b>僅供快速輸入輔助之用</b>。因拍攝角度、光源明暗、收據折損、字體印刷或各國特殊格式差異，辨識結果可能存在誤差。使用者於點菜認領確認及儲存支出前，<b>務必親自核對品項名稱、單價、數量與稅費</b>，Splitbill 不對 AI 自動辨識之絕對正確性作任何保證。</p>
+    <h3 data-i18n="terms.aiTitle">AI 輔助拍照拆單聲明</h3>
+    <p data-i18n-html="terms.aiText">「📷 AI 照片自動拆單」功能運用光學文字辨識與多模態 AI 視覺模型進行收據發票分析，<b>僅供快速輸入輔助之用</b>。因拍攝角度、光源明暗、收據折損、字體印刷或各國特殊格式差異，辨識結果可能存在誤差。使用者於點菜認領確認及儲存支出前，<b>務必親自核對品項名稱、單價、數量與稅費</b>，Splitbill 不對 AI 自動辨識之絕對正確性作任何保證。</p>
 
-    <h3>帳號與群組安全</h3>
+    <h3 data-i18n="terms.accountSecurityTitle">帳號與群組安全</h3>
     <ul>
-      <li>使用者需註冊帳號（或透過 Google／Discord 登入）並加入/建立群組以使用記帳功能。</li>
-      <li>群組邀請碼僅應分享予彼此信任之成員——獲授權加入群組之成員均可檢視該群組所有支出與還款紀錄。</li>
-      <li>同一帳號可同時加入多個群組並隨時切換，各群組之帳務資料彼此獨立、互不揭露。</li>
-      <li>使用者有責任妥善保管個人密碼及登入驗證憑證安全。</li>
-      <li>請設定可供群組夥伴清楚識別之顯示名稱與頭像，以利成員對帳。</li>
+      <li data-i18n="terms.accountSecurity.register">使用者需註冊帳號（或透過 Google／Discord 登入）並加入/建立群組以使用記帳功能。</li>
+      <li data-i18n="terms.accountSecurity.invite">群組邀請碼僅應分享予彼此信任之成員——獲授權加入群組之成員均可檢視該群組所有支出與還款紀錄。</li>
+      <li data-i18n="terms.accountSecurity.multiGroup">同一帳號可同時加入多個群組並隨時切換，各群組之帳務資料彼此獨立、互不揭露。</li>
+      <li data-i18n="terms.accountSecurity.password">使用者有責任妥善保管個人密碼及登入驗證憑證安全。</li>
+      <li data-i18n="terms.accountSecurity.displayName">請設定可供群組夥伴清楚識別之顯示名稱與頭像，以利成員對帳。</li>
     </ul>
 
-    <h3>資安防護措施</h3>
-    <p>Splitbill 在資料庫層級採用 Row Level Security（列級安全性規則）強制隔離每個群組的帳務資料，僅該群組經授權之成員能存取；收款帳戶等敏感資訊另以 Supabase Vault 加密儲存，資料庫本身不會留存明碼；AI 拍照拆單所需之金鑰只存放於後端伺服器環境變數，全程不會傳送到使用者瀏覽器。開發者會持續留意並修補已知資安弱點，但<b>任何系統均無法保證絕對零風險</b>，使用者仍應自行妥善保管帳號密碼與登入裝置，若發現任何疑似資安異常，歡迎立即來信告知。</p>
+    <h3 data-i18n="terms.securityTitle">資安防護措施</h3>
+    <p data-i18n-html="terms.securityText">Splitbill 在資料庫層級採用 Row Level Security（列級安全性規則）強制隔離每個群組的帳務資料，僅該群組經授權之成員能存取；收款帳戶等敏感資訊另以 Supabase Vault 加密儲存，資料庫本身不會留存明碼；AI 拍照拆單所需之金鑰只存放於後端伺服器環境變數，全程不會傳送到使用者瀏覽器。開發者會持續留意並修補已知資安弱點，但<b>任何系統均無法保證絕對零風險</b>，使用者仍應自行妥善保管帳號密碼與登入裝置，若發現任何疑似資安異常，歡迎立即來信告知。</p>
 
-    <h3>資料正確性與責任歸屬</h3>
-    <p>所有支出、加成費用、多幣別匯率與還款紀錄均由使用者自主輸入或確認，Splitbill 無法亦不負責驗證帳目真實性。若有帳目登載錯誤，請自行於系統內編輯或與群組成員協調；因記帳錯誤或成員間產生之債權糾紛，Splitbill 開發者不負任何民事或賠償責任。</p>
+    <h3 data-i18n="terms.dataAccuracyTitle">資料正確性與責任歸屬</h3>
+    <p data-i18n="terms.dataAccuracyText">所有支出、加成費用、多幣別匯率與還款紀錄均由使用者自主輸入或確認，Splitbill 無法亦不負責驗證帳目真實性。若有帳目登載錯誤，請自行於系統內編輯或與群組成員協調；因記帳錯誤或成員間產生之債權糾紛，Splitbill 開發者不負任何民事或賠償責任。</p>
 
-    <h3>服務性質與限制</h3>
+    <h3 data-i18n="terms.natureTitle">服務性質與限制</h3>
     <ul>
-      <li>本專案為業餘維護之免費工具，非商業營運，不保證 100% 服務不中斷或完全無錯誤。</li>
-      <li>系統可能因伺服器維護、架構升級或其他不可抗力因素進行臨時調整或暫停。</li>
-      <li>本服務依「現況」提供，不包含任何明示或暗示之擔保。</li>
+      <li data-i18n="terms.nature.freeTool">本專案為業餘維護之免費工具，非商業營運，不保證 100% 服務不中斷或完全無錯誤。</li>
+      <li data-i18n="terms.nature.maintenance">系統可能因伺服器維護、架構升級或其他不可抗力因素進行臨時調整或暫停。</li>
+      <li data-i18n="terms.nature.asIs">本服務依「現況」提供，不包含任何明示或暗示之擔保。</li>
     </ul>
 
-    <h3>禁止濫用行為</h3>
+    <h3 data-i18n="terms.abuseTitle">禁止濫用行為</h3>
     <ul>
-      <li>嚴禁利用本服務進行任何違法洗錢、詐欺或侵害他人權益之行為。</li>
-      <li>嚴禁任何試圖入侵、逆向工程、干擾伺服器運作或未授權存取他人群組資料之行為。</li>
-      <li>群組留言板請維持友善理性交流，管理端保留移除違規內容之權利。</li>
+      <li data-i18n="terms.abuse.illegal">嚴禁利用本服務進行任何違法洗錢、詐欺或侵害他人權益之行為。</li>
+      <li data-i18n="terms.abuse.hacking">嚴禁任何試圖入侵、逆向工程、干擾伺服器運作或未授權存取他人群組資料之行為。</li>
+      <li data-i18n="terms.abuse.chatBoard">群組留言板請維持友善理性交流，管理端保留移除違規內容之權利。</li>
     </ul>
 
-    <h3>帳號終止與資料清除</h3>
-    <p>使用者於結清所有群組款項後，可隨時在「設定」中自行銷毀帳號。若發現帳號存在惡意攻擊或違反本條款之情事，開發者保留隨時終止其使用權限之權利。</p>
+    <h3 data-i18n="terms.terminationTitle">帳號終止與資料清除</h3>
+    <p data-i18n="terms.terminationText">使用者於結清所有群組款項後，可隨時在「設定」中自行銷毀帳號。若發現帳號存在惡意攻擊或違反本條款之情事，開發者保留隨時終止其使用權限之權利。</p>
 
-    <h3>責任限制</h3>
-    <p>在適用法律允許的最大範圍內，開發者對於因使用（或無法使用）本服務所致之任何直接、間接或衍生性損失（包含資料遺失、金額計算爭議或成員間債務糾紛），概不負任何賠償責任。</p>
+    <h3 data-i18n="terms.liabilityTitle">責任限制</h3>
+    <p data-i18n="terms.liabilityText">在適用法律允許的最大範圍內，開發者對於因使用（或無法使用）本服務所致之任何直接、間接或衍生性損失（包含資料遺失、金額計算爭議或成員間債務糾紛），概不負任何賠償責任。</p>
 
-    <h3>條款修訂</h3>
-    <p>條款若有修訂，將同步更新頁首之最後修訂日期；繼續使用本服務即視為同意最新條款內容。</p>
+    <h3 data-i18n="terms.revisionTitle">條款修訂</h3>
+    <p data-i18n="terms.revisionText">條款若有修訂，將同步更新頁首之最後修訂日期；繼續使用本服務即視為同意最新條款內容。</p>
 
-    <h3>聯絡方式</h3>
-    <p>如對本服務條款有任何疑問，歡迎來信至：<a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a>。</p>
+    <h3 data-i18n="terms.contactTitle">聯絡方式</h3>
+    <p data-i18n-html="terms.contactText">如對本服務條款有任何疑問，歡迎來信至：<a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a>。</p>
   </div>
 
-  <a class="btn secondary" href="index.html">← 回到登入頁</a>
+  <a class="btn secondary" href="index.html" data-i18n="common.backToLogin">← 回到登入頁</a>
 
   <div class="app-footer" id="appFooter"></div>
 </div>

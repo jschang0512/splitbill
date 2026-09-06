@@ -59,7 +59,7 @@ async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayNa
   }
 
   const sel = document.createElement("select");
-  sel.title = "切換群組";
+  sel.title = t("shared.switchGroupTitle");
   groups.forEach(g=>{
     const opt = document.createElement("option");
     opt.value = g.group_id;
@@ -83,7 +83,7 @@ async function renderWhoamiGroupSwitcher(sb, currentUser, myMember, getDisplayNa
     enhanceSelect(sel);
     const { error } = await sb.rpc("switch_active_group", { p_group_id: targetId });
     if(error){
-      if(typeof sbAlert === "function") await sbAlert("切換失敗：" + error.message, "🔔 Splitbill 錯誤");
+      if(typeof sbAlert === "function") await sbAlert(t("shared.switchGroupFailed", {error: error.message}), t("settings.errorTitle"));
       sel.disabled = false;
       sel.value = prevValue;
       enhanceSelect(sel);
@@ -405,9 +405,9 @@ async function showMemberProfileModal(memberId){
   if(balanceEl && typeof window.computeMemberNetBalanceTWD === "function"){
     const netTWD = window.computeMemberNetBalanceTWD(memberId, expenses, repayments);
     const cls = netTWD > 0.5 ? "pos" : netTWD < -0.5 ? "neg" : "zero";
-    const label = netTWD > 0.5 ? `該收 NT$${Math.round(netTWD).toLocaleString()}`
-      : netTWD < -0.5 ? `該付 NT$${Math.round(Math.abs(netTWD)).toLocaleString()}`
-      : "已結清 🎉";
+    const label = netTWD > 0.5 ? t("shared.owedAmountTWD", {amount: "NT$" + Math.round(netTWD).toLocaleString()})
+      : netTWD < -0.5 ? t("shared.oweAmountTWD", {amount: "NT$" + Math.round(Math.abs(netTWD)).toLocaleString()})
+      : t("summary.settledCheer");
     balanceEl.textContent = label;
     balanceEl.className = "member-profile-balance " + cls;
   }
@@ -432,14 +432,14 @@ async function showMemberProfileModal(memberId){
         // 兩個方向同時有欠款時不自動互相沖銷合併，各自誠實列一行。
         if(owesYou > 0.5){
           const amtText = window.formatAmt ? window.formatAmt(owesYou) : Math.round(owesYou);
-          rows.push(`<div class="member-profile-relation-row pos"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>他欠你 ${sym}${amtText}</div>`);
+          rows.push(`<div class="member-profile-relation-row pos"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>${t("shared.owesYouSuffix", {amount: sym+amtText})}</div>`);
         }
         if(youOwe > 0.5){
           const amtText = window.formatAmt ? window.formatAmt(youOwe) : Math.round(youOwe);
-          rows.push(`<div class="member-profile-relation-row neg"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>你欠他 ${sym}${amtText}</div>`);
+          rows.push(`<div class="member-profile-relation-row neg"><span class="member-profile-relation-currency-tag">${escapeHtml(curLabel)}</span>${t("shared.youOweSuffix", {amount: sym+amtText})}</div>`);
         }
       });
-      relationEl.innerHTML = rows.length ? rows.join("") : `<div class="member-profile-relation-row zero">目前沒有互相欠款</div>`;
+      relationEl.innerHTML = rows.length ? rows.join("") : `<div class="member-profile-relation-row zero">${t("shared.noMutualDebt")}</div>`;
       relationEl.classList.remove("hidden");
     } else {
       relationEl.classList.add("hidden");
@@ -464,11 +464,11 @@ async function showMemberProfileModal(memberId){
       }
     } catch(e){ console.error("讀取收款帳戶異常：", e); }
     if(accounts.length){
-      paymentInfoEl.innerHTML = `<span class="member-profile-payment-label">💳 收款帳戶</span>` +
+      paymentInfoEl.innerHTML = `<span class="member-profile-payment-label">${t("shared.paymentAccountsLabel")}</span>` +
         accounts.map((acc, idx) => {
           const label = window.formatBankLabel ? window.formatBankLabel(acc.bankCode, acc.bankName) : (acc.bankName || "");
           const valueText = acc.account ? `${label} ${acc.account}` : label;
-          const copyBtn = acc.account ? `<button type="button" class="member-profile-payment-copy" data-account="${escapeHtml(acc.account)}" title="複製帳號">📋</button>` : "";
+          const copyBtn = acc.account ? `<button type="button" class="member-profile-payment-copy" data-account="${escapeHtml(acc.account)}" title="${t("shared.copyAccountTitle")}">📋</button>` : "";
           return `
           <div class="member-profile-payment-row">
             <span class="member-profile-payment-index">${idx + 1}</span>
@@ -499,7 +499,7 @@ async function showMemberProfileModal(memberId){
     const badges = window.getMemberBadges ? window.getMemberBadges(memberId, expenses, repayments, memberRows) : [];
     badgesEl.innerHTML = badges.length > 0
       ? badges.map(b => `<span class="sb-afc-badge-chip" title="${escapeHtml(b.desc)}">${b.icon} ${escapeHtml(b.name)}</span>`).join("")
-      : `<span class="filter-hint">尚未解鎖任何成就</span>`;
+      : `<span class="filter-hint">${t("shared.noBadgesUnlocked")}</span>`;
   }
 
   modal.classList.remove("hidden");
@@ -546,72 +546,6 @@ window.showMemberProfileModal = showMemberProfileModal;
 // ============================================================
 // 🔔 站內通知夾：取代原本要靠瀏覽器/系統推播權限才會動的通知機制。
 // ============================================================
-// 頂欄「更多」彈出選單：summary.html/currency.html 原本 topbar-actions
-// 一次塞通知／成就榜／設定／登出四顆圖示，加上頭像/名字/群組切換那排，
-// 使用者反映頂部整體看起來太厚重。改成把這四顆收進一個彈出選單，
-// 沿用畫面右上角 theme.js 建立的那顆深色/淺色模式按鈕當開關——按鈕本身
-// 不再是按一下就直接切換主題，而是打開這個選單，深色模式變成選單裡的
-// 其中一行。四顆按鈕本身的 DOM 元素／既有事件監聽都原封不動搬過來，
-// 不重新實作一份，行為保證跟搬移前完全一樣。
-// ============================================================
-function initAppMenuPopover(){
-  const actionsBar = document.querySelector(".topbar-actions");
-  const themeBtn = document.querySelector(".theme-toggle");
-  if(!actionsBar || !themeBtn) return;
-
-  const popover = document.createElement("div");
-  popover.className = "app-menu-popover hidden";
-  popover.id = "appMenuPopover";
-
-  const themeRow = document.createElement("button");
-  themeRow.type = "button";
-  themeRow.className = "app-menu-row app-menu-theme-row";
-  function syncThemeRowLabel(){
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-    themeRow.innerHTML = `<span class="app-menu-row-icon">${isDark ? "☀️" : "🌙"}</span><span class="app-menu-row-label">${isDark ? "切換淺色模式" : "切換深色模式"}</span>`;
-  }
-  syncThemeRowLabel();
-  themeRow.addEventListener("click", ()=>{
-    if(typeof window.splitbillToggleTheme === "function") window.splitbillToggleTheme();
-    syncThemeRowLabel();
-  });
-  window.addEventListener("splitbill-theme-change", syncThemeRowLabel);
-  popover.appendChild(themeRow);
-
-  // 把既有的通知鈴鐺容器／成就榜／設定／登出按鈕直接搬過來（原本各自的
-  // id、事件監聽都還在，只是換了父層），每個外面包一層 .app-menu-row
-  // 統一成選單列的排版，圖示旁邊視需要補一個文字說明。
-  function relocate(el, label){
-    if(!el) return;
-    const row = document.createElement("div");
-    row.className = "app-menu-row";
-    row.appendChild(el);
-    if(label){
-      const span = document.createElement("span");
-      span.className = "app-menu-row-label";
-      span.textContent = label;
-      row.appendChild(span);
-    }
-    popover.appendChild(row);
-  }
-  relocate(document.getElementById("notificationBellContainer"), "通知");
-  relocate(document.getElementById("openAchievementsModalBtn"), "成就榜");
-  relocate(document.getElementById("settingsBtn"), "設定");
-  relocate(document.getElementById("logoutBtn"), null);
-
-  actionsBar.remove();
-  document.body.appendChild(popover);
-
-  window.splitbillOpenThemeMenu = function(){
-    popover.classList.toggle("hidden");
-  };
-  document.addEventListener("click", (e)=>{
-    if(popover.classList.contains("hidden")) return;
-    if(popover.contains(e.target) || themeBtn.contains(e.target)) return;
-    popover.classList.add("hidden");
-  });
-}
-
 // Capacitor（原生 App）用 Google Firebase、網頁版用 Supabase 各自
 // 要另外處理推播權限，使用者常常沒開，通知等於白做——改成新增支出/
 // 還款、催款提醒都直接寫進 notifications 這張表，不管有沒有開任何
@@ -625,13 +559,13 @@ async function initNotificationBell(sb, myMember){
 
   container.innerHTML = `
     <div class="notif-bell-wrap" id="notifBellWrap">
-      <button type="button" class="icon-btn notif-bell-btn" id="notifBellBtn" title="通知" aria-label="通知">
+      <button type="button" class="icon-btn notif-bell-btn" id="notifBellBtn" title="${t("shared.notifLabel")}" aria-label="${t("shared.notifLabel")}">
         🔔<span class="notif-badge hidden" id="notifBadge">0</span>
       </button>
       <div class="notif-panel hidden" id="notifPanel">
         <div class="notif-panel-head">
-          <span>通知</span>
-          <button type="button" class="link-btn" id="notifMarkAllReadBtn">全部標為已讀</button>
+          <span>${t("shared.notifLabel")}</span>
+          <button type="button" class="link-btn" id="notifMarkAllReadBtn">${t("shared.markAllRead")}</button>
         </div>
         <div class="notif-panel-list" id="notifPanelList"></div>
       </div>
@@ -647,13 +581,15 @@ async function initNotificationBell(sb, myMember){
   function notifTimeAgo(iso){
     const diffMs = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diffMs / 60000);
-    if(mins < 1) return "剛剛";
-    if(mins < 60) return mins + " 分鐘前";
+    if(mins < 1) return t("shared.justNow");
+    if(mins < 60) return t("shared.minutesAgo", {mins});
     const hrs = Math.floor(mins / 60);
-    if(hrs < 24) return hrs + " 小時前";
+    if(hrs < 24) return t("shared.hoursAgo", {hrs});
     const days = Math.floor(hrs / 24);
-    if(days < 7) return days + " 天前";
-    return new Date(iso).toLocaleDateString("zh-TW");
+    if(days < 7) return t("shared.daysAgo", {days});
+    const lang = (typeof getLang === "function") ? getLang() : "zh-Hant";
+    const locale = lang === "ja" ? "ja-JP" : lang === "en" ? "en-US" : "zh-TW";
+    return new Date(iso).toLocaleDateString(locale);
   }
 
   async function refreshBadge(){
@@ -677,7 +613,7 @@ async function initNotificationBell(sb, myMember){
   }
 
   async function loadList(){
-    listEl.innerHTML = `<p class="filter-hint">載入中…</p>`;
+    listEl.innerHTML = `<p class="filter-hint">${t("common.loading")}</p>`;
     const { data, error } = await sb
       .from("notifications")
       .select("id,type,title,body,is_read,created_at")
@@ -686,11 +622,11 @@ async function initNotificationBell(sb, myMember){
       .limit(30);
     if(error){
       console.error("讀取通知清單失敗：", error);
-      listEl.innerHTML = `<p class="filter-hint">通知載入失敗，請稍後再試</p>`;
+      listEl.innerHTML = `<p class="filter-hint">${t("shared.notifLoadFailed")}</p>`;
       return;
     }
     if(!data || !data.length){
-      listEl.innerHTML = `<p class="filter-hint">目前沒有任何通知</p>`;
+      listEl.innerHTML = `<p class="filter-hint">${t("shared.noNotifications")}</p>`;
       return;
     }
     listEl.innerHTML = data.map(n => `
@@ -700,7 +636,7 @@ async function initNotificationBell(sb, myMember){
           <div class="notif-item-body">${escapeHtml(n.body)}</div>
           <div class="notif-item-time">${notifTimeAgo(n.created_at)}</div>
         </div>
-        <button type="button" class="notif-item-del" data-id="${n.id}" title="刪除這則通知" aria-label="刪除">✕</button>
+        <button type="button" class="notif-item-del" data-id="${n.id}" title="${t("shared.deleteNotifTitle")}" aria-label="${t("settings.delete")}">✕</button>
       </div>
     `).join("");
     listEl.querySelectorAll(".notif-item-main").forEach(el=>{
@@ -722,7 +658,7 @@ async function initNotificationBell(sb, myMember){
         await sb.from("notifications").delete().eq("id", btn.dataset.id);
         if(wasUnread) refreshBadge();
         if(!listEl.querySelector(".notif-item")){
-          listEl.innerHTML = `<p class="filter-hint">目前沒有任何通知</p>`;
+          listEl.innerHTML = `<p class="filter-hint">${t("shared.noNotifications")}</p>`;
         }
       });
     });

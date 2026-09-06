@@ -23,10 +23,11 @@
 <meta name="theme-color" content="#7A6B9E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=752">
-<link rel="stylesheet" href="shared.css?v=752">
-<script src="version.js?v=752"></script>
-<script src="theme.js?v=752" defer></script>
+<link rel="stylesheet" href="theme.css?v=798">
+<link rel="stylesheet" href="shared.css?v=798">
+<script src="i18n.js?v=798"></script>
+<script src="version.js?v=798"></script>
+<script src="theme.js?v=798" defer></script>
 <script src="app-banner.js" defer></script>
 </head>
 <body>
@@ -39,6 +40,18 @@
   </defs>
 </svg>
 <div class="wrap">
+  <div class="lang-switcher" id="langSwitcher">
+    <button type="button" class="lang-switch-toggle" id="langSwitchToggle" aria-haspopup="true" aria-expanded="false">
+      <span id="langSwitchCurrentLabel">中</span>
+      <span class="lang-switch-caret">▾</span>
+    </button>
+    <div class="lang-switch-menu hidden" id="langSwitchMenu">
+      <button type="button" class="lang-switch-option" data-lang="zh-Hant">繁體中文</button>
+      <button type="button" class="lang-switch-option" data-lang="ja">日本語</button>
+      <button type="button" class="lang-switch-option" data-lang="en">English</button>
+    </div>
+  </div>
+
   <div class="app-header">
     <div class="eyebrow">SPLIT BILL</div>
     <div class="title-row">
@@ -47,86 +60,86 @@
         <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
         <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
       </svg>
-      <h1>隱私權政策</h1>
+      <h1 data-i18n="privacy.title">隱私權政策</h1>
     </div>
   </div>
 
   <div class="card legal-card">
-    <div class="legal-updated">最後更新：2026 年 9 月 6 日</div>
+    <div class="legal-updated" data-i18n="privacy.lastUpdated">最後更新：2026 年 9 月 6 日</div>
 
-    <p>Splitbill（帳務系統）是一套專為朋友、旅遊夥伴或小群體記帳、分攤共同開銷所設計之工具。本文件詳細說明在使用本服務（包含 Web 網頁版、PWA 與 Android App 原生應用程式）時，我們如何收集、使用、保護及共享相關資料。</p>
+    <p data-i18n="privacy.intro">Splitbill（帳務系統）是一套專為朋友、旅遊夥伴或小群體記帳、分攤共同開銷所設計之工具。本文件詳細說明在使用本服務（包含 Web 網頁版、PWA 與 Android App 原生應用程式）時，我們如何收集、使用、保護及共享相關資料。</p>
 
-    <h3>我們會收集的資料</h3>
+    <h3 data-i18n="privacy.dataCollectedTitle">我們會收集的資料</h3>
     <ul>
-      <li><b>帳號與個人檔案：</b>顯示名稱、個人大頭貼圖片、電子信箱（選填）、密碼（由 Supabase 加密儲存，無明文存取），或透過 Google／Discord 快速登入時取得之帳號識別碼、信箱與顯示名稱。</li>
-      <li><b>記帳與分攤紀錄：</b>群組內新增之支出項目、金額、幣別、消費日期、代付人與分攤成員名單，以及還款與結清紀錄。</li>
-      <li><b>發票與收據影像（選用）：</b>當你使用「📷 AI 照片自動拆單」功能時，當次拍攝或選取之收據發票圖片僅於記憶體中進行影像前處理與單次辨識，絕不留存、亦不任意公開或用於模型訓練。若你未自行填寫個人 AI 金鑰，圖片會先送至我方後端伺服器（Supabase Edge Function）代為轉送給 AI 服務商並取回辨識結果，金鑰全程不會暴露於你的瀏覽器。</li>
-      <li><b>收款帳戶資訊（選填）：</b>你可以在「設定」中主動填寫銀行帳號或行動支付帳戶，供其他成員知道該轉帳至何處還款。這筆資訊會加密儲存於雲端資料庫，僅顯示給你設定為「可見」之群組內的真實成員，你可以隨時修改、清除，或針對個別群組關閉顯示。</li>
-      <li><b>定位資訊（選用）：</b>開啟「總覽」頁或「快速記帳」時，若瀏覽器/裝置允許定位，系統會自動取得一次性地理座標，透過第三方地圖服務（OpenStreetMap Nominatim）反查所在國家與城市，藉此推薦適合的記帳幣別、或在您移動到不同國家時提醒您。座標本身不會回傳或保存於我方伺服器，僅將反查後的國家代碼與城市名稱存放於裝置本機（localStorage）。</li>
-      <li><b>群組留言與互動：</b>於「群組留言板」發布之內容僅限同一群組之成員可見。</li>
-      <li><b>站內通知紀錄：</b>當群組內有人新增／編輯支出或還款、或使用「提醒對方」催款功能時，系統會產生一筆通知紀錄（含通知類型、標題、內容文字、已讀／未讀狀態），僅提供給該筆通知對應的接收者本人查看，其他成員無法看見；使用者可隨時將通知標為已讀或刪除。催款提醒功能會記錄同一組債權人／債務人上一次提醒的時間，用以限制 24 小時內僅能提醒一次，避免騷擾。</li>
-      <li><b>通知推播識別碼：</b>若開啟即時推播，系統會儲存瀏覽器 Web Push 或 Android Firebase Cloud Messaging (FCM) 提供之加密 Token，僅在群組帳務異動時發送通知。</li>
-      <li><b>裝置本機偏好：</b>深色/淺色主題模式、當前幣別顯示設定等，僅儲存於使用者裝置本機（localStorage），不上傳伺服器。</li>
+      <li data-i18n-html="privacy.data.account"><b>帳號與個人檔案：</b>顯示名稱、個人大頭貼圖片、電子信箱（選填）、密碼（由 Supabase 加密儲存，無明文存取），或透過 Google／Discord 快速登入時取得之帳號識別碼、信箱與顯示名稱。</li>
+      <li data-i18n-html="privacy.data.records"><b>記帳與分攤紀錄：</b>群組內新增之支出項目、金額、幣別、消費日期、代付人與分攤成員名單，以及還款與結清紀錄。</li>
+      <li data-i18n-html="privacy.data.receiptImages"><b>發票與收據影像（選用）：</b>當你使用「📷 AI 照片自動拆單」功能時，當次拍攝或選取之收據發票圖片僅於記憶體中進行影像前處理與單次辨識，絕不留存、亦不任意公開或用於模型訓練。若你未自行填寫個人 AI 金鑰，圖片會先送至我方後端伺服器（Supabase Edge Function）代為轉送給 AI 服務商並取回辨識結果，金鑰全程不會暴露於你的瀏覽器。</li>
+      <li data-i18n-html="privacy.data.paymentAccounts"><b>收款帳戶資訊（選填）：</b>你可以在「設定」中主動填寫銀行帳號或行動支付帳戶，供其他成員知道該轉帳至何處還款。這筆資訊會加密儲存於雲端資料庫，僅顯示給你設定為「可見」之群組內的真實成員，你可以隨時修改、清除，或針對個別群組關閉顯示。</li>
+      <li data-i18n-html="privacy.data.location"><b>定位資訊（選用）：</b>開啟「總覽」頁或「快速記帳」時，若瀏覽器/裝置允許定位，系統會自動取得一次性地理座標，透過第三方地圖服務（OpenStreetMap Nominatim）反查所在國家與城市，藉此推薦適合的記帳幣別、或在您移動到不同國家時提醒您。座標本身不會回傳或保存於我方伺服器，僅將反查後的國家代碼與城市名稱存放於裝置本機（localStorage）。</li>
+      <li data-i18n-html="privacy.data.groupMessages"><b>群組留言與互動：</b>於「群組留言板」發布之內容僅限同一群組之成員可見。</li>
+      <li data-i18n-html="privacy.data.notifications"><b>站內通知紀錄：</b>當群組內有人新增／編輯支出或還款、或使用「提醒對方」催款功能時，系統會產生一筆通知紀錄（含通知類型、標題、內容文字、已讀／未讀狀態），僅提供給該筆通知對應的接收者本人查看，其他成員無法看見；使用者可隨時將通知標為已讀或刪除。催款提醒功能會記錄同一組債權人／債務人上一次提醒的時間，用以限制 24 小時內僅能提醒一次，避免騷擾。</li>
+      <li data-i18n-html="privacy.data.pushTokens"><b>通知推播識別碼：</b>若開啟即時推播，系統會儲存瀏覽器 Web Push 或 Android Firebase Cloud Messaging (FCM) 提供之加密 Token，僅在群組帳務異動時發送通知。</li>
+      <li data-i18n-html="privacy.data.localPrefs"><b>裝置本機偏好：</b>深色/淺色主題模式、當前幣別顯示設定等，僅儲存於使用者裝置本機（localStorage），不上傳伺服器。</li>
     </ul>
 
-    <h3>裝置權限說明（Android 應用程式）</h3>
-    <p>我們的 Android 原生 App 僅向系統請求最基礎且必要之權限：</p>
+    <h3 data-i18n="privacy.androidPermTitle">裝置權限說明（Android 應用程式）</h3>
+    <p data-i18n="privacy.androidPermIntro">我們的 Android 原生 App 僅向系統請求最基礎且必要之權限：</p>
     <ul>
-      <li><b>相機與相片選取（CAMERA / Photo Picker）：</b>僅在主動點擊「📷 AI 拆單」或「上傳/裁切大頭貼」時請求授權，用於拍攝收據或選取頭像。</li>
-      <li><b>地理位置權限（LOCATION / GPS）：</b>開啟「總覽」頁或「快速記帳」時會自動請求一次性定位（非持續背景追蹤，也不會在您不使用本服務時定位），用於偵測所在國家/城市藉此推薦適合的記帳幣別。</li>
-      <li><b>檔案快取與原生分享（Filesystem / Share）：</b>用於將產生的對帳單與結算圖片暫存至應用程式快取並調用系統原生分享面板發送至 LINE、社群軟體。</li>
-      <li><b>網路連線（INTERNET）：</b>用於載入最新畫面及與 Supabase 雲端資料庫同步帳務。</li>
-      <li><b>通知與震動（POST_NOTIFICATIONS / VIBRATE）：</b>用於接收即時帳務更動與還款推播。</li>
-      <li><b>絕無不必要權限：</b>我們<b>絕不存取</b> 通訊錄、通話紀錄、麥克風或讀取裝置其他無關檔案。</li>
+      <li data-i18n-html="privacy.perm.camera"><b>相機與相片選取（CAMERA / Photo Picker）：</b>僅在主動點擊「📷 AI 拆單」或「上傳/裁切大頭貼」時請求授權，用於拍攝收據或選取頭像。</li>
+      <li data-i18n-html="privacy.perm.location"><b>地理位置權限（LOCATION / GPS）：</b>開啟「總覽」頁或「快速記帳」時會自動請求一次性定位（非持續背景追蹤，也不會在您不使用本服務時定位），用於偵測所在國家/城市藉此推薦適合的記帳幣別。</li>
+      <li data-i18n-html="privacy.perm.filesystem"><b>檔案快取與原生分享（Filesystem / Share）：</b>用於將產生的對帳單與結算圖片暫存至應用程式快取並調用系統原生分享面板發送至 LINE、社群軟體。</li>
+      <li data-i18n-html="privacy.perm.internet"><b>網路連線（INTERNET）：</b>用於載入最新畫面及與 Supabase 雲端資料庫同步帳務。</li>
+      <li data-i18n-html="privacy.perm.notification"><b>通知與震動（POST_NOTIFICATIONS / VIBRATE）：</b>用於接收即時帳務更動與還款推播。</li>
+      <li data-i18n-html="privacy.perm.noExtra"><b>絕無不必要權限：</b>我們<b>絕不存取</b> 通訊錄、通話紀錄、麥克風或讀取裝置其他無關檔案。</li>
     </ul>
 
-    <h3>資料使用目的</h3>
+    <h3 data-i18n="privacy.purposeTitle">資料使用目的</h3>
     <ul>
-      <li>提供帳號辨識、頭像同步、共同分帳運算與最簡還款路徑推薦。</li>
-      <li>於帳務新增、修改或還款確認時發送即時同步通知。</li>
-      <li>絕不將使用者資料用於商業廣告投放、行銷推廣或轉售予任何第三方。</li>
+      <li data-i18n="privacy.purpose.identity">提供帳號辨識、頭像同步、共同分帳運算與最簡還款路徑推薦。</li>
+      <li data-i18n="privacy.purpose.notify">於帳務新增、修改或還款確認時發送即時同步通知。</li>
+      <li data-i18n="privacy.purpose.noAds">絕不將使用者資料用於商業廣告投放、行銷推廣或轉售予任何第三方。</li>
     </ul>
 
-    <h3>資料儲存與安全防護</h3>
-    <p>所有帳務資料均儲存於 Supabase 企業級雲端資料庫，並由資料庫層級權限規則（Row Level Security, RLS）嚴格保護，確保僅具備群組授權之成員可存取該群組帳目，群組間彼此完全隔離。若同一帳號同時加入多個群組，各群組之帳務資料仍分別獨立儲存與保護，切換群組不會使不同群組間的資料互相顯示或混用。</p>
+    <h3 data-i18n="privacy.storageTitle">資料儲存與安全防護</h3>
+    <p data-i18n="privacy.storageIntro">所有帳務資料均儲存於 Supabase 企業級雲端資料庫，並由資料庫層級權限規則（Row Level Security, RLS）嚴格保護，確保僅具備群組授權之成員可存取該群組帳目，群組間彼此完全隔離。若同一帳號同時加入多個群組，各群組之帳務資料仍分別獨立儲存與保護，切換群組不會使不同群組間的資料互相顯示或混用。</p>
     <ul>
-      <li><b>密碼加密儲存：</b>登入密碼由 Supabase Auth 以業界標準演算法加密雜湊儲存，包含開發者在內任何人皆無法取得明碼密碼。</li>
-      <li><b>收款帳戶額外加密：</b>你填寫的收款帳戶資訊（銀行帳號、行動支付帳號）採用 Supabase Vault 加密儲存於獨立的加密金鑰庫，資料庫本身不會留存明碼，僅在你本人或你設定為「可見」之同群組成員合法查詢時，由後端伺服器即時解密回傳。</li>
-      <li><b>AI 金鑰不落地前端：</b>使用系統預設額度進行「AI 照片自動拆單」時，辨識金鑰只存放在後端伺服器（Supabase Edge Function）的環境變數中，全程不會傳送到你的瀏覽器，避免金鑰遭側錄或濫用。</li>
-      <li><b>持續資安檢測：</b>開發者會定期使用 Supabase 官方資安掃描工具（Security Advisor）檢視資料庫權限設定，主動修補已發現之潛在弱點。</li>
+      <li data-i18n-html="privacy.storage.password"><b>密碼加密儲存：</b>登入密碼由 Supabase Auth 以業界標準演算法加密雜湊儲存，包含開發者在內任何人皆無法取得明碼密碼。</li>
+      <li data-i18n-html="privacy.storage.paymentEncryption"><b>收款帳戶額外加密：</b>你填寫的收款帳戶資訊（銀行帳號、行動支付帳號）採用 Supabase Vault 加密儲存於獨立的加密金鑰庫，資料庫本身不會留存明碼，僅在你本人或你設定為「可見」之同群組成員合法查詢時，由後端伺服器即時解密回傳。</li>
+      <li data-i18n-html="privacy.storage.aiKey"><b>AI 金鑰不落地前端：</b>使用系統預設額度進行「AI 照片自動拆單」時，辨識金鑰只存放在後端伺服器（Supabase Edge Function）的環境變數中，全程不會傳送到你的瀏覽器，避免金鑰遭側錄或濫用。</li>
+      <li data-i18n-html="privacy.storage.securityAudit"><b>持續資安檢測：</b>開發者會定期使用 Supabase 官方資安掃描工具（Security Advisor）檢視資料庫權限設定，主動修補已發現之潛在弱點。</li>
     </ul>
-    <p>儘管我們已採取上述多層防護措施，仍必須提醒：<b>沒有任何系統能保證絕對零風險</b>，請你也一併留意自身帳號密碼與登入裝置的保管安全。若發現任何疑似資安異常或漏洞，歡迎立即來信 <a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a> 告知，我們會儘速處理。</p>
+    <p data-i18n-html="privacy.storageDisclaimer">儘管我們已採取上述多層防護措施，仍必須提醒：<b>沒有任何系統能保證絕對零風險</b>，請你也一併留意自身帳號密碼與登入裝置的保管安全。若發現任何疑似資安異常或漏洞，歡迎立即來信 <a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a> 告知，我們會儘速處理。</p>
 
-    <h3>第三方服務整合</h3>
+    <h3 data-i18n="privacy.thirdPartyTitle">第三方服務整合</h3>
     <ul>
-      <li><b>Supabase：</b>提供帳號身份驗證、雲端資料庫與後端安全授權機制。</li>
-      <li><b>Google Firebase (FCM)：</b>Android 原生背景推播服務。</li>
-      <li><b>多模態 AI 視覺模型端點（Google Gemini / OpenRouter / OpenAI 等）：</b>用於發票收據文字與結構化金額解析，實際使用哪一個服務商取決於系統或使用者所設定之金鑰類型。</li>
-      <li><b>OpenStreetMap Nominatim：</b>用於將定位座標反查為國家/城市名稱，藉此推薦記帳幣別，僅傳送座標、不含帳號或個人識別資訊。</li>
-      <li><b>Google / Discord OAuth：</b>提供便捷安全之第三方單一登入（SSO）。</li>
-      <li><b>Cloudflare Turnstile：</b>登入防護與防止惡意機器人濫用。</li>
-    </ul>
-
-    <h3>使用者權利</h3>
-    <ul>
-      <li>隨時於「設定」頁面修改顯示名稱、信箱、密碼或更新個人大頭貼。</li>
-      <li>隨時新增、修改、刪除收款帳戶資訊，並個別針對每個所屬群組開啟或關閉該資訊的顯示。</li>
-      <li>隨時自主開啟或停用推播通知功能。</li>
-      <li>退出群組：歷史共同帳務將維持完整以供其他成員對帳，但該成員將不再列入後續分攤名單。</li>
-      <li>銷毀帳號：結清全數群組款項後可隨時銷毀帳號，系統將全面撤銷登入權限。</li>
+      <li data-i18n-html="privacy.thirdParty.supabase"><b>Supabase：</b>提供帳號身份驗證、雲端資料庫與後端安全授權機制。</li>
+      <li data-i18n-html="privacy.thirdParty.firebase"><b>Google Firebase (FCM)：</b>Android 原生背景推播服務。</li>
+      <li data-i18n-html="privacy.thirdParty.aiModels"><b>多模態 AI 視覺模型端點（Google Gemini / OpenRouter / OpenAI 等）：</b>用於發票收據文字與結構化金額解析，實際使用哪一個服務商取決於系統或使用者所設定之金鑰類型。</li>
+      <li data-i18n-html="privacy.thirdParty.osm"><b>OpenStreetMap Nominatim：</b>用於將定位座標反查為國家/城市名稱，藉此推薦記帳幣別，僅傳送座標、不含帳號或個人識別資訊。</li>
+      <li data-i18n-html="privacy.thirdParty.oauth"><b>Google / Discord OAuth：</b>提供便捷安全之第三方單一登入（SSO）。</li>
+      <li data-i18n-html="privacy.thirdParty.turnstile"><b>Cloudflare Turnstile：</b>登入防護與防止惡意機器人濫用。</li>
     </ul>
 
-    <h3>資料保留與刪除</h3>
-    <p>只要帳號或群組持續存在，相關帳目即會安全保存作為對帳依據。若管理者選擇刪除群組，該群組內所有支出、還款、留言與成員資料將永久清除且無法復原。</p>
+    <h3 data-i18n="privacy.rightsTitle">使用者權利</h3>
+    <ul>
+      <li data-i18n="privacy.rights.editProfile">隨時於「設定」頁面修改顯示名稱、信箱、密碼或更新個人大頭貼。</li>
+      <li data-i18n="privacy.rights.paymentInfo">隨時新增、修改、刪除收款帳戶資訊，並個別針對每個所屬群組開啟或關閉該資訊的顯示。</li>
+      <li data-i18n="privacy.rights.pushToggle">隨時自主開啟或停用推播通知功能。</li>
+      <li data-i18n="privacy.rights.leaveGroup">退出群組：歷史共同帳務將維持完整以供其他成員對帳，但該成員將不再列入後續分攤名單。</li>
+      <li data-i18n="privacy.rights.deleteAccount">銷毀帳號：結清全數群組款項後可隨時銷毀帳號，系統將全面撤銷登入權限。</li>
+    </ul>
 
-    <h3>聯絡我們</h3>
-    <p>若對本隱私權政策有任何疑問，歡迎來信洽詢：<a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a>。</p>
+    <h3 data-i18n="privacy.retentionTitle">資料保留與刪除</h3>
+    <p data-i18n="privacy.retentionText">只要帳號或群組持續存在，相關帳目即會安全保存作為對帳依據。若管理者選擇刪除群組，該群組內所有支出、還款、留言與成員資料將永久清除且無法復原。</p>
 
-    <h3>政策異動</h3>
-    <p>本政策若有重大更新，將同步修訂上方之最後更新日期。</p>
+    <h3 data-i18n="privacy.contactTitle">聯絡我們</h3>
+    <p data-i18n-html="privacy.contactText">若對本隱私權政策有任何疑問，歡迎來信洽詢：<a href="mailto:split7bill@gmail.com">split7bill@gmail.com</a>。</p>
+
+    <h3 data-i18n="privacy.changesTitle">政策異動</h3>
+    <p data-i18n="privacy.changesText">本政策若有重大更新，將同步修訂上方之最後更新日期。</p>
   </div>
 
-  <a class="btn secondary" href="index.html">← 回到登入頁</a>
+  <a class="btn secondary" href="index.html" data-i18n="common.backToLogin">← 回到登入頁</a>
 
   <div class="app-footer" id="appFooter"></div>
 </div>

@@ -99,15 +99,16 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=752">
-<link rel="stylesheet" href="shared.css?v=752">
+<link rel="stylesheet" href="theme.css?v=798">
+<link rel="stylesheet" href="shared.css?v=798">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="currencies.js?v=752"></script>
-<script src="version.js?v=752"></script>
-<script src="shared-ui.js?v=752"></script>
-<script src="theme.js?v=752" defer></script>
-<script src="app-banner.js?v=752" defer></script>
+<script src="i18n.js?v=798"></script>
+<script src="currencies.js?v=798"></script>
+<script src="version.js?v=798"></script>
+<script src="shared-ui.js?v=798"></script>
+<script src="theme.js?v=798" defer></script>
+<script src="app-banner.js?v=798" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -167,9 +168,21 @@ if("serviceWorker" in navigator){
 </script>
 
 <div class="wrap">
+  <div class="lang-switcher" id="langSwitcher">
+    <button type="button" class="lang-switch-toggle" id="langSwitchToggle" aria-haspopup="true" aria-expanded="false">
+      <span id="langSwitchCurrentLabel">中</span>
+      <span class="lang-switch-caret">▾</span>
+    </button>
+    <div class="lang-switch-menu hidden" id="langSwitchMenu">
+      <button type="button" class="lang-switch-option" data-lang="zh-Hant">繁體中文</button>
+      <button type="button" class="lang-switch-option" data-lang="ja">日本語</button>
+      <button type="button" class="lang-switch-option" data-lang="en">English</button>
+    </div>
+  </div>
+
 
   <div id="configWarning" class="card hidden">
-    <h2>⚠️ 尚未設定 Supabase</h2>
+    <h2 data-i18n="configWarning.title">⚠️ 尚未設定 Supabase</h2>
     <p class="config-warning-text">
       打開這個檔案，把最下面 <code>&lt;script&gt;</code> 區塊裡的
       <code>SUPABASE_URL</code> 跟 <code>SUPABASE_ANON_KEY</code>
@@ -187,39 +200,39 @@ if("serviceWorker" in navigator){
           <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
           <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
         </svg>
-        <h1>帳務系統</h1>
+        <h1 data-i18n="app.title">帳務系統</h1>
       </div>
     </div>
     <div class="login-mode-switcher">
-      <button type="button" class="login-mode-switch-btn active" id="authModeSigninBtn">登入</button>
-      <button type="button" class="login-mode-switch-btn" id="authModeSignupBtn">註冊</button>
+      <button type="button" class="login-mode-switch-btn active" id="authModeSigninBtn" data-i18n="common.login">登入</button>
+      <button type="button" class="login-mode-switch-btn" id="authModeSignupBtn" data-i18n="common.signup">註冊</button>
     </div>
     <div class="login-card">
-      <div class="login-card-title">歡迎登入</div>
+      <div class="login-card-title" id="loginCardTitle" data-i18n="login.welcomeTitle">歡迎登入</div>
 
       <div id="newAuthPane">
-        <label id="authEmailLabel">帳號（使用者名稱或電子信箱）</label>
-        <input type="text" id="authEmail" placeholder="使用者名稱或 you@gmail.com">
-        <label id="authNameLabel" class="hidden">全域使用者名稱</label>
-        <input type="text" id="authName" class="hidden" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
-        <label>密碼</label>
+        <label id="authEmailLabel" data-i18n="login.accountLabel">帳號（使用者名稱或電子信箱）</label>
+        <input type="text" id="authEmail" data-i18n-placeholder="login.accountPlaceholder" placeholder="使用者名稱或 you@gmail.com">
+        <label id="authNameLabel" class="hidden" data-i18n="login.usernameLabel">全域使用者名稱</label>
+        <input type="text" id="authName" class="hidden" data-i18n-placeholder="login.usernamePlaceholder" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
+        <label data-i18n="login.passwordLabel">密碼</label>
         <div class="pw-input-wrap">
-          <input type="password" id="authPassword" placeholder="至少 6 碼">
-          <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+          <input type="password" id="authPassword" data-i18n-placeholder="login.passwordPlaceholder" placeholder="至少 6 碼">
+          <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
         </div>
-        <label id="authPasswordConfirmLabel" class="hidden">再輸入一次密碼</label>
+        <label id="authPasswordConfirmLabel" class="hidden" data-i18n="login.passwordConfirmLabel">再輸入一次密碼</label>
         <div class="pw-input-wrap">
-          <input type="password" id="authPasswordConfirm" class="hidden" placeholder="再輸入一次密碼">
-          <button type="button" class="pw-toggle-btn hidden" aria-label="顯示密碼">👁️</button>
+          <input type="password" id="authPasswordConfirm" class="hidden" data-i18n-placeholder="login.passwordConfirmPlaceholder" placeholder="再輸入一次密碼">
+          <button type="button" class="pw-toggle-btn hidden" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
         </div>
-        <button class="btn" id="authSubmitBtn">登入</button>
-        <button type="button" class="link-btn" id="authForgotPwBtn">忘記密碼？</button>
+        <button class="btn" id="authSubmitBtn" data-i18n="common.login">登入</button>
+        <button type="button" class="link-btn" id="authForgotPwBtn" data-i18n="login.forgotPassword">忘記密碼？</button>
         <div class="msg" id="authMsg"></div>
       </div>
 
-      <div class="login-divider"><span>快速登入／註冊</span></div>
+      <div class="login-divider"><span data-i18n="login.quickLoginDivider">快速登入／註冊</span></div>
       <div class="oauth-icon-row">
-        <button type="button" class="oauth-btn" id="googleLoginBtn" title="使用 Google 登入" aria-label="使用 Google 登入">
+        <button type="button" class="oauth-btn" id="googleLoginBtn" data-i18n-title="login.googleAria" title="使用 Google 登入" aria-label="使用 Google 登入">
           <svg class="oauth-svg" viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
             <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
@@ -228,7 +241,7 @@ if("serviceWorker" in navigator){
           </svg>
           <span>Google</span>
         </button>
-        <button type="button" class="oauth-btn" id="discordLoginBtn" title="使用 Discord 登入" aria-label="使用 Discord 登入">
+        <button type="button" class="oauth-btn" id="discordLoginBtn" data-i18n-title="login.discordAria" title="使用 Discord 登入" aria-label="使用 Discord 登入">
           <svg class="oauth-svg" viewBox="0 0 127.14 96.36" aria-hidden="true" fill="#5865F2">
             <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
           </svg>
@@ -242,10 +255,10 @@ if("serviceWorker" in navigator){
     <div class="login-page-footer">
       <div class="login-apk-wrap">
         <a href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk" class="login-apk-download-link" id="loginApkDownloadLink">
-          <span>🤖 下載 Android APP</span>
+          <span data-i18n="nav.downloadApk">🤖 下載 Android APP</span>
         </a>
       </div>
-      <a href="about.html">關於系統</a>　·　<a href="privacy.html">隱私權政策</a>　·　<a href="terms.html">服務條款</a>
+      <a href="about.html" data-i18n="nav.about">關於系統</a>　·　<a href="privacy.html" data-i18n="nav.privacy">隱私權政策</a>　·　<a href="terms.html" data-i18n="nav.terms">服務條款</a>
     </div>
     </div>
   </div>
@@ -260,42 +273,42 @@ if("serviceWorker" in navigator){
           <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
           <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
         </svg>
-        <h1>帳務系統</h1>
+        <h1 data-i18n="app.title">帳務系統</h1>
       </div>
     </div>
     <div class="login-card">
-      <h2>👋 選擇你的群組</h2>
-      <p class="settings-hint">你的帳號還沒有加入任何群組，選一個開始吧。這個群組的暱稱預設會用你註冊時填的姓名，之後可以在⚙️設定裡個別改。</p>
-      <p class="settings-hint">⚠️ 如果你已經有 Splitbill 帳號，卻看到這個畫面，代表這個信箱還沒連結到你原本的帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個帳號連結上去。</p>
+      <h2 data-i18n="groupChoice.title">👋 選擇你的群組</h2>
+      <p class="settings-hint" data-i18n="groupChoice.hint1">你的帳號還沒有加入任何群組，選一個開始吧。這個群組的暱稱預設會用你註冊時填的姓名，之後可以在⚙️設定裡個別改。</p>
+      <p class="settings-hint" data-i18n="groupChoice.hint2">⚠️ 如果你已經有 Splitbill 帳號，卻看到這個畫面，代表這個信箱還沒連結到你原本的帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個帳號連結上去。</p>
 
       <div id="groupChoiceUsernameWrap" class="hidden">
-        <label>全域使用者名稱</label>
-        <p class="settings-hint">這個名字剛好被別人搶走了，改一個再試一次。</p>
-        <input type="text" id="groupChoiceUsername" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
+        <label data-i18n="login.usernameLabel">全域使用者名稱</label>
+        <p class="settings-hint" data-i18n="groupChoice.usernameTakenHint">這個名字剛好被別人搶走了，改一個再試一次。</p>
+        <input type="text" id="groupChoiceUsername" data-i18n-placeholder="login.usernamePlaceholder" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
       </div>
 
       <span class="filter-type-toggle">
-        <button type="button" class="split-mode-btn active" data-group-mode="join">加入現有群組</button>
-        <button type="button" class="split-mode-btn" data-group-mode="create">建立新群組</button>
+        <button type="button" class="split-mode-btn active" data-group-mode="join" data-i18n="groupChoice.joinExisting">加入現有群組</button>
+        <button type="button" class="split-mode-btn" data-group-mode="create" data-i18n="groupChoice.createNew">建立新群組</button>
       </span>
 
       <div id="joinGroupPane">
-        <label>邀請碼</label>
-        <input type="text" id="joinInviteCode" placeholder="向該群組成員索取">
-        <button class="btn" id="joinGroupBtn">加入</button>
+        <label data-i18n="groupChoice.inviteCodeLabel">邀請碼</label>
+        <input type="text" id="joinInviteCode" data-i18n-placeholder="groupChoice.inviteCodePlaceholder" placeholder="向該群組成員索取">
+        <button class="btn" id="joinGroupBtn" data-i18n="common.join">加入</button>
         <div class="msg" id="joinGroupMsg"></div>
       </div>
 
       <div id="createGroupPane" class="hidden">
-        <label>群組名稱</label>
-        <input type="text" id="createGroupName" placeholder="例如：日本旅遊團">
-        <label>建團授權碼</label>
-        <input type="text" id="createGroupCode" placeholder="跟開發者索取">
-        <button class="btn" id="createGroupBtn">建立</button>
+        <label data-i18n="groupChoice.groupNameLabel">群組名稱</label>
+        <input type="text" id="createGroupName" data-i18n-placeholder="groupChoice.groupNamePlaceholder" placeholder="例如：日本旅遊團">
+        <label data-i18n="groupChoice.creationCodeLabel">建團授權碼</label>
+        <input type="text" id="createGroupCode" data-i18n-placeholder="groupChoice.creationCodePlaceholder" placeholder="跟開發者索取">
+        <button class="btn" id="createGroupBtn" data-i18n="common.create">建立</button>
         <div class="msg" id="createGroupMsg"></div>
       </div>
 
-      <button type="button" class="link-btn" id="groupChoiceLogoutBtn">登出</button>
+      <button type="button" class="link-btn" id="groupChoiceLogoutBtn" data-i18n="common.logout">登出</button>
     </div>
     </div>
   </div>
@@ -310,26 +323,26 @@ if("serviceWorker" in navigator){
           <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
           <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
         </svg>
-        <h1>帳務系統</h1>
+        <h1 data-i18n="app.title">帳務系統</h1>
       </div>
     </div>
     <div class="login-card">
-      <h2>👋 建立新帳號</h2>
-      <p class="settings-hint">你正在用 <b id="oauthConfirmEmail"></b> 建立一個全新的 Splitbill 帳號。</p>
-      <p class="settings-hint">⚠️ 如果你已經有 Splitbill 帳號，進入這個畫面代表你還沒連結這個 Google/Discord 帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個 Google/Discord 帳號連結上去。</p>
-      <label>全域使用者名稱</label>
-      <input type="text" id="oauthConfirmName" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
-      <label>設定一組密碼（以後也可以直接用密碼登入）</label>
+      <h2 data-i18n="oauthConfirm.title">👋 建立新帳號</h2>
+      <p class="settings-hint" id="oauthConfirmCreatingText"></p>
+      <p class="settings-hint" data-i18n="oauthConfirm.warning">⚠️ 如果你已經有 Splitbill 帳號，進入這個畫面代表你還沒連結這個 Google/Discord 帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個 Google/Discord 帳號連結上去。</p>
+      <label data-i18n="login.usernameLabel">全域使用者名稱</label>
+      <input type="text" id="oauthConfirmName" data-i18n-placeholder="login.usernamePlaceholder" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
+      <label data-i18n="oauthConfirm.setPasswordLabel">設定一組密碼（以後也可以直接用密碼登入）</label>
       <div class="pw-input-wrap">
-        <input type="password" id="oauthConfirmPassword" placeholder="至少 6 碼">
-        <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+        <input type="password" id="oauthConfirmPassword" data-i18n-placeholder="login.passwordPlaceholder" placeholder="至少 6 碼">
+        <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
       </div>
       <div class="pw-input-wrap">
-        <input type="password" id="oauthConfirmPasswordConfirm" placeholder="再輸入一次密碼">
-        <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+        <input type="password" id="oauthConfirmPasswordConfirm" data-i18n-placeholder="login.passwordConfirmPlaceholder" placeholder="再輸入一次密碼">
+        <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
       </div>
-      <button class="btn" id="oauthConfirmContinueBtn">繼續，這是我的新帳號</button>
-      <button type="button" class="link-btn" id="oauthConfirmLogoutBtn">取消註冊</button>
+      <button class="btn" id="oauthConfirmContinueBtn" data-i18n="oauthConfirm.continueBtn">繼續，這是我的新帳號</button>
+      <button type="button" class="link-btn" id="oauthConfirmLogoutBtn" data-i18n="oauthConfirm.cancelBtn">取消註冊</button>
       <div class="msg" id="oauthConfirmMsg"></div>
     </div>
     </div>
@@ -338,20 +351,20 @@ if("serviceWorker" in navigator){
   <div class="calc-modal" id="recoveryModal">
     <div class="settings-card card">
       <div class="calc-header">
-        <span class="calc-header-name">🔑 設定新密碼</span>
+        <span class="calc-header-name" data-i18n="recovery.title">🔑 設定新密碼</span>
       </div>
-      <p class="settings-hint">你點了忘記密碼寄來的連結，在這裡設定一個新密碼就完成了。</p>
-      <label>新密碼（至少 6 碼）</label>
+      <p class="settings-hint" data-i18n="recovery.hint">你點了忘記密碼寄來的連結，在這裡設定一個新密碼就完成了。</p>
+      <label data-i18n="recovery.newPasswordLabel">新密碼（至少 6 碼）</label>
       <div class="pw-input-wrap">
-        <input type="password" id="recoveryPassword" placeholder="輸入新密碼">
-        <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+        <input type="password" id="recoveryPassword" data-i18n-placeholder="recovery.newPasswordPlaceholder" placeholder="輸入新密碼">
+        <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
       </div>
-      <label>確認新密碼</label>
+      <label data-i18n="recovery.confirmLabel">確認新密碼</label>
       <div class="pw-input-wrap">
-        <input type="password" id="recoveryPasswordConfirm" placeholder="再輸入一次新密碼">
-        <button type="button" class="pw-toggle-btn" aria-label="顯示密碼">👁️</button>
+        <input type="password" id="recoveryPasswordConfirm" data-i18n-placeholder="recovery.confirmPlaceholder" placeholder="再輸入一次新密碼">
+        <button type="button" class="pw-toggle-btn" data-i18n-title="login.showPassword" aria-label="顯示密碼">👁️</button>
       </div>
-      <button class="btn secondary small" id="recoverySaveBtn">儲存新密碼</button>
+      <button class="btn secondary small" id="recoverySaveBtn" data-i18n="recovery.saveBtn">儲存新密碼</button>
       <div class="msg" id="recoveryMsg"></div>
     </div>
   </div>
@@ -428,8 +441,8 @@ function removeFlashGuard(){
   // 代表不是這幾種情況，呼叫的地方應該照原本的訊息處理。
   function friendlyAuthErr(error){
     const msg = (error && error.message) || "";
-    if(/captcha/i.test(msg)) return "安全驗證還沒完成，請稍等一下（或往下滑看看有沒有出現驗證小工具）再試一次";
-    if(/already linked|already exists/i.test(msg)) return "這個帳號已經連結到另一個 Splitbill 帳號了，要先去那邊解除連結（或銷毀那個帳號）才能連過來這裡";
+    if(/captcha/i.test(msg)) return t("msg.captchaNotReady");
+    if(/already linked|already exists/i.test(msg)) return t("msg.accountAlreadyLinked");
     return null;
   }
 
@@ -550,6 +563,18 @@ function removeFlashGuard(){
     }).observe(document.body, { childList: true, characterData: true, subtree: true });
   })();
 
+  // ---------- 語言切換 ----------
+  // 下拉選單本身開合/切換的通用邏輯已經搬進 i18n.js 的 initLangSwitcher()
+  // 了（DOMContentLoaded 時會自動呼叫一次），這裡只留這頁自己才有的
+  // 收尾：authNameLabel/authEmailLabel 等會被 setAuthMode() 動態覆蓋
+  // 文字的欄位，切換語言時要重新套用一次目前的模式，不然 data-i18n
+  // 套用完又被舊語言的動態文字蓋回去（因為那些欄位是用 JS 直接設
+  // textContent，不是純靠 data-i18n）。
+  document.addEventListener("splitbill-lang-changed", ()=>{
+    setAuthMode(authMode);
+    if(oauthConfirmLastEmail !== null) updateOauthConfirmText(oauthConfirmLastEmail);
+  });
+
   // ---------- 密碼欄位的小眼睛（顯示/隱藏密碼） ----------
   document.querySelectorAll(".pw-toggle-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -557,7 +582,7 @@ function removeFlashGuard(){
       const show = input.type === "password";
       input.type = show ? "text" : "password";
       btn.textContent = show ? "🙈" : "👁️";
-      btn.setAttribute("aria-label", show ? "隱藏密碼" : "顯示密碼");
+      btn.setAttribute("aria-label", show ? t("login.hidePassword") : t("login.showPassword"));
     });
   });
 
@@ -606,11 +631,11 @@ function removeFlashGuard(){
     if(recoverySaveBtn){
       recoverySaveBtn.addEventListener("click", async ()=>{
         const pw = recoveryPassword.value;
-        if(!pw || pw.length < 6){ recoveryMsg.textContent = "密碼至少要 6 碼"; recoveryMsg.className = "msg error"; return; }
-        if(pw !== recoveryPasswordConfirm.value){ recoveryMsg.textContent = "兩次輸入的密碼不一樣"; recoveryMsg.className = "msg error"; return; }
+        if(!pw || pw.length < 6){ recoveryMsg.textContent = t("recovery.passwordTooShort"); recoveryMsg.className = "msg error"; return; }
+        if(pw !== recoveryPasswordConfirm.value){ recoveryMsg.textContent = t("recovery.passwordMismatch"); recoveryMsg.className = "msg error"; return; }
         const { error } = await sb.auth.updateUser({ password: pw });
-        if(error){ recoveryMsg.textContent = "設定失敗：" + error.message; recoveryMsg.className = "msg error"; return; }
-        recoveryMsg.textContent = "密碼已設定！正在為你登入…"; recoveryMsg.className = "msg ok";
+        if(error){ recoveryMsg.textContent = t("recovery.saveFailed", { msg: error.message }); recoveryMsg.className = "msg error"; return; }
+        recoveryMsg.textContent = t("recovery.saveSuccess"); recoveryMsg.className = "msg ok";
         setTimeout(()=>{ location.hash = ""; location.search = ""; location.reload(); }, 1200);
       });
     }
@@ -707,7 +732,7 @@ function removeFlashGuard(){
     const { data: existing } = await sb.from("usernames").select("username").eq("user_id", currentUser.id).maybeSingle();
     if(existing && existing.username) return true;
     if(!USERNAME_FORMAT_RE.test(name || "")){
-      msgEl.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+      msgEl.textContent = t("msg.usernameFormatInvalid");
       msgEl.className = "msg error";
       if(onConflict) onConflict();
       return false;
@@ -715,12 +740,12 @@ function removeFlashGuard(){
     const { error } = await sb.from("usernames").upsert({ user_id: currentUser.id, username: name });
     if(error){
       if(error.code === "23505"){
-        msgEl.textContent = "這個名稱已經有人用了，請改用其他名稱";
+        msgEl.textContent = t("msg.usernameTaken");
         msgEl.className = "msg error";
         if(onConflict) onConflict();
         return false;
       }
-      msgEl.textContent = "更新失敗：" + error.message; msgEl.className = "msg error"; return false;
+      msgEl.textContent = t("msg.updateFailed", { msg: error.message }); msgEl.className = "msg error"; return false;
     }
     return true;
   }
@@ -754,23 +779,23 @@ function removeFlashGuard(){
     const isSignup = mode === "signup";
     if(authModeSigninBtn) authModeSigninBtn.classList.toggle("active", !isSignup);
     if(authModeSignupBtn) authModeSignupBtn.classList.toggle("active", isSignup);
-    document.querySelector(".login-card-title").textContent = isSignup ? "建立帳號" : "歡迎登入";
+    document.getElementById("loginCardTitle").textContent = isSignup ? t("login.createAccountTitle") : t("login.welcomeTitle");
     document.getElementById("authNameLabel").classList.toggle("hidden", !isSignup);
     document.getElementById("authName").classList.toggle("hidden", !isSignup);
     document.getElementById("authPasswordConfirmLabel").classList.toggle("hidden", !isSignup);
     const confirmInput = document.getElementById("authPasswordConfirm");
     confirmInput.classList.toggle("hidden", !isSignup);
     confirmInput.closest(".pw-input-wrap").querySelector(".pw-toggle-btn").classList.toggle("hidden", !isSignup);
-    document.getElementById("authSubmitBtn").textContent = isSignup ? "註冊" : "登入";
+    document.getElementById("authSubmitBtn").textContent = isSignup ? t("common.signup") : t("common.login");
     // 忘記密碼只在登入模式有意義，註冊模式先藏起來。
     const forgotBtn = document.getElementById("authForgotPwBtn");
     if(forgotBtn) forgotBtn.classList.toggle("hidden", isSignup);
     // 註冊一定要真的信箱（Supabase 建帳號本來就需要），登入才能用帳戶
     // 名稱或信箱兩種都行，欄位標籤跟提示文字跟著模式換。
     const emailInp = document.getElementById("authEmail");
-    document.getElementById("authEmailLabel").textContent = isSignup ? "電子信箱" : "帳號（使用者名稱或電子信箱）";
+    document.getElementById("authEmailLabel").textContent = isSignup ? t("login.emailLabel") : t("login.accountLabel");
     emailInp.type = isSignup ? "email" : "text";
-    emailInp.placeholder = isSignup ? "你的信箱" : "使用者名稱或 you@gmail.com";
+    emailInp.placeholder = isSignup ? t("login.emailPlaceholder") : t("login.accountPlaceholder");
     document.getElementById("authMsg").textContent = "";
   }
   if(authModeSigninBtn) authModeSigninBtn.addEventListener("click", ()=> setAuthMode("signin"));
@@ -781,18 +806,18 @@ function removeFlashGuard(){
     authForgotPwBtn.addEventListener("click", async ()=>{
       const identifier = document.getElementById("authEmail").value.trim();
       const msg = document.getElementById("authMsg");
-      if(!identifier){ msg.textContent = "請先輸入使用者名稱或電子信箱"; msg.className = "msg error"; return; }
-      msg.textContent = "寄送中…"; msg.className = "msg";
+      if(!identifier){ msg.textContent = t("msg.enterAccountOrEmail"); msg.className = "msg error"; return; }
+      msg.textContent = t("msg.sending"); msg.className = "msg";
       const email = await resolveLoginIdentifier(identifier);
       // 查不到對應信箱時，還是顯示跟寄送成功一樣的訊息（呼應 Supabase
       // resetPasswordForEmail 本身「不管信箱存不存在都回傳成功」的防列舉
       // 設計），不要因為改用使用者名稱查詢就多一個側管道洩漏帳號存不存在。
-      if(!email){ msg.textContent = "已寄出重設密碼信，請去信箱收信！"; msg.className = "msg ok"; return; }
+      if(!email){ msg.textContent = t("msg.resetEmailSent"); msg.className = "msg ok"; return; }
       const redirectTo = new URL("index.html", location.href).href;
       const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo, captchaToken: turnstileToken });
       resetTurnstile();
-      if(error){ msg.textContent = friendlyAuthErr(error) || ("寄送失敗：" + error.message); msg.className = "msg error"; return; }
-      msg.textContent = "已寄出重設密碼信，請去信箱收信！"; msg.className = "msg ok";
+      if(error){ msg.textContent = friendlyAuthErr(error) || t("msg.sendFailed", { msg: error.message }); msg.className = "msg error"; return; }
+      msg.textContent = t("msg.resetEmailSent"); msg.className = "msg ok";
     });
   }
 
@@ -809,7 +834,7 @@ function removeFlashGuard(){
       const password = document.getElementById("authPassword").value;
       const msg = document.getElementById("authMsg");
       if(!identifier || !password){
-        msg.textContent = authMode === "signup" ? "請輸入信箱和密碼" : "請輸入使用者名稱/電子信箱和密碼";
+        msg.textContent = authMode === "signup" ? t("msg.enterEmailAndPassword") : t("msg.enterAccountAndPassword");
         msg.className = "msg error";
         return;
       }
@@ -818,21 +843,21 @@ function removeFlashGuard(){
         const email = identifier; // 註冊一定要真的信箱，不走使用者名稱解析
         const name = document.getElementById("authName").value.trim();
         if(!USERNAME_FORMAT_RE.test(name)){
-          msg.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+          msg.textContent = t("msg.usernameFormatInvalid");
           msg.className = "msg error";
           return;
         }
-        if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
+        if(password.length < 6){ msg.textContent = t("msg.passwordTooShort"); msg.className = "msg error"; return; }
         const passwordConfirm = document.getElementById("authPasswordConfirm").value;
-        if(password !== passwordConfirm){ msg.textContent = "兩次密碼輸入不一致"; msg.className = "msg error"; return; }
-        msg.textContent = "檢查使用者名稱中…"; msg.className = "msg";
+        if(password !== passwordConfirm){ msg.textContent = t("msg.passwordMismatch"); msg.className = "msg error"; return; }
+        msg.textContent = t("msg.checkingUsername"); msg.className = "msg";
         if(await isUsernameTaken(name)){
-          msg.textContent = "這個使用者名稱已經有人用了，請改用其他名稱";
+          msg.textContent = t("msg.usernameTaken");
           msg.className = "msg error";
           return;
         }
         localStorage.setItem(PENDING_NAME_KEY, name);
-        msg.textContent = "註冊中…"; msg.className = "msg";
+        msg.textContent = t("msg.signingUp"); msg.className = "msg";
         // 明確算好、傳自己這個路徑當確認信連結的目的地，不要依賴 Supabase
         // 後台「Site URL」那個預設值——之前就出過這個預設值沒指到
         // /splitbill/ 這個子路徑，導致確認信連結跳轉錯地方的問題，
@@ -841,14 +866,14 @@ function removeFlashGuard(){
         const emailRedirectTo = new URL("index.html", location.href).href;
         const { data, error } = await sb.auth.signUp({ email, password, options: { captchaToken: turnstileToken, emailRedirectTo } });
         resetTurnstile();
-        if(error){ msg.textContent = friendlyAuthErr(error) || ("註冊失敗：" + error.message); msg.className = "msg error"; return; }
+        if(error){ msg.textContent = friendlyAuthErr(error) || t("msg.signupFailed", { msg: error.message }); msg.className = "msg error"; return; }
         if(!data.session){
           if(data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0){
-            msg.textContent = "這個信箱已經註冊過了，請改用「登入」。";
+            msg.textContent = t("msg.emailAlreadyRegistered");
             msg.className = "msg error";
             return;
           }
-          msg.textContent = "已寄出確認信，請去信箱點擊連結完成註冊，再回來登入！";
+          msg.textContent = t("msg.confirmEmailSent");
           msg.className = "msg ok";
           return;
         }
@@ -856,19 +881,19 @@ function removeFlashGuard(){
         msg.textContent = "";
         await onLoggedIn(data.user, true);
       } else {
-        msg.textContent = "登入中…"; msg.className = "msg";
+        msg.textContent = t("msg.signingIn"); msg.className = "msg";
         const email = await resolveLoginIdentifier(identifier);
         // 查不到這個使用者名稱時，不要另外顯示「查無此帳號」之類的訊息，
         // 直接跟密碼錯誤顯示同一句話——不然會變成可以拿來偵測「這個
         // 使用者名稱存不存在」的側管道。
         if(!email){
           resetTurnstile();
-          msg.textContent = "帳號或密碼不對，再試一次"; msg.className = "msg error";
+          msg.textContent = t("msg.loginFailed"); msg.className = "msg error";
           return;
         }
         const { data, error } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken: turnstileToken } });
         resetTurnstile();
-        if(error){ msg.textContent = friendlyAuthErr(error) || "帳號或密碼不對，再試一次"; msg.className = "msg error"; return; }
+        if(error){ msg.textContent = friendlyAuthErr(error) || t("msg.loginFailed"); msg.className = "msg error"; return; }
         msg.textContent = "";
         await onLoggedIn(data.user, true);
       }
@@ -903,6 +928,14 @@ function removeFlashGuard(){
   }
 
   // ---------- Google/Discord 登入後、確認是不是要建立新帳號 ----------
+  // oauthConfirmLastEmail：切換語言時要重新套用「你正在用 X 建立...」這句
+  // 翻譯，但這個畫面沒開過的話 email 是 null，不用做任何事。
+  let oauthConfirmLastEmail = null;
+  function updateOauthConfirmText(email){
+    oauthConfirmLastEmail = email;
+    const el = document.getElementById("oauthConfirmCreatingText");
+    if(el) el.innerHTML = t("oauthConfirm.creatingWith", { email: escapeHtml(email || "") });
+  }
   function showOauthConfirmScreen(user){
     removeFlashGuard();
     hidePwaSplash();
@@ -911,7 +944,7 @@ function removeFlashGuard(){
     const screen = document.getElementById("oauthConfirmScreen");
     if(!screen) return;
     screen.classList.remove("hidden");
-    document.getElementById("oauthConfirmEmail").textContent = user.email || "";
+    updateOauthConfirmText(user.email || "");
     const nameInp = document.getElementById("oauthConfirmName");
     if(nameInp && !nameInp.value){
       nameInp.value = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || "";
@@ -926,21 +959,21 @@ function removeFlashGuard(){
       const password = document.getElementById("oauthConfirmPassword").value;
       const passwordConfirm = document.getElementById("oauthConfirmPasswordConfirm").value;
       if(!USERNAME_FORMAT_RE.test(name)){
-        msg.textContent = "全域使用者名稱只能是中文、英文、數字、底線，長度 2~20 個字";
+        msg.textContent = t("msg.usernameFormatInvalid");
         msg.className = "msg error";
         return;
       }
-      if(password.length < 6){ msg.textContent = "密碼至少要 6 碼"; msg.className = "msg error"; return; }
-      if(password !== passwordConfirm){ msg.textContent = "兩次密碼輸入不一致"; msg.className = "msg error"; return; }
-      msg.textContent = "檢查使用者名稱中…"; msg.className = "msg";
+      if(password.length < 6){ msg.textContent = t("msg.passwordTooShort"); msg.className = "msg error"; return; }
+      if(password !== passwordConfirm){ msg.textContent = t("msg.passwordMismatch"); msg.className = "msg error"; return; }
+      msg.textContent = t("msg.checkingUsername"); msg.className = "msg";
       if(await isUsernameTaken(name)){
-        msg.textContent = "這個使用者名稱已經有人用了，請改用其他名稱";
+        msg.textContent = t("msg.usernameTaken");
         msg.className = "msg error";
         return;
       }
-      msg.textContent = "設定中…"; msg.className = "msg";
+      msg.textContent = t("msg.settingUp"); msg.className = "msg";
       const { error } = await sb.auth.updateUser({ password });
-      if(error){ msg.textContent = "設定失敗：" + error.message; msg.className = "msg error"; return; }
+      if(error){ msg.textContent = t("msg.updateFailed", { msg: error.message }); msg.className = "msg error"; return; }
       pendingMemberName = name;
       localStorage.setItem(PENDING_NAME_KEY, name);
       msg.textContent = "";
@@ -968,15 +1001,15 @@ function removeFlashGuard(){
   });
 
   function friendlyGroupErr(msg){
-    if(!msg) return "發生錯誤";
-    if(msg.includes("unsettled balance")) return "還有人沒結清（欠款或被欠款），沒辦法這麼做";
-    if(msg.includes("invalid creation code")) return "建團授權碼不對";
-    if(msg.includes("invalid invite code")) return "邀請碼不對";
-    if(msg.includes("already in this group")) return "已經在這個群組裡了";
-    if(msg.includes("only the group creator")) return "只有群組建立者能做這個動作";
-    if(msg.includes("duplicate name in group")) return "這個名稱已經有人用了，請改用其他名稱";
-    if(msg.includes("group name already taken")) return "這個群組名稱已經有人用了，請換一個";
-    if(msg.includes("group name required")) return "請輸入群組名稱";
+    if(!msg) return t("groupErr.generic");
+    if(msg.includes("unsettled balance")) return t("groupErr.unsettledBalance");
+    if(msg.includes("invalid creation code")) return t("groupErr.invalidCreationCode");
+    if(msg.includes("invalid invite code")) return t("groupErr.invalidInviteCode");
+    if(msg.includes("already in this group")) return t("groupErr.alreadyInGroup");
+    if(msg.includes("only the group creator")) return t("groupErr.onlyCreator");
+    if(msg.includes("duplicate name in group")) return t("groupErr.duplicateNameInGroup");
+    if(msg.includes("group name already taken")) return t("groupErr.groupNameTaken");
+    if(msg.includes("group name required")) return t("groupErr.groupNameRequired");
     return msg;
   }
 
@@ -986,14 +1019,14 @@ function removeFlashGuard(){
       const code = document.getElementById("joinInviteCode").value.trim();
       const msg = document.getElementById("joinGroupMsg");
       const name = currentGroupChoiceUsername();
-      if(!code){ msg.textContent = "請填寫邀請碼"; msg.className = "msg error"; return; }
-      msg.textContent = "加入中…"; msg.className = "msg";
+      if(!code){ msg.textContent = t("msg.joinRequireCode"); msg.className = "msg error"; return; }
+      msg.textContent = t("msg.joining"); msg.className = "msg";
       if(!(await ensureUsername(name, msg, revealGroupChoiceUsername))) return;
       pendingMemberName = name;
       const { error } = await sb.rpc("join_group", { p_invite_code: code, p_member_name: name });
-      if(error){ msg.textContent = "加入失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      if(error){ msg.textContent = t("msg.joinFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
       localStorage.removeItem(PENDING_NAME_KEY);
-      msg.textContent = "加入成功！"; msg.className = "msg ok";
+      msg.textContent = t("msg.joinSuccess"); msg.className = "msg ok";
       location.reload();
     });
   }
@@ -1005,14 +1038,14 @@ function removeFlashGuard(){
       const code = document.getElementById("createGroupCode").value.trim();
       const msg = document.getElementById("createGroupMsg");
       const name = currentGroupChoiceUsername();
-      if(!groupName || !code){ msg.textContent = "請填寫所有欄位"; msg.className = "msg error"; return; }
-      msg.textContent = "建立中…"; msg.className = "msg";
+      if(!groupName || !code){ msg.textContent = t("msg.fillAllFields"); msg.className = "msg error"; return; }
+      msg.textContent = t("msg.creating"); msg.className = "msg";
       if(!(await ensureUsername(name, msg, revealGroupChoiceUsername))) return;
       pendingMemberName = name;
       const { error } = await sb.rpc("create_group", { p_group_name: groupName, p_member_name: name, p_creation_code: code });
-      if(error){ msg.textContent = "建立失敗：" + friendlyGroupErr(error.message); msg.className = "msg error"; return; }
+      if(error){ msg.textContent = t("msg.createFailed", { msg: friendlyGroupErr(error.message) }); msg.className = "msg error"; return; }
       localStorage.removeItem(PENDING_NAME_KEY);
-      msg.textContent = "建立成功！"; msg.className = "msg ok";
+      msg.textContent = t("msg.createSuccess"); msg.className = "msg ok";
       location.reload();
     });
   }

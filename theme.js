@@ -1,7 +1,14 @@
 // Light/dark theme toggle. The actual theme is applied synchronously by an
 // inline <script> at the top of each page's <head> (before first paint, to
 // avoid a flash of the wrong theme) — this just reads that value and wires
-// up the visible toggle button.
+// up either the visible corner toggle button or exposes the raw toggle
+// function for the settings page to call directly.
+//
+// currency.html／summary.html／settings.html 已經把深淺色（跟語言）收進
+// 「設定」頁管理，不再需要角落的浮動按鈕。但 about/privacy/terms/index
+// 這幾頁不需要登入就看得到、也進不去「設定」頁，還是要留一顆角落按鈕
+// 當唯一切換入口——用「這頁有沒有 #langSwitcher 這個 HTML 區塊」當判斷
+// 依據（跟語言切換鈕綁在一起顯示，要嘛兩個都在、要嘛兩個都不在）。
 (function themeToggle(){
   const KEY = "splitbill-theme";
 
@@ -28,28 +35,31 @@
     window.dispatchEvent(new CustomEvent("splitbill-theme-change", { detail: { theme: current } }));
     document.querySelectorAll(".theme-toggle").forEach(b => { b.textContent = current === "dark" ? "☀️" : "🌙"; });
   }
-  // 帳務相關頁面（summary/currency/settings）把這顆按鈕改成「更多」選單
-  // 的開關，深淺色只是選單裡其中一行，不再是按下去直接切換；那幾頁會
-  // 自己定義 window.splitbillOpenThemeMenu，這裡有定義到才會改走選單，
-  // 其餘頁面（登入、about、隱私權/服務條款…）沒有這個選單、維持原本
-  // 按一下立即切換的行為。window.splitbillToggleTheme 是共用的實際切換
-  // 邏輯，選單裡的「深色模式」那一行呼叫這個就好，不用另外複製一份。
+
+  // 設定頁的「深色模式」那一列直接呼叫這個做實際切換，不用找/模擬
+  // 點擊角落按鈕。
   window.splitbillToggleTheme = applyToggle;
+  window.splitbillGetTheme = () => current;
 
   function init(){
+    // 沒有語言切換鈕的頁面（currency/summary/settings）不建立浮動按鈕。
+    if(!document.getElementById("langSwitcher")) return;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "theme-toggle";
-    btn.setAttribute("aria-label", "切換深色／淺色模式");
+    btn.setAttribute("aria-label", (typeof window.t === "function") ? window.t("shared.themeToggleAria") : "切換深色／淺色模式");
     btn.textContent = current === "dark" ? "☀️" : "🌙";
-    btn.addEventListener("click", ()=>{
-      if(typeof window.splitbillOpenThemeMenu === "function"){
-        window.splitbillOpenThemeMenu(btn);
-        return;
-      }
-      applyToggle();
+    btn.addEventListener("click", applyToggle);
+    // 掛進 .wrap（跟 .lang-switcher 同一個容器）而不是直接掛在 body 下面——
+    // .theme-toggle 是 position:absolute，定位基準是「最近的
+    // position:relative 祖先」，掛在 body 下面的話，寬螢幕時 body 是
+    // 整個瀏覽器視窗寬，right:14px 就會貼到視窗最右邊、跟置中的內容欄
+    // 脫節；.wrap 本身有 max-width 置中，掛進去才會跟語言切換鈕一樣
+    // 貼齊內容欄的右邊界。
+    (document.querySelector(".wrap") || document.body).appendChild(btn);
+    document.addEventListener("splitbill-lang-changed", ()=>{
+      if(typeof window.t === "function") btn.setAttribute("aria-label", window.t("shared.themeToggleAria"));
     });
-    document.body.appendChild(btn);
   }
   if(document.body) init();
   else document.addEventListener("DOMContentLoaded", init);

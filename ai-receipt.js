@@ -79,13 +79,13 @@
       // 沒有自己填 Key → 呼叫後端 Edge Function 代打，系統金鑰只存在
       // 後端環境變數，這裡永遠拿不到、也不需要拿到。
       if(!sb || !sb.functions){
-        throw new Error("請先在「⚙️ 設定」中填寫 Gemini API Key。");
+        throw new Error(t("currency.needGeminiKey"));
       }
       const { data, error } = await sb.functions.invoke("gemini-receipt-proxy", {
         body: { image: pureBase64, mimeType }
       });
       if(error || !data || data.error){
-        throw new Error((data && data.error) || (error && error.message) || "系統預設 AI 額度暫時無法使用，請先在「⚙️ 設定」中填寫自己的 Gemini API Key。");
+        throw new Error((data && data.error) || (error && error.message) || t("currency.systemQuotaUnavailable"));
       }
       return data.data;
     }
@@ -193,7 +193,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           lastOrErr = e;
         }
       }
-      throw lastOrErr || new Error("OpenRouter AI 辨識失敗，請稍候重試。");
+      throw lastOrErr || new Error(t("currency.openRouterFailed"));
     }
 
     // 2. 支援 OpenAI (sk-...)
@@ -280,7 +280,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       }
     }
 
-    throw lastErr || new Error("AI 辨識收據失敗，請確認網路連線或金鑰是否正確。");
+    throw lastErr || new Error(t("currency.aiRecognitionFailed"));
   }
 
   // 使用者在存檔畫面勾選「保留原圖」時才會呼叫：把裁切後送去給 AI 辨識
@@ -391,14 +391,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       btn.onclick = async ()=>{
         btn.disabled = true;
         const originalText = btn.textContent;
-        btn.textContent = "⏳ 載入中…";
+        btn.textContent = t("currency.loadingWithHourglass");
         try {
           const { data, error } = await deps.sb.storage.from("receipts").createSignedUrl(expense.receipt_image_path, 300);
-          if(error || !data || !data.signedUrl) throw error || new Error("找不到這張收據原圖");
+          if(error || !data || !data.signedUrl) throw error || new Error("receipt image not found");
           window.open(data.signedUrl, "_blank", "noopener");
         } catch(err){
           console.error("開啟收據原圖失敗：", err);
-          await sbAlert("找不到這張收據原圖，可能已經超過 180 天保留期限被清除了。", "無法開啟");
+          await sbAlert(t("currency.receiptImgExpired"), t("currency.cannotOpenTitle"));
         } finally {
           btn.disabled = false;
           btn.textContent = originalText;
@@ -423,7 +423,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         editingAiExpenseOriginal = expense || null;
 
         currentReceiptData = {
-          storeName: (aiData && aiData.storeName) || (expense && expense.description) || "聚餐收據",
+          storeName: (aiData && aiData.storeName) || (expense && expense.description) || t("currency.aiStoreDefaultValue"),
           currencyCode: (expense && expense.currency) || (aiData && aiData.currencyCode) || deps.CURRENCY,
           subtotal: Number(aiData && aiData.subtotal) || Number(expense && expense.amount) || 0,
           serviceCharge: Number(aiData && aiData.serviceCharge) || 0,
@@ -439,7 +439,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
         receiptClaimItems = ((aiData && aiData.items) || []).map((it, idx) => ({
           id: it.id || ("item_" + idx + "_" + Date.now()),
-          name: it.name || `品項 ${idx + 1}`,
+          name: it.name || t("currency.itemFallback", {n: idx + 1}),
           price: Number(it.price) || 0,
           qty: Number(it.qty) || 1,
           claimedMemberIds: Array.isArray(it.claimedMemberIds) ? [...it.claimedMemberIds] : [],
@@ -450,7 +450,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(!receiptClaimItems.length){
           receiptClaimItems.push({
             id: "item_0_" + Date.now(),
-            name: currentReceiptData.storeName || "消費總額",
+            name: currentReceiptData.storeName || t("currency.totalConsumptionFallback"),
             price: Number(expense && expense.amount) || 0,
             qty: 1,
             claimedMemberIds: (expense && expense.shares) ? expense.shares.map(s => s.member_id) : [],
@@ -474,7 +474,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
 
         if(aiDirectSaveBtn){
-          aiDirectSaveBtn.textContent = "💾 確認更新";
+          aiDirectSaveBtn.textContent = t("currency.confirmUpdateBtn");
         }
 
         setupViewReceiptImageButton(expense);
@@ -614,7 +614,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     // aiReceiptClaimScreen 內部的 3 個子畫面。跟「新增支出」表單的
     // createFormWizard() 是刻意分開的兩套邏輯（見計畫文件）。
     // ============================================================
-    const aiClaimSubStepLabels = ["品項認領","付款人/日期","分攤預覽送出"];
+    function aiClaimSubStepLabelsFn(){
+      return [t("currency.aiClaimStep1Label"), t("currency.aiClaimStep2Label"), t("currency.aiClaimStep3Label")];
+    }
     let aiClaimSubStepIndex = 0;
 
     function getUnclaimedItemsCount(){
@@ -627,7 +629,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       const curSym = getReceiptSymbol();
       if(aiPayerMode === "single"){
         const payerId = aiPaidBySingle ? aiPaidBySingle.value : (deps.getState().myMember && deps.getState().myMember.id);
-        if(!payerId) return { ok:false, message:"請選擇付款人！" };
+        if(!payerId) return { ok:false, message:t("currency.selectPayerRequiredAi") };
         return { ok:true, payers: [{ member_id: payerId, amount: finalTotal }] };
       }
       const payers = [];
@@ -637,10 +639,10 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           if(amt > 0) payers.push({ member_id: inp.dataset.id, amount: amt });
         });
       }
-      if(!payers.length) return { ok:false, message:"多人付款模式下至少需有一人輸入付款金額！" };
+      if(!payers.length) return { ok:false, message:t("currency.multiPayerRequireOne") };
       const payerSum = payers.reduce((acc, p) => acc + p.amount, 0);
       if(Math.abs(payerSum - finalTotal) >= 0.5){
-        return { ok:false, message:`付款人總額 (${curSym}${deps.formatAmt(payerSum)}) 與支出總額 (${curSym}${deps.formatAmt(finalTotal)}) 不符，請調整！` };
+        return { ok:false, message:t("currency.payerTotalMismatch", {payerTotal: curSym+deps.formatAmt(payerSum), expenseTotal: curSym+deps.formatAmt(finalTotal)}) };
       }
       return { ok:true, payers };
     }
@@ -650,13 +652,18 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         dot.classList.toggle("active", i === index);
         dot.classList.toggle("done", i < index);
       });
+      const labels = aiClaimSubStepLabelsFn();
       const titleEl = document.getElementById("aiClaimWizardStepTitle");
-      if(titleEl) titleEl.textContent = `步驟 ${index+1} / 3・${aiClaimSubStepLabels[index]}`;
+      if(titleEl) titleEl.textContent = t("common.stepFormat", {step: index+1, total: 3, label: labels[index]});
       const backBtn = document.getElementById("aiClaimWizardBackBtn");
       if(backBtn) backBtn.classList.toggle("hidden", index === 0);
       const nextBtn = document.getElementById("aiClaimWizardNextBtn");
-      if(nextBtn) nextBtn.classList.toggle("hidden", index === aiClaimSubStepLabels.length - 1);
+      if(nextBtn) nextBtn.classList.toggle("hidden", index === labels.length - 1);
     }
+
+    document.addEventListener("splitbill-lang-changed", ()=>{
+      updateAiClaimWizardChrome(aiClaimSubStepIndex);
+    });
 
     function showAiClaimSubStep(index){
       if(index < 0 || index > 2) return;
@@ -675,7 +682,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       if(aiClaimSubStepIndex === 0){
         const unclaimedCount = getUnclaimedItemsCount();
         if(unclaimedCount > 0){
-          if(msgTarget){ msgTarget.textContent = `還有 ${unclaimedCount} 個品項尚未認領，請先完成所有品項的分攤認領`; msgTarget.className = "msg error"; }
+          if(msgTarget){ msgTarget.textContent = t("currency.unclaimedItemsWarning", {count: unclaimedCount}); msgTarget.className = "msg error"; }
           return;
         }
       } else if(aiClaimSubStepIndex === 1){
@@ -713,26 +720,26 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function startAiProgress(){
       stopAiProgress();
       currentAiPercent = 8;
-      updateAiProgress(currentAiPercent, "照片影像前處理與旋轉校正…");
+      updateAiProgress(currentAiPercent, t("currency.aiPhasePreCrop"));
 
       const startTime = Date.now();
       aiProgressInterval = setInterval(()=>{
         const elapsed = Date.now() - startTime;
         let target = 8;
-        let phaseText = "AI 智慧解析中…";
+        let phaseText = t("currency.aiPhaseGeneric");
 
         if(elapsed < 500){
           target = 8 + Math.floor((elapsed / 500) * 20); // 8% -> 28%
-          phaseText = "照片影像最佳化與壓縮…";
+          phaseText = t("currency.aiPhaseOptimize");
         } else if(elapsed < 1800){
           target = 28 + Math.floor(((elapsed - 500) / 1300) * 32); // 28% -> 60%
-          phaseText = "傳送至 AI 多模態視覺模型…";
+          phaseText = t("currency.aiPhaseSending");
         } else if(elapsed < 4500){
           target = 60 + Math.floor(((elapsed - 1800) / 2700) * 28); // 60% -> 88%
-          phaseText = "智慧掃描品項、數量、單價與稅率…";
+          phaseText = t("currency.aiPhaseScanning");
         } else {
           target = Math.min(97, 88 + Math.floor(((elapsed - 4500) / 3500) * 9)); // 88% -> 97%
-          phaseText = "結構化校驗與幣別運算中…";
+          phaseText = t("currency.aiPhaseValidating");
         }
 
         if(target > currentAiPercent){
@@ -748,7 +755,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         aiProgressInterval = null;
       }
       currentAiPercent = 100;
-      updateAiProgress(100, "解析完成！即將進入拆單…");
+      updateAiProgress(100, t("currency.aiPhaseDone"));
     }
 
     function stopAiProgress(){
@@ -757,7 +764,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         aiProgressInterval = null;
       }
       currentAiPercent = 0;
-      updateAiProgress(0, "準備解析…");
+      updateAiProgress(0, t("currency.aiPhaseReady"));
     }
 
     async function openModal(initialScreen = "upload"){
@@ -774,7 +781,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       const keepImageChk = document.getElementById("aiReceiptKeepImageChk");
       if(keepImageChk) keepImageChk.checked = false;
       setupViewReceiptImageButton(null);
-      if(aiDirectSaveBtn) aiDirectSaveBtn.textContent = "💾 確認無誤，立即記帳";
+      if(aiDirectSaveBtn) aiDirectSaveBtn.textContent = t("currency.aiDirectSave");
     }
 
     // 點擊頂部「📷 照片自動拆單」按鈕，開啟選擇面板
@@ -891,12 +898,12 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             const fallbackImg = new Image();
             fallbackImg.onload = () => finishCropInit(fallbackImg);
             fallbackImg.onerror = () => {
-              sbAlert("無法載入此照片，請換另一張照片重試。", "載入失敗");
+              sbAlert(t("currency.imageLoadFailed"), t("currency.imageLoadFailedTitle"));
             };
             fallbackImg.src = e.target.result;
           };
           reader.onerror = () => {
-            sbAlert("無法讀取此相片檔案，請重試。", "讀取失敗");
+            sbAlert(t("currency.fileReadFailed"), t("currency.fileReadFailedTitle"));
           };
           reader.readAsDataURL(file);
         };
@@ -1243,7 +1250,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const hasUsableItems = Array.isArray(parsed.items) && parsed.items.some(it => Number(it.price || it.amount || it.total || 0) > 0);
           const hasUsableTotal = Number(parsed.totalAmount) > 0;
           if(!hasUsableItems && !hasUsableTotal){
-            throw new Error("辨識結果是空的，沒有讀到任何品項或金額");
+            throw new Error("empty recognition result");
           }
 
           currentReceiptData = parsed;
@@ -1295,7 +1302,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             const rawName = (it.name || it.item || it.description || it.title || it.dish || "").trim();
             return {
               id: "item_" + idx + "_" + Date.now(),
-              name: rawName || `品項 ${idx + 1}`,
+              name: rawName || t("currency.itemFallback", {n: idx + 1}),
               price: Number(it.price || it.amount || it.total || 0),
               qty: Number(it.qty || 1),
               claimedMemberIds: [],
@@ -1307,7 +1314,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           if(!receiptClaimItems.length){
             receiptClaimItems.push({
               id: "item_0_" + Date.now(),
-              name: "消費總額",
+              name: t("currency.totalConsumptionFallback"),
               price: Number(parsed.totalAmount) || 0,
               qty: 1,
               claimedMemberIds: [],
@@ -1325,7 +1332,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         } catch(err){
           stopAiProgress();
           console.error("AI 辨識收據失敗：", err);
-          await sbAlert("AI 辨識收據失敗：" + (err.message || "未知錯誤") + "。請確認網路連線或嘗試重新拍攝一張清晰的照片。", "📷 辨識失敗");
+          await sbAlert(t("currency.aiRecognitionFailedDetail", {error: err.message || t("currency.unknownError")}), t("currency.aiRecognitionFailedTitle"));
           showScreen("crop");
         }
       });
@@ -1366,11 +1373,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       }
       const diff = roundAmt(finalTotal - sum);
       if(Math.abs(diff) < 0.5){
-        aiPayerSumCheck.innerHTML = `<span style="color:var(--positive-text);font-weight:700;">✓ 付款金額完全相符 (${curSym}${deps.formatAmt(sum)})</span>`;
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--positive-text);font-weight:700;">${t("currency.paymentExactMatch", {amount: curSym+deps.formatAmt(sum)})}</span>`;
       } else if(diff > 0){
-        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和還差 ${curSym}${deps.formatAmt(diff)}（目標 ${curSym}${deps.formatAmt(finalTotal)}）</span>`;
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">${t("currency.paymentShortBy", {diff: curSym+deps.formatAmt(diff), target: curSym+deps.formatAmt(finalTotal)})}</span>`;
       } else {
-        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">⚠️ 付款總和超過 ${curSym}${deps.formatAmt(Math.abs(diff))}（目標 ${curSym}${deps.formatAmt(finalTotal)}）</span>`;
+        aiPayerSumCheck.innerHTML = `<span style="color:var(--negative-text);font-weight:600;">${t("currency.paymentOverBy", {diff: curSym+deps.formatAmt(Math.abs(diff)), target: curSym+deps.formatAmt(finalTotal)})}</span>`;
       }
     }
 
@@ -1382,7 +1389,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       // 1. 可編輯店家名稱
       if(storeInputEl){
-        storeInputEl.value = currentReceiptData.storeName || "聚餐收據";
+        storeInputEl.value = currentReceiptData.storeName || t("currency.aiStoreDefaultValue");
       }
 
       // 2. 幣別選擇下拉選單同步與幣別符號更新
@@ -1493,19 +1500,19 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           `).join("");
           const allocState = allocatedQty === item.qty ? "complete" : allocatedQty > item.qty ? "over" : "under";
           const allocHintText = allocState === "over"
-            ? `已分配 ${allocatedQty} / ${item.qty}（超過總數量了）`
-            : `已分配 ${allocatedQty} / ${item.qty}`;
+            ? t("currency.allocatedOverQty", {allocated: allocatedQty, total: item.qty})
+            : t("currency.allocatedQty", {allocated: allocatedQty, total: item.qty});
 
           const count = item.claimedMemberIds.length;
           const lineTotal = (Number(item.price) || 0) * (Number(item.qty) || 1);
           const perPersonPrice = count > 1 ? roundAmt(lineTotal / count) : 0;
           let statusBadgeHTML = "";
           if(!isClaimed){
-            statusBadgeHTML = `<span class="ai-card-float-badge unclaimed">⚠️ 待認領</span>`;
+            statusBadgeHTML = `<span class="ai-card-float-badge unclaimed">${t("currency.awaitingClaimBadge")}</span>`;
           } else if(item.qtyMode){
-            statusBadgeHTML = `<span class="ai-card-float-badge per-person">已分配 ${allocatedQty} / ${item.qty}</span>`;
+            statusBadgeHTML = `<span class="ai-card-float-badge per-person">${t("currency.allocatedQty", {allocated: allocatedQty, total: item.qty})}</span>`;
           } else if(count > 1){
-            statusBadgeHTML = `<span class="ai-card-float-badge per-person" title="${count} 人分攤，每人約 ${curSym}${deps.formatAmt(perPersonPrice)}">每人 ${curSym}${deps.formatAmt(perPersonPrice)}</span>`;
+            statusBadgeHTML = `<span class="ai-card-float-badge per-person" title="${t("currency.sharedByCountTooltip", {count, amount: curSym+deps.formatAmt(perPersonPrice)})}">${t("currency.perPersonBadge", {amount: curSym+deps.formatAmt(perPersonPrice)})}</span>`;
           }
 
           return `
@@ -1514,29 +1521,29 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
                    同一個角落、保持適當間距，刪除鈕不再跟金額/數量擠同一列。 -->
               <div class="ai-card-top-right">
                 ${statusBadgeHTML}
-                <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="刪除此品項" aria-label="刪除">✕</button>
+                <button type="button" class="ai-receipt-item-del" data-id="${item.id}" title="${t("currency.deleteThisItemTitle")}" aria-label="${t("settings.delete")}">✕</button>
               </div>
               <!-- 品名獨立一整列，不跟金額/數量搶空間——手機版寬度有限，擠在
                    同一列時品名常常只剩窄窄一條，看不清楚買了什麼。 -->
               <div class="ai-item-name-row">
                 <span class="ai-item-tag-num">${idx + 1}</span>
-                <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="品名 中文翻譯(原文)" data-id="${item.id}">
+                <input type="text" class="ai-receipt-item-name" value="${escapeHtml(item.name || '')}" placeholder="${t("currency.itemNameTranslatedPlaceholder")}" data-id="${item.id}">
               </div>
               <!-- 「單價」「個」文字標籤讓 price 欄位的意思很明確是單價，不是
                    這一行的小計，跟前面「279 x3 會被誤會成一共279」的疑慮
                    徹底切開；整列靠右對齊。 -->
               <!-- 「單價」「個」「總計」計算列：單價 × 數量 ＝ 總價，手機版禁止跳行並居中對齊 -->
               <div class="ai-item-price-col">
-                <span class="ai-price-label">${taxType === 'inclusive' ? '單價' : '未稅單價'}</span>
+                <span class="ai-price-label">${taxType === 'inclusive' ? t("currency.unitPriceLabel") : t("currency.untaxedUnitPriceLabel")}</span>
                 <div class="ai-receipt-price-wrap">
                   <span class="ai-receipt-cur-prefix">${curSym}</span>
                   <input type="number" class="ai-receipt-item-price" value="${item.price}" min="0" step="any" placeholder="0" data-id="${item.id}">
                 </div>
-                <span class="ai-qty-x-prefix" title="數量">×</span>
-                <input type="number" class="ai-receipt-item-qty" value="${item.qty}" min="1" step="1" placeholder="1" title="數量" data-id="${item.id}">
-                <span class="ai-qty-unit-label">個</span>
+                <span class="ai-qty-x-prefix" title="${t("currency.qtyTitle")}">×</span>
+                <input type="number" class="ai-receipt-item-qty" value="${item.qty}" min="1" step="1" placeholder="1" title="${t("currency.qtyTitle")}" data-id="${item.id}">
+                <span class="ai-qty-unit-label">${t("currency.qtyUnitLabel")}</span>
                 <span class="ai-item-equal-sign">=</span>
-                <div class="ai-item-total-wrap" title="此品項總價">
+                <div class="ai-item-total-wrap" title="${t("currency.lineTotalTitle")}">
                   <span class="ai-receipt-cur-prefix">${curSym}</span>
                   <span class="ai-item-line-total" data-id="${item.id}">${deps.formatAmt(lineTotal)}</span>
                 </div>
@@ -1550,7 +1557,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
                     <div class="ai-qty-allocated-hint ${allocState}">${allocHintText}</div>
                   </div>
                   <div class="ai-all-btn-col">
-                    <button type="button" class="ai-qty-mode-toggle" data-id="${item.id}">⚡ 改為平分</button>
+                    <button type="button" class="ai-qty-mode-toggle" data-id="${item.id}">${t("currency.switchToEqualSplitBtn")}</button>
                   </div>
                 ` : `
                   <div class="ai-avatar-bubbles-row">
@@ -1558,9 +1565,9 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
                   </div>
                   <div class="ai-all-btn-col">
                     <button type="button" class="ai-bubble-all-btn ${isAllClaimed ? 'active' : ''}" data-id="${item.id}">
-                      ${isAllClaimed ? '✕ 取消全員' : '⚡ 所有人平分'}
+                      ${isAllClaimed ? t("currency.deselectAllBtn") : t("currency.equalSplitAllBtn")}
                     </button>
-                    ${item.qty > 1 ? `<button type="button" class="ai-qty-mode-toggle" data-id="${item.id}">🔢 依數量分配</button>` : ""}
+                    ${item.qty > 1 ? `<button type="button" class="ai-qty-mode-toggle" data-id="${item.id}">${t("currency.splitByQtyBtn")}</button>` : ""}
                   </div>
                 `}
               </div>
@@ -1593,7 +1600,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               const badgeEl = card.querySelector(".ai-card-float-badge.per-person");
               if(badgeEl && !it.qtyMode){
                 const curSym = getReceiptSymbol();
-                badgeEl.textContent = `每人 ${curSym}${deps.formatAmt(perPersonPrice)}`;
+                badgeEl.textContent = t("currency.perPersonBadge", {amount: curSym+deps.formatAmt(perPersonPrice)});
               }
             }
             updateCalculationsAndBadges();
@@ -1617,7 +1624,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               const badgeEl = card.querySelector(".ai-card-float-badge.per-person");
               if(badgeEl && !it.qtyMode){
                 const curSym = getReceiptSymbol();
-                badgeEl.textContent = `每人 ${curSym}${deps.formatAmt(perPersonPrice)}`;
+                badgeEl.textContent = t("currency.perPersonBadge", {amount: curSym+deps.formatAmt(perPersonPrice)});
               }
 
               // 即時更新「🔢 依數量分配」按鈕：輸入 > 1 立即動態出現第二個按鈕，不用點擊人才跳出
@@ -1630,7 +1637,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
                     toggleBtn.type = "button";
                     toggleBtn.className = "ai-qty-mode-toggle";
                     toggleBtn.dataset.id = it.id;
-                    toggleBtn.textContent = "🔢 依數量分配";
+                    toggleBtn.textContent = t("currency.splitByQtyBtn");
                     toggleBtn.addEventListener("click", ()=>{
                       it.qtyMode = true;
                       renderClaimBoard();
@@ -1705,8 +1712,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               const allocState = allocatedQty === it.qty ? "complete" : allocatedQty > it.qty ? "over" : "under";
               hintEl.className = `ai-qty-allocated-hint ${allocState}`;
               hintEl.textContent = allocState === "over"
-                ? `已分配 ${allocatedQty} / ${it.qty}（超過總數量了）`
-                : `已分配 ${allocatedQty} / ${it.qty}`;
+                ? t("currency.allocatedOverQty", {allocated: allocatedQty, total: it.qty})
+                : t("currency.allocatedQty", {allocated: allocatedQty, total: it.qty});
             }
             const isClaimed = Object.values(it.memberQty || {}).some(v => (Number(v) || 0) > 0);
             if(card) card.classList.toggle("is-claimed", isClaimed);
@@ -1816,14 +1823,14 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal){
       const lines = [];
       const curSym = getReceiptSymbol();
-      const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
-      lines.push(`🏪 店家：${store}`);
+      const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || t("currency.aiStoreDefaultValue");
+      lines.push(t("currency.breakdownStoreLine", {store}));
       if(taxType === "inclusive"){
-        lines.push(`💰 總額：${curSym}${deps.formatAmt(finalTotal)} (已內含稅，品項小計 ${curSym}${deps.formatAmt(subtotal)})`);
+        lines.push(t("currency.breakdownTotalInclusive", {total: curSym+deps.formatAmt(finalTotal), subtotal: curSym+deps.formatAmt(subtotal)}));
       } else {
-        lines.push(`💰 總額：${curSym}${deps.formatAmt(finalTotal)} (小計 ${curSym}${deps.formatAmt(subtotal)} + 服務費/稅 ${curSym}${deps.formatAmt(netExtraFees)})`);
+        lines.push(t("currency.breakdownTotalExclusive", {total: curSym+deps.formatAmt(finalTotal), subtotal: curSym+deps.formatAmt(subtotal), tax: curSym+deps.formatAmt(netExtraFees)}));
       }
-      lines.push(`\n📋 品項明細：`);
+      lines.push(t("currency.breakdownItemsHeader"));
       receiptClaimItems.forEach((it, idx) => {
         const unitPrice = Number(it.price) || 0;
         const qty = Number(it.qty) || 1;
@@ -1833,38 +1840,38 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
           const parts = Object.keys(it.memberQty || {})
             .filter(id => (Number(it.memberQty[id]) || 0) > 0)
             .map(id => `${deps.getState().memberById[id] || id}×${it.memberQty[id]} (${curSym}${deps.formatAmt(roundAmt(unitPrice * it.memberQty[id]))})`);
-          claimMembersText = parts.length ? parts.join("、") : "無人認領";
+          claimMembersText = parts.length ? parts.join("、") : t("currency.noOneClaimedYet");
         } else {
           const claimNames = it.claimedMemberIds.map(id => deps.getState().memberById[id] || id).join("、");
           const count = it.claimedMemberIds.length;
-          const perPerson = count > 1 ? ` (每人 ${curSym}${deps.formatAmt(roundAmt(lineTotal / count))})` : "";
-          claimMembersText = claimNames ? `${claimNames}${perPerson}` : "無人認領";
+          const perPerson = count > 1 ? t("currency.perPersonParen", {amount: curSym+deps.formatAmt(roundAmt(lineTotal / count))}) : "";
+          claimMembersText = claimNames ? `${claimNames}${perPerson}` : t("currency.noOneClaimedYet");
         }
 
         // 品項金額顯示這一行的小計（單價 × 數量），同時標註單價與數量方便核對（內含稅顯示「單價」，外加稅顯示「未稅單價」）
-        const unitPriceLabel = (taxType === "inclusive") ? "單價" : "未稅單價";
-        const amountText = `${curSym}${deps.formatAmt(lineTotal)}（${unitPriceLabel} ${curSym}${deps.formatAmt(unitPrice)} × ${qty}）`;
+        const unitPriceLabel = (taxType === "inclusive") ? t("currency.unitPriceLabel") : t("currency.untaxedUnitPriceLabel");
+        const amountText = t("currency.itemAmountWithUnit", {total: curSym+deps.formatAmt(lineTotal), unitLabel: unitPriceLabel, unit: curSym+deps.formatAmt(unitPrice), qty});
 
         const numStr = `  ${idx + 1}. `;
         const indent = " ".repeat(numStr.length);
 
-        const rawName = (it.name || "品項").trim();
+        const rawName = (it.name || t("currency.itemGenericFallback")).trim();
         const parenMatch = rawName.match(/^(.*?)\s*\(([\s\S]*?)\)$/);
         if(parenMatch && parenMatch[1].trim() && parenMatch[2].trim()){
           const zhName = parenMatch[1].trim();
           const origName = parenMatch[2].trim();
-          lines.push(`${numStr}品項: ${zhName}\n${indent}原文: ${origName}\n${indent}價格: ${amountText}\n${indent}分攤: ${claimMembersText}`);
+          lines.push(t("currency.breakdownItemWithOrig", {num: numStr, zhName, origName, indent, amount: amountText, claim: claimMembersText}));
         } else {
-          lines.push(`${numStr}品項: ${rawName}\n${indent}價格: ${amountText}\n${indent}分攤: ${claimMembersText}`);
+          lines.push(t("currency.breakdownItemPlain", {num: numStr, name: rawName, indent, amount: amountText, claim: claimMembersText}));
         }
       });
-      lines.push(`\n👥 各成員應付金額：`);
+      lines.push(t("currency.memberAmountsHeader"));
       const activeMembers = (deps.getState().MEMBERS || []).filter(m => deps.showLeftMembers || !m.left_at);
       activeMembers.forEach(m => {
         const d = memberCalcMap[m.id];
         if(d && d.total > 0){
-          const taxPart = (taxType !== "inclusive" && d.taxShare) ? ` (含服務費 ${curSym}${deps.formatAmt(roundAmt(d.taxShare))})` : "";
-          lines.push(`  ・${m.name}：${curSym}${deps.formatAmt(d.total)}${taxPart}`);
+          const taxPart = (taxType !== "inclusive" && d.taxShare) ? t("currency.serviceFeeParen", {amount: curSym+deps.formatAmt(roundAmt(d.taxShare))}) : "";
+          lines.push(t("currency.memberAmountLine", {name: m.name, amount: curSym+deps.formatAmt(d.total)+taxPart}));
         }
       });
       return lines.join("\n");
@@ -1873,25 +1880,25 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     function generateCompactBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal){
       const lines = [];
       const curSym = getReceiptSymbol();
-      const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
-      lines.push(`🏪 店家：${store}`);
+      const store = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || t("currency.aiStoreDefaultValue");
+      lines.push(t("currency.breakdownStoreLine", {store}));
       if(taxType === "inclusive"){
-        lines.push(`💰 總額：${curSym}${deps.formatAmt(finalTotal)} (已內含稅)`);
+        lines.push(t("currency.totalInclusiveLine", {amount: curSym+deps.formatAmt(finalTotal)}));
       } else {
-        lines.push(`💰 總額：${curSym}${deps.formatAmt(finalTotal)} (小計 ${curSym}${deps.formatAmt(subtotal)} + 服務費/稅 ${curSym}${deps.formatAmt(netExtraFees)})`);
+        lines.push(t("currency.breakdownTotalExclusive", {total: curSym+deps.formatAmt(finalTotal), subtotal: curSym+deps.formatAmt(subtotal), tax: curSym+deps.formatAmt(netExtraFees)}));
       }
-      lines.push(`\n👥 各成員應付金額：`);
+      lines.push(t("currency.memberAmountsHeader"));
       const activeMembers = (deps.getState().MEMBERS || []).filter(m => deps.showLeftMembers || !m.left_at);
       let count = 0;
       activeMembers.forEach(m => {
         const d = memberCalcMap[m.id];
         if(d && d.total > 0){
-          lines.push(`  ・${m.name}：${curSym}${deps.formatAmt(d.total)}`);
+          lines.push(t("currency.memberAmountLine", {name: m.name, amount: curSym+deps.formatAmt(d.total)}));
           count++;
         }
       });
       if(count === 0){
-        lines.push(`  (尚未認領品項)`);
+        lines.push(t("currency.noItemsClaimedYet"));
       }
       return lines.join("\n");
     }
@@ -1954,17 +1961,17 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       const progressFillEl = document.getElementById("aiClaimProgressFill");
       const progressStatusEl = document.getElementById("aiClaimProgressStatus");
       
-      if(progressStatsEl) progressStatsEl.textContent = `${claimedItemsCount} / ${totalItemsCount} 品項已認領 (${claimPercent}%)`;
+      if(progressStatsEl) progressStatsEl.textContent = t("currency.claimProgressStats", {claimed: claimedItemsCount, total: totalItemsCount, pct: claimPercent});
       if(progressFillEl) progressFillEl.style.width = `${claimPercent}%`;
       if(progressStatusEl){
         if(totalItemsCount === 0){
-          progressStatusEl.textContent = "尚無品項";
+          progressStatusEl.textContent = t("currency.noItemsYet");
           progressStatusEl.className = "ai-claim-progress-status";
         } else if(unclaimedCount === 0){
-          progressStatusEl.textContent = "✨ 太棒了！全部品項皆已全部分攤完畢，可進行儲存";
+          progressStatusEl.textContent = t("currency.allClaimedReadyToSave");
           progressStatusEl.className = "ai-claim-progress-status complete";
         } else {
-          progressStatusEl.textContent = `⚠️ 尚有 ${unclaimedCount} 個品項未認領，需全數認領後方可儲存`;
+          progressStatusEl.textContent = t("currency.itemsUnclaimedWarning", {count: unclaimedCount});
           progressStatusEl.className = "ai-claim-progress-status warning";
         }
       }
@@ -1981,7 +1988,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
       // 更新品項卡片上的「單價」/「未稅單價」文字標籤
       if(itemsListEl){
-        const labelText = (taxType === "inclusive") ? "單價" : "未稅單價";
+        const labelText = (taxType === "inclusive") ? t("currency.unitPriceLabel") : t("currency.untaxedUnitPriceLabel");
         itemsListEl.querySelectorAll(".ai-price-label").forEach(el => {
           el.textContent = labelText;
         });
@@ -1993,10 +2000,11 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       if(mismatchWarningEl){
         if(!isTotalMatching){
           if(taxType === "inclusive"){
-            mismatchWarningEl.innerHTML = `⚠️ 目前為「內含稅」模式：小計 (<b>${curSym}${deps.formatAmt(subtotal)}</b>) 與總計 (<b>${curSym}${deps.formatAmt(finalTotal)}</b>) 不相符。若此發票有額外服務費/稅，請切換為「外加稅費」模式。`;
+            mismatchWarningEl.innerHTML = t("currency.mismatchInclusiveWarning", {subtotal: curSym+deps.formatAmt(subtotal), total: curSym+deps.formatAmt(finalTotal)});
           } else {
             const diff = roundAmt(finalTotal - calculatedTotal);
-            mismatchWarningEl.innerHTML = `⚠️ 目前為「外加稅費」模式：小計 (${curSym}${deps.formatAmt(subtotal)}) ＋ 服務費/稅 (${curSym}${deps.formatAmt(netExtraFees)}) ＝ <b>${curSym}${deps.formatAmt(calculatedTotal)}</b>，與總計 (<b>${curSym}${deps.formatAmt(finalTotal)}</b>) 不相符${diff > 0 ? `（少 ${curSym}${deps.formatAmt(diff)}）` : `（多 ${curSym}${deps.formatAmt(Math.abs(diff))}）`}。若發票已內含稅，可切換為「內含稅」模式。`;
+            const diffPart = diff > 0 ? t("currency.diffShortParen", {amount: curSym+deps.formatAmt(diff)}) : t("currency.diffOverParen", {amount: curSym+deps.formatAmt(Math.abs(diff))});
+            mismatchWarningEl.innerHTML = t("currency.mismatchExclusiveWarning", {subtotal: curSym+deps.formatAmt(subtotal), tax: curSym+deps.formatAmt(netExtraFees), calculated: curSym+deps.formatAmt(calculatedTotal), total: curSym+deps.formatAmt(finalTotal), diffPart});
           }
           mismatchWarningEl.classList.remove("hidden");
         } else {
@@ -2010,15 +2018,15 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         if(unclaimedCount > 0){
           aiDirectSaveBtn.disabled = true;
           aiDirectSaveBtn.classList.add("btn-disabled");
-          aiDirectSaveBtn.textContent = `⚠️ 尚有 ${unclaimedCount} 個品項未認領`;
+          aiDirectSaveBtn.textContent = t("currency.itemsUnclaimedBtn", {count: unclaimedCount});
         } else if(!isTotalMatching){
           aiDirectSaveBtn.disabled = true;
           aiDirectSaveBtn.classList.add("btn-disabled");
-          aiDirectSaveBtn.textContent = taxType === "inclusive" ? "⚠️ 金額不相符 (品項小計 ≠ 總計)" : "⚠️ 金額不相符 (小計 + 服務費/稅 ≠ 總計)";
+          aiDirectSaveBtn.textContent = taxType === "inclusive" ? t("currency.mismatchInclusiveBtn") : t("currency.mismatchExclusiveBtn");
         } else {
           aiDirectSaveBtn.disabled = false;
           aiDirectSaveBtn.classList.remove("btn-disabled");
-          aiDirectSaveBtn.textContent = editingAiExpenseId ? "💾 確認更新" : "💾 確認無誤，立即記帳";
+          aiDirectSaveBtn.textContent = editingAiExpenseId ? t("currency.confirmUpdateBtn") : t("currency.aiDirectSave");
         }
       }
 
@@ -2057,8 +2065,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
         const summary = generateCompactBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
         await copyToClipboard(summary);
-        copyCompactBtn.textContent = "✓ 已複製精簡版";
-        setTimeout(()=>{ copyCompactBtn.textContent = "⚡ 複製精簡版"; }, 1500);
+        copyCompactBtn.textContent = t("currency.copiedCompact");
+        setTimeout(()=>{ copyCompactBtn.textContent = t("currency.aiCopyCompact"); }, 1500);
       });
     }
 
@@ -2070,8 +2078,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const finalTotal = currentReceiptData && currentReceiptData._customTotal ? Number(currentReceiptData.totalAmount) : (currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal);
         const summary = generateBreakdownSummary(memberCalcMap, subtotal, netExtraFees, finalTotal);
         await copyToClipboard(summary);
-        copyFullBtn.textContent = "✓ 已複製完整版";
-        setTimeout(()=>{ copyFullBtn.textContent = "📋 複製完整版"; }, 1500);
+        copyFullBtn.textContent = t("currency.copiedFull");
+        setTimeout(()=>{ copyFullBtn.textContent = t("currency.aiCopyFull"); }, 1500);
       });
     }
 
@@ -2079,7 +2087,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
       addItemBtn.addEventListener("click", ()=>{
         receiptClaimItems.push({
           id: "item_" + Date.now(),
-          name: "自訂品項",
+          name: t("currency.customItemName"),
           price: 0,
           qty: 1,
           claimedMemberIds: []
@@ -2146,8 +2154,8 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
     // 🌟 一鍵直接記帳（無需跳回支出表單）
     if(aiDirectSaveBtn){
       aiDirectSaveBtn.addEventListener("click", async ()=>{
-        const rawStore = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || "聚餐收據";
-        const storeName = deps.getFirstLineDesc(rawStore).replace(/\(AI自動拆單\)/g, "").trim() || "聚餐收據";
+        const rawStore = (storeInputEl && storeInputEl.value.trim()) || (currentReceiptData && currentReceiptData.storeName) || t("currency.aiStoreDefaultValue");
+        const storeName = deps.getFirstLineDesc(rawStore).replace(/\(AI自動拆單\)/g, "").trim() || t("currency.aiStoreDefaultValue");
         const { memberCalcMap, subtotal, netExtraFees } = calculateMemberTotals();
         const calculatedTotal = roundAmt(subtotal + netExtraFees);
         const finalTotal = currentReceiptData && currentReceiptData.totalAmount ? Number(currentReceiptData.totalAmount) : calculatedTotal;
@@ -2156,20 +2164,20 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
         const unclaimedCountAtSave = getUnclaimedItemsCount();
         if(unclaimedCountAtSave > 0){
-          await sbAlert(`還有 ${unclaimedCountAtSave} 個品項尚未認領，請點擊成員頭像完成所有品項的分攤認領後，再進行儲存記帳！`, "⚠️ 請先完成所有品項認領");
+          await sbAlert(t("currency.finishClaimingFirst", {count: unclaimedCountAtSave}), t("currency.finishClaimingFirstTitle"));
           return;
         }
 
         if(!finalTotal || finalTotal <= 0){
-          await sbAlert("總金額不能為 0！請確認品項金額。", "金額錯誤");
+          await sbAlert(t("currency.totalCannotBeZero"), t("currency.amountErrorTitle"));
           return;
         }
 
         if(Math.abs(calculatedTotal - finalTotal) >= 0.5){
           if(taxType === "inclusive"){
-            await sbAlert(`目前為「內含稅」模式，品項小計 (${curSym}${deps.formatAmt(subtotal)}) 與總計 (${curSym}${deps.formatAmt(finalTotal)}) 不符！\n\n若此發票有額外服務費或稅額需疊加，請切換至「外加稅費」模式。`, "⚠️ 金額不相符");
+            await sbAlert(t("currency.saveMismatchInclusive", {subtotal: curSym+deps.formatAmt(subtotal), total: curSym+deps.formatAmt(finalTotal)}), t("currency.amountMismatchTitle"));
           } else {
-            await sbAlert(`小計 (${curSym}${deps.formatAmt(subtotal)}) ＋ 服務費/稅 (${curSym}${deps.formatAmt(netExtraFees)}) ＝ ${curSym}${deps.formatAmt(calculatedTotal)}，與總計 (${curSym}${deps.formatAmt(finalTotal)}) 不符！\n\n若此發票已內含稅，請切換至「內含稅」模式。`, "⚠️ 金額不相符");
+            await sbAlert(t("currency.saveMismatchExclusive", {subtotal: curSym+deps.formatAmt(subtotal), tax: curSym+deps.formatAmt(netExtraFees), calculated: curSym+deps.formatAmt(calculatedTotal), total: curSym+deps.formatAmt(finalTotal)}), t("currency.amountMismatchTitle"));
           }
           return;
         }
@@ -2177,7 +2185,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         // 1. 付款人校驗（跟 Step 2「付款人/日期」下一步用同一套 validateAiPayers()）
         const payerCheck = validateAiPayers(finalTotal);
         if(!payerCheck.ok){
-          await sbAlert(payerCheck.message, "付款人資料有誤");
+          await sbAlert(payerCheck.message, t("currency.payerDataErrorTitle"));
           return;
         }
         const payers = payerCheck.payers;
@@ -2245,7 +2253,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         const aiNote = `${breakdownSummary}${metaComment}`;
 
         aiDirectSaveBtn.disabled = true;
-        aiDirectSaveBtn.textContent = "⏳ 正在儲存中…";
+        aiDirectSaveBtn.textContent = t("currency.savingInProgress");
 
         try {
           const payload = {
@@ -2266,7 +2274,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
 
             closeModal();
             await deps.refreshExpenses();
-            await sbAlert(`🎉 已成功更新「${storeName}」支出明細！`, "更新成功");
+            await sbAlert(t("currency.updateSuccessMsg", {store: storeName}), t("currency.updateSuccessTitle"));
           } else {
             const keepImageChk = document.getElementById("aiReceiptKeepImageChk");
             const shouldKeepImage = !!(keepImageChk && keepImageChk.checked && currentReceiptImageBase64);
@@ -2282,7 +2290,7 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             closeModal();
 
             if(selectedReceiptCurrency !== deps.CURRENCY){
-              const okSwitch = await sbConfirm(`🎉 已成功直接記錄「${storeName}」總額 ${curSym}${deps.formatAmt(finalTotal)} 至【${curLabel}區】！\n\n是否立即切換至【${curLabel}區】查看此筆支出？`, "記帳成功");
+              const okSwitch = await sbConfirm(t("currency.saveSuccessSwitchPrompt", {store: storeName, amount: curSym+deps.formatAmt(finalTotal), label: curLabel}), t("currency.saveSuccessTitle"));
               if(okSwitch){
                 location.href = "currency.html?c=" + selectedReceiptCurrency;
               } else {
@@ -2290,15 +2298,15 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
               }
             } else {
               await deps.refreshExpenses();
-              await sbAlert(`🎉 已成功直接記錄「${storeName}」總額 ${curSym}${deps.formatAmt(finalTotal)}！`, "記帳成功");
+              await sbAlert(t("currency.saveSuccessMsg", {store: storeName, amount: curSym+deps.formatAmt(finalTotal)}), t("currency.saveSuccessTitle"));
             }
           }
         } catch(saveErr){
           console.error("Direct save expense error:", saveErr);
-          await sbAlert("記帳失敗：" + (saveErr.message || "伺服器錯誤"), "記帳失敗");
+          await sbAlert(t("currency.saveFailedPrefixAi") + (saveErr.message || t("currency.serverErrorFallback")), t("currency.saveFailedTitle"));
         } finally {
           aiDirectSaveBtn.disabled = false;
-          aiDirectSaveBtn.textContent = editingAiExpenseId ? "💾 確認修改並更新支出" : "💾 確認無誤，立即記帳";
+          aiDirectSaveBtn.textContent = editingAiExpenseId ? t("currency.confirmModifyUpdateBtn") : t("currency.aiDirectSave");
         }
       });
     }

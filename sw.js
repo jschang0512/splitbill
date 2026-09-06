@@ -81,18 +81,57 @@ self.addEventListener("fetch", (event) => {
 
 // ============================================================
 // Web Push：即使 app 沒開著，也能收到跟自己帳務有關的推播通知
+//
+// data.title 平常是後端（Supabase RPC/edge function）已經組好的通知
+// 內容，這邊拿到什麼就顯示什麼，不會另外翻譯——Service Worker 沒有
+// UI，沒辦法知道後端傳來的那句話是哪種語言寫的，硬翻反而可能翻錯。
+// 這裡只處理「後端完全沒給 title」的極端情況下用的預設標題，這種
+// 情況下才需要自己決定要用哪個語言顯示。
+//
+// Service Worker 是獨立的執行環境，碰不到分頁的 localStorage/i18n.js，
+// 使用者目前選的語言是靠 i18n.js 的 syncLangToServiceWorker() 額外
+// 寫進 IndexedDB 那份共用儲存空間，這裡讀出來用。
 // ============================================================
+const SW_FALLBACK_TITLES = {
+  "zh-Hant": "帳務更動",
+  "ja": "帳務の更新",
+  "en": "Account Update"
+};
+
+function splitbillReadLangFromDB(){
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open("splitbill-prefs", 1);
+      req.onupgradeneeded = () => {
+        if(!req.result.objectStoreNames.contains("kv")) req.result.createObjectStore("kv");
+      };
+      req.onsuccess = () => {
+        try {
+          const tx = req.result.transaction("kv", "readonly");
+          const getReq = tx.objectStore("kv").get("lang");
+          getReq.onsuccess = () => resolve(getReq.result || "zh-Hant");
+          getReq.onerror = () => resolve("zh-Hant");
+        } catch(e){ resolve("zh-Hant"); }
+      };
+      req.onerror = () => resolve("zh-Hant");
+    } catch(e){ resolve("zh-Hant"); }
+  });
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try{ data = event.data ? event.data.json() : {}; }catch(e){}
-  const title = data.title || "帳務更動";
-  const options = {
-    body: data.body || "",
-    icon: "icon.svg",
-    badge: "icon.svg",
-    data: { url: data.url || "./" }
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
+
+  event.waitUntil((async () => {
+    const title = data.title || SW_FALLBACK_TITLES[await splitbillReadLangFromDB()] || SW_FALLBACK_TITLES["zh-Hant"];
+    const options = {
+      body: data.body || "",
+      icon: "icon.svg",
+      badge: "icon.svg",
+      data: { url: data.url || "./" }
+    };
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {

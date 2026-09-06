@@ -31,33 +31,35 @@
     banner.id = "sbAppInstallBanner";
     banner.className = "app-install-banner";
 
+    const tt = (typeof window.t === "function") ? window.t : (k => k);
+
     if(isAndroid){
       banner.innerHTML = `
-        <div class="app-install-icon">🤖</div>
-        <div class="app-install-content">
-          <div class="app-install-title">
-            <span>下載 Android APP</span>
-            <span class="app-install-badge">推薦</span>
+        <div class="app-install-top">
+          <div class="app-install-icon">🤖</div>
+          <div class="app-install-content">
+            <div class="app-install-title">
+              <span>${tt("banner.androidTitle")}</span>
+              <span class="app-install-badge">${tt("banner.recommended")}</span>
+            </div>
+            <div class="app-install-desc">${tt("banner.androidDesc")}</div>
           </div>
-          <div class="app-install-desc">支援背景即時推播通知與原生全螢幕體驗</div>
+          <button type="button" class="app-install-close" id="sbAppInstallClose" aria-label="${tt("common.close")}">✕</button>
         </div>
-        <div class="app-install-actions">
-          <a class="app-install-btn" href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk">下載 APK</a>
-          <button type="button" class="app-install-close" id="sbAppInstallClose" aria-label="關閉">✕</button>
-        </div>
+        <a class="app-install-btn app-install-btn-wide" href="https://github.com/jschang0512/splitbill/releases/latest/download/splitbill.apk">${tt("banner.downloadApk")}</a>
       `;
     } else if(isIOS){
       banner.innerHTML = `
-        <div class="app-install-icon">🍎</div>
-        <div class="app-install-content">
-          <div class="app-install-title">
-            <span>加到 iPhone 主畫面</span>
-            <span class="app-install-badge">iOS</span>
+        <div class="app-install-top">
+          <div class="app-install-icon">🍎</div>
+          <div class="app-install-content">
+            <div class="app-install-title">
+              <span>${tt("banner.iosTitle")}</span>
+              <span class="app-install-badge">iOS</span>
+            </div>
+            <div class="app-install-desc">${tt("banner.iosDesc")}</div>
           </div>
-          <div class="app-install-desc">點擊 Safari 底部分享 ➔「加入主畫面」，享有全螢幕 App 體驗與通知！</div>
-        </div>
-        <div class="app-install-actions">
-          <button type="button" class="app-install-close" id="sbAppInstallClose" aria-label="關閉">✕</button>
+          <button type="button" class="app-install-close" id="sbAppInstallClose" aria-label="${tt("common.close")}">✕</button>
         </div>
       `;
     }

@@ -7,7 +7,7 @@
     if(typeof hidePwaSplash === "function") hidePwaSplash();
     const warn = document.getElementById("configWarning");
     if(warn){
-      warn.innerHTML = "<h2>⚠️ 載入失敗</h2><p class='config-warning-text'>無法載入 Supabase SDK (cdn.jsdelivr.net)，請檢查網路連線或是否開啟了廣告阻擋套件。</p>";
+      warn.innerHTML = "<h2>" + t("summary.configLoadFailTitle") + "</h2><p class='config-warning-text'>" + t("summary.configLoadFailText") + "</p>";
       warn.classList.remove("hidden");
     }
     return;
@@ -30,13 +30,13 @@
   // （登入/註冊本身已經搬去 index.html，這裡只有連結 Google/Discord 帳號會用到。）
   function friendlyAuthErr(error){
     const msg = (error && error.message) || "";
-    if(/captcha/i.test(msg)) return "安全驗證還沒完成，請稍等一下再試一次";
-    if(/already linked|already exists/i.test(msg)) return "這個帳號已經連結到另一個 Splitbill 帳號了，要先去那邊解除連結（或銷毀那個帳號）才能連過來這裡";
+    if(/captcha/i.test(msg)) return t("currency.authErrCaptcha");
+    if(/already linked|already exists/i.test(msg)) return t("summary.authErrAlreadyLinked");
     return null;
   }
 
   // ---------- 全站統一優雅自訂彈窗 (取代瀏覽器原生 alert / confirm) ----------
-  function showSbDialog({ title = "🔔 Splitbill 通知", message = "", confirmText = "確定", cancelText = null }){
+  function showSbDialog({ title = t("common.notifyDialogTitle"), message = "", confirmText = t("common.confirm"), cancelText = null }){
     return new Promise(resolve => {
       let modal = document.getElementById("sbDialogModal");
       if(!modal){
@@ -46,7 +46,7 @@
         modal.innerHTML = `
           <div class="calc-card card sb-dialog-card">
             <div class="sb-dialog-header">
-              <div class="sb-dialog-title" id="sbDialogTitle">🔔 Splitbill 通知</div>
+              <div class="sb-dialog-title" id="sbDialogTitle">${t("common.notifyDialogTitle")}</div>
               <button type="button" class="calc-close" id="sbDialogCloseBtn">✕</button>
             </div>
             <div class="sb-dialog-body" id="sbDialogBody"></div>
@@ -96,12 +96,12 @@
     });
   }
 
-  function sbAlert(message, title = "🔔 Splitbill 通知"){
-    return showSbDialog({ title, message, confirmText: "確定" });
+  function sbAlert(message, title = t("common.notifyDialogTitle")){
+    return showSbDialog({ title, message, confirmText: t("common.confirm") });
   }
 
-  function sbConfirm(message, title = "🔔 Splitbill 確認"){
-    return showSbDialog({ title, message, confirmText: "確定", cancelText: "取消" });
+  function sbConfirm(message, title = t("common.confirmDialogTitle")){
+    return showSbDialog({ title, message, confirmText: t("common.confirm"), cancelText: t("common.cancel") });
   }
 
   window.sbAlert = sbAlert;
@@ -146,7 +146,7 @@
       const show = input.type === "password";
       input.type = show ? "text" : "password";
       btn.textContent = show ? "🙈" : "👁️";
-      btn.setAttribute("aria-label", show ? "隱藏密碼" : "顯示密碼");
+      btn.setAttribute("aria-label", show ? t("login.hidePassword") : t("login.showPassword"));
     });
   });
 
@@ -233,7 +233,7 @@
     const rateText = conversionRate >= 1
       ? conversionRate.toLocaleString("zh-TW", { maximumFractionDigits: 2 })
       : conversionRate.toLocaleString("zh-TW", { maximumFractionDigits: 4 });
-    el.textContent = `💱 即時匯率：${CURRENCY_SYMBOL}1 ≈ NT$${rateText}`;
+    el.textContent = t("currency.exchangeRateHint", {sym: CURRENCY_SYMBOL, rate: rateText});
     el.classList.remove("hidden");
   }
   fetchConversionRate();
@@ -346,8 +346,8 @@
   const notifyBtn = document.getElementById("notifyBtn");
   const notifyHint = document.getElementById("notifyHint");
   const pushSupported = "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
-  const NOTIFY_HINT_DEFAULT = "開啟後，只要有跟你相關的支出或還款有異動就會通知你。";
-  const NOTIFY_HINT_BLOCKED = "🔕 通知已經被瀏覽器封鎖了，需要手動解除：\n手機：瀏覽器選單 → 網站設定（或「這個網站的權限」）→ 通知 → 改成允許\n電腦：網址列左邊的鎖頭／ⓘ 圖示 → 通知 → 改成允許\n改完後重新整理網頁即可。";
+  function NOTIFY_HINT_DEFAULT_FN(){ return t("settings.notifyHintDefault"); }
+  function NOTIFY_HINT_BLOCKED_FN(){ return t("settings.notifyHintBlockedBrowser"); }
 
   async function updateNotifyBtnState(){
     if(!notifyBtn) return;
@@ -359,24 +359,24 @@
     notifyBtn.disabled = false;
     if(Notification.permission === "denied"){
       notifyBtn.textContent = "🔕";
-      notifyBtn.title = "通知已被瀏覽器封鎖，點一下看怎麼打開";
+      notifyBtn.title = t("summary.notifyBlockedTitle");
       notifyBtn.classList.remove("active");
-      if(notifyHint) notifyHint.textContent = NOTIFY_HINT_BLOCKED;
+      if(notifyHint) notifyHint.textContent = NOTIFY_HINT_BLOCKED_FN();
       return;
     }
-    if(notifyHint) notifyHint.textContent = NOTIFY_HINT_DEFAULT;
+    if(notifyHint) notifyHint.textContent = NOTIFY_HINT_DEFAULT_FN();
     if(Notification.permission === "granted"){
       const reg = await navigator.serviceWorker.getRegistration();
       const sub = reg ? await reg.pushManager.getSubscription() : null;
       if(sub){
         notifyBtn.textContent = "🔔";
-        notifyBtn.title = "通知已開啟（點擊關閉）";
+        notifyBtn.title = t("summary.notifyOnTitle");
         notifyBtn.classList.add("active");
         return;
       }
     }
     notifyBtn.textContent = "🔔";
-    notifyBtn.title = "點擊開啟通知";
+    notifyBtn.title = t("summary.notifyOffTitle");
     notifyBtn.classList.remove("active");
   }
 
@@ -410,7 +410,7 @@
         // 會顯示「已開啟」但其實永遠收不到通知，使用者完全不會發現。
         console.error("推播訂閱寫入失敗：", error);
         await sub.unsubscribe();
-        await sbAlert("開啟通知失敗，請稍後再試一次。");
+        await sbAlert(t("summary.pushSubFailed"));
       }
     }catch(e){
       console.error("推播訂閱失敗：", e);
@@ -423,7 +423,7 @@
     if(!pushSupported || !currentUser) return;
 
     if(Notification.permission === "denied"){
-      await sbAlert("通知被瀏覽器封鎖了，程式沒辦法自己打開，要自己去手動解除：\n\n手機：瀏覽器選單 → 網站設定（或「這個網站的權限」）→ 通知 → 改成允許\n電腦：網址列左邊的鎖頭／ⓘ 圖示 → 通知 → 改成允許\n\n改完之後重新整理網頁就可以了。");
+      await sbAlert(NOTIFY_HINT_BLOCKED_FN());
       return;
     }
 
@@ -469,21 +469,21 @@
       return;
     }
 
-    const actor = memberById[row.created_by] || "有人";
+    const actor = memberById[row.created_by] || t("summary.someone");
     let title, body;
     if(table === "expenses"){
-      title = payload.eventType === "INSERT" ? "📋 新增支出" : "📋 支出更新";
+      title = payload.eventType === "INSERT" ? t("summary.notifExpenseNew") : t("summary.notifExpenseUpdate");
       let cleanDesc = (row.description || "")
         .replace(/<!--[\s\S]*?-->/gi, "")
         .replace(/<!--AI_RECEIPT_DATA:[\s\S]*?-->/gi, "")
         .replace(/AI_RECEIPT_DATA:[\s\S]*/gi, "")
         .replace(/\s*\[xcur[:_][^\]]+\]/gi, "")
         .trim();
-      cleanDesc = cleanDesc.split("\n")[0].replace(/\(AI自動拆單\)/g, "").trim() || "支出項目";
-      body = `${actor}：「${cleanDesc}」${SYM}${formatAmt(row.amount)}`;
+      cleanDesc = cleanDesc.split("\n")[0].replace(/\(AI自動拆單\)/g, "").trim() || t("summary.notifExpenseItemFallback");
+      body = t("summary.notifExpenseBody", {actor, desc: cleanDesc, amount: SYM + formatAmt(row.amount)});
     } else {
-      title = payload.eventType === "INSERT" ? "💸 新增還款" : "💸 還款更新";
-      body = `${memberById[row.from_member] || "?"} 還 ${memberById[row.to_member] || "?"}　${SYM}${formatAmt(row.amount)}`;
+      title = payload.eventType === "INSERT" ? t("summary.notifRepayNew") : t("summary.notifRepayUpdate");
+      body = t("summary.notifRepayBody", {from: memberById[row.from_member] || "?", to: memberById[row.to_member] || "?", amount: SYM + formatAmt(row.amount)});
     }
 
     showToast(title, body);
@@ -618,19 +618,7 @@
       window.renderNavLinks();
     }
 
-    if(typeof renderDesktopSidebar === "function"){
-      renderDesktopSidebar("desktopSidebarContainer", "CURRENCY", CURRENCY, window.shownCurrencies, async (newOrder)=>{
-        window.shownCurrencies = newOrder;
-        localStorage.setItem("splitbill-shown-currencies", JSON.stringify(newOrder));
-        if(myMember && myMember.id){
-          const { error } = await sb.from("members").update({ shown_currencies: newOrder }).eq("id", myMember.id);
-          if(error) console.error("儲存幣別順序失敗：", error);
-        }
-        if(typeof window.renderNavLinks === "function") window.renderNavLinks();
-      });
-    }
     if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
-    if(typeof initDesktopHoverInspector === "function") initDesktopHoverInspector();
     if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
 
     window.memberRows = memberRows;
@@ -684,6 +672,11 @@
       wireCalcButtons(sharesWrap);
     }
 
+    const sharesRatioWrap = document.getElementById("expSharesRatio");
+    if(sharesRatioWrap){
+      sharesRatioWrap.innerHTML = activeMemberRows.map(ratioRowHTML).join("");
+    }
+
     const expAmtInp = document.getElementById("expAmount");
     const expAmtCalcBtn = document.getElementById("expAmountCalcBtn");
     if(expAmtInp){
@@ -694,7 +687,7 @@
     }
     if(expAmtCalcBtn && expAmtInp){
       expAmtCalcBtn.addEventListener("click", ()=>{
-        openCalc(expAmtInp, "支出總金額");
+        openCalc(expAmtInp, t("summary.amountCalcTargetName"));
       });
     }
 
@@ -809,6 +802,10 @@
       document.getElementById("expSharesCustom").classList.toggle("hidden", splitMode !== "custom");
       const shareTaxWarnEl = document.getElementById("expSharesTaxWarn");
       if(shareTaxWarnEl) shareTaxWarnEl.classList.toggle("hidden", splitMode !== "custom");
+      const ratioHintEl = document.getElementById("expRatioHint");
+      if(ratioHintEl) ratioHintEl.classList.toggle("hidden", splitMode !== "ratio");
+      const sharesRatioEl = document.getElementById("expSharesRatio");
+      if(sharesRatioEl) sharesRatioEl.classList.toggle("hidden", splitMode !== "ratio");
       document.getElementById("shareSumCheck").textContent = "";
       if(splitMode === "custom") updateShareSumCheck();
       if(splitMode === "equal") renderAddonsList();
@@ -845,8 +842,8 @@
         <div class="amt-row exp-addon-row" data-member="${mId}">
           ${renderAvatarHTML({ id: mId, name: name }, "avatar-xs")}
           <span class="amt-row-name">${escapeHtml(name)}</span>
-          <input type="number" class="amt-row-input exp-addon-input" data-member="${mId}" placeholder="個人自付 (0)" min="0" step="1" value="${val}" ${calc ? `data-calc="${escapeHtml(calc)}"` : ''}>
-          <button type="button" class="amt-row-calc-btn${calc ? ' has-calc' : ''}" title="小計算機">🧮</button>
+          <input type="number" class="amt-row-input exp-addon-input" data-member="${mId}" placeholder="${t("currency.personalAddonPlaceholder")}" min="0" step="1" value="${val}" ${calc ? `data-calc="${escapeHtml(calc)}"` : ''}>
+          <button type="button" class="amt-row-calc-btn${calc ? ' has-calc' : ''}" title="${t("common.calculator")}">🧮</button>
         </div>
       `;
     }).join("");
@@ -869,7 +866,7 @@
     if(!hintEl) return;
     const n = item.memberIds.length;
     const perPerson = n > 0 ? Math.floor((Number(item.price) || 0) / n) : 0;
-    hintEl.textContent = n > 0 ? `每人 ${SYM}${formatAmt(perPerson)}（共 ${n} 人分攤）` : "尚未勾選分攤的人";
+    hintEl.textContent = n > 0 ? t("summary.perPersonShare", {amount: SYM+formatAmt(perPerson), count: n}) : t("summary.noOneSelectedForShare");
   }
 
   function renderSharedAddonsList(){
@@ -883,21 +880,21 @@
     sharedAddonItems.forEach(item => { item.memberIds = item.memberIds.filter(id => participantSet.has(id)); });
 
     if(!sharedAddonItems.length){
-      listEl.innerHTML = `<div class="exp-shared-addon-empty">還沒有新增任何共同品項</div>`;
+      listEl.innerHTML = `<div class="exp-shared-addon-empty">${t("summary.sharedAddonEmpty")}</div>`;
     } else {
       listEl.innerHTML = sharedAddonItems.map(item => {
         const n = item.memberIds.length;
         const perPerson = n > 0 ? Math.floor((Number(item.price) || 0) / n) : 0;
-        const hintText = n > 0 ? `每人 ${SYM}${formatAmt(perPerson)}（共 ${n} 人分攤）` : "尚未勾選分攤的人";
+        const hintText = n > 0 ? t("summary.perPersonShare", {amount: SYM+formatAmt(perPerson), count: n}) : t("summary.noOneSelectedForShare");
         return `
           <div class="exp-shared-addon-item" data-id="${item.id}">
             <div class="exp-shared-addon-item-top">
-              <input type="text" class="exp-shared-addon-name" placeholder="品項名稱（例如：酒）" value="${escapeHtml(item.name || "")}">
-              <button type="button" class="exp-shared-addon-del" title="刪除">✕</button>
+              <input type="text" class="exp-shared-addon-name" placeholder="${t("summary.sharedAddonNamePlaceholder")}" value="${escapeHtml(item.name || "")}">
+              <button type="button" class="exp-shared-addon-del" title="${t("settings.delete")}">✕</button>
             </div>
             <div class="input-calc-wrap exp-shared-addon-price-wrap">
-              <input type="number" class="exp-shared-addon-price" placeholder="總價" min="0" step="1" value="${item.price || ""}">
-              <button type="button" class="amt-row-calc-btn input-calc-btn exp-shared-addon-calc-btn" title="小計算機">🧮</button>
+              <input type="number" class="exp-shared-addon-price" placeholder="${t("summary.sharedAddonPricePlaceholder")}" min="0" step="1" value="${item.price || ""}">
+              <button type="button" class="amt-row-calc-btn input-calc-btn exp-shared-addon-calc-btn" title="${t("common.calculator")}">🧮</button>
             </div>
             <div class="exp-shared-addon-members">
               ${participants.map(pid => `
@@ -928,7 +925,7 @@
       });
       const calcBtn = rowEl.querySelector(".exp-shared-addon-calc-btn");
       if(calcBtn && priceInp){
-        calcBtn.addEventListener("click", () => openCalc(priceInp, item.name || "共同品項總價"));
+        calcBtn.addEventListener("click", () => openCalc(priceInp, item.name || t("summary.sharedAddonCalcTargetFallback")));
       }
       const delBtn = rowEl.querySelector(".exp-shared-addon-del");
       if(delBtn) delBtn.addEventListener("click", () => {
@@ -968,7 +965,7 @@
           if(!items[mId]) items[mId] = { rawAmt: 0, finalAmt: 0, calc: "" };
           items[mId].rawAmt += amt;
           items[mId].finalAmt += amt;
-          const label = item.name ? item.name.trim() : "共同品項";
+          const label = item.name ? item.name.trim() : t("currency.sharedAddonDefaultLabel");
           items[mId].calc = items[mId].calc ? `${items[mId].calc}+${label}${amt}` : `${label}${amt}`;
           totalAddon += amt;
         });
@@ -1035,7 +1032,7 @@
 
   function updateManualTaxTypeUI(){
     if(expAmountLabel){
-      expAmountLabel.textContent = manualTaxType === "inclusive" ? "支出總金額 (已含稅/免稅)" : "未稅金額 / 餐費小計";
+      expAmountLabel.textContent = manualTaxType === "inclusive" ? t("summary.amountLabelInclusive") : t("currency.amountLabelExclusiveFull");
     }
     updateTaxPreview();
     updatePayerSumCheck();
@@ -1065,11 +1062,11 @@
       return;
     }
     previewEl.classList.remove("hidden");
-    const modeText = manualTaxSplitMode === "ratio" ? "依照個人消費額比例分配" : "全員平分";
+    const modeText = manualTaxSplitMode === "ratio" ? t("summary.taxModeRatioDesc") : t("currency.taxEqual");
     previewEl.innerHTML = `
-      <div>📊 <b>費用加總</b>：小計 ${SYM}${formatAmt(subtotal)} + 服務費/稅 ${SYM}${formatAmt(tax)} = <b>總支出 ${SYM}${formatAmt(total)}</b></div>
+      <div>${t("currency.taxPreviewSummary", {subtotal: SYM+formatAmt(subtotal), tax: SYM+formatAmt(tax), total: SYM+formatAmt(total)})}</div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:3px;">
-        分配方式：${modeText}
+        ${t("currency.taxPreviewMode", {mode: modeText})}
       </div>
     `;
   }
@@ -1153,7 +1150,7 @@
   }
   if(expTaxCalcBtn && expTaxInp){
     expTaxCalcBtn.addEventListener("click", ()=>{
-      openCalc(expTaxInp, "服務費 / 稅額");
+      openCalc(expTaxInp, t("summary.taxCalcTargetName"));
     });
   }
 
@@ -1177,10 +1174,11 @@
     const baseShare = Math.floor(baseAmount / n);
 
     previewEl.classList.remove("hidden");
+    const taxPart = tax > 0 ? t("currency.addonsPreviewTaxPart", {tax: SYM+formatAmt(tax), total: SYM+formatAmt(total)}) : '';
     previewEl.innerHTML = `
-      <div>📊 <b>分攤試算</b>：不含稅 ${SYM}${formatAmt(subtotal)}${tax > 0 ? ` + 服務費/稅 ${SYM}${formatAmt(tax)} = 總額 ${SYM}${formatAmt(total)}` : ''}</div>
+      <div>${t("currency.addonsPreviewSummary", {subtotal: SYM+formatAmt(subtotal), taxPart})}</div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:3px;">
-        扣除個人自付合計 ${SYM}${formatAmt(totalAddon)} ➔ 共同平分基本額 ${SYM}${formatAmt(baseAmount)}（每人約 ${SYM}${formatAmt(baseShare)}）
+        ${t("currency.addonsPreviewDetail", {addon: SYM+formatAmt(totalAddon), base: SYM+formatAmt(baseAmount), share: SYM+formatAmt(baseShare)})}
       </div>
     `;
   }
@@ -1228,7 +1226,7 @@
         inp.checked = nextChecked;
         inp.closest(".check-pill").classList.toggle("checked", nextChecked);
       });
-      toggleAllParticipantsBtn.textContent = nextChecked ? "取消全選" : "全選";
+      toggleAllParticipantsBtn.textContent = nextChecked ? t("currency.deselectAll") : t("summary.selectAll");
       updateAddonsPreview();
     });
   }
@@ -1236,9 +1234,9 @@
   function sumCheckHTML(total, sum){
     const diff = Math.round((total - sum) * 100) / 100;
     if(!total) return "";
-    if(Math.abs(diff) < 0.5) return `<span class="sum-ok">🎉 金額剛好分配完畢（${SYM}${formatAmt(sum)}）</span>`;
-    if(diff > 0) return `<span class="sum-warn">⚠️ 尚餘 ${SYM}${formatAmt(diff)} 待分配（已分配 ${SYM}${formatAmt(sum)} / ${SYM}${formatAmt(total)}）</span>`;
-    return `<span class="sum-warn">🚨 超出總金額 ${SYM}${formatAmt(Math.abs(diff))}（已分配 ${SYM}${formatAmt(sum)} / ${SYM}${formatAmt(total)}）</span>`;
+    if(Math.abs(diff) < 0.5) return `<span class="sum-ok">${t("summary.sumOk", {amount: SYM+formatAmt(sum)})}</span>`;
+    if(diff > 0) return `<span class="sum-warn">${t("summary.sumRemaining", {diff: SYM+formatAmt(diff), sum: SYM+formatAmt(sum), total: SYM+formatAmt(total)})}</span>`;
+    return `<span class="sum-warn">${t("summary.sumExceeded", {diff: SYM+formatAmt(Math.abs(diff)), sum: SYM+formatAmt(sum), total: SYM+formatAmt(total)})}</span>`;
   }
 
   function readAmountRows(containerId){
@@ -1253,6 +1251,12 @@
     });
     return rows;
   }
+  // 依比例分攤讀的是「份數」不是金額，欄位結構跟 amtRowHTML 一樣（同樣是
+  // .amt-row-input），直接借 readAmountRows() 讀完再把 amount 改名成
+  // weight，語意比較清楚，避免呼叫端誤會這是金額。
+  function readRatioRows(containerId){
+    return readAmountRows(containerId).map(r => ({ member_id: r.member_id, weight: r.amount }));
+  }
 
   // ---------- 付款人/分攤人/參與者 UI 小元件（新增支出用，也給編輯模式的
   // ensureXxx() 系列補選項時共用）----------
@@ -1261,7 +1265,17 @@
         ${renderAvatarHTML(m, "avatar-xs")}
         <span class="amt-row-name">${escapeHtml(m.name)}</span>
         <input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="1">
-        <button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button>
+        <button type="button" class="amt-row-calc-btn" title="${t("common.calculator")}">🧮</button>
+      </div>`;
+  }
+  // 依比例分攤：填的是份數，不是金額，所以沒有小計算機按鈕，右邊加個
+  // 「份」字提示單位。
+  function ratioRowHTML(m){
+    return `<div class="amt-row">
+        ${renderAvatarHTML(m, "avatar-xs")}
+        <span class="amt-row-name">${escapeHtml(m.name)}</span>
+        <input type="number" class="amt-row-input" data-member="${m.id}" placeholder="0" min="0" step="0.5">
+        <span class="ratio-row-unit">${t("common.shareUnit")}</span>
       </div>`;
   }
   function participantPill(m, checked){
@@ -1298,7 +1312,7 @@
         ${renderAvatarHTML({ id: memberId, name: memberById[memberId] }, "avatar-xs")}
         <span class="amt-row-name">${escapeHtml(memberById[memberId] || "?")}</span>
         <input type="number" class="amt-row-input" data-member="${memberId}" placeholder="0" min="0" step="1">
-        <button type="button" class="amt-row-calc-btn" title="小計算機">🧮</button>`;
+        <button type="button" class="amt-row-calc-btn" title="${t("common.calculator")}">🧮</button>`;
     wrapEl.appendChild(div);
     const inp = div.querySelector(".amt-row-input");
     inp.addEventListener("input", ()=>{ clearRowCalc(inp); updatePayerSumCheck(); updateShareSumCheck(); });
@@ -1379,7 +1393,7 @@
           calcExpr = calcExpr.slice(0, -1);
         } else if(key === "="){
           const result = safeEvalCalc(calcExpr || "0");
-          if(result === null){ calcDisplay.textContent = "格式錯誤"; return; }
+          if(result === null){ calcDisplay.textContent = t("summary.calcFormatError"); return; }
           const rounded = Math.round(result * 100) / 100;
           if(calcTargetInput){
             calcTargetInput.value = rounded;
@@ -1425,7 +1439,7 @@
     const shareTaxWarnEl = document.getElementById("expSharesTaxWarn");
     if(shareTaxWarnEl) shareTaxWarnEl.classList.toggle("hidden", tax <= 0);
     document.querySelectorAll("#expSharesCustom .amt-row-input").forEach(inp => {
-      inp.placeholder = tax > 0 ? "未稅金額" : "0";
+      inp.placeholder = tax > 0 ? t("summary.untaxedAmountPlaceholder") : "0";
     });
     const rows = readAmountRows("expSharesCustom");
     const sumBase = rows.reduce((s,p)=>s+p.amount, 0);
@@ -1433,7 +1447,7 @@
       const sumWithTax = sumBase + tax;
       document.getElementById("shareSumCheck").innerHTML = `
         <div style="font-size:12px;color:var(--ink-soft);margin-bottom:2px;">
-          自訂基本消費合計 ${SYM}${formatAmt(sumBase)} + 服務費/稅 ${SYM}${formatAmt(tax)} = <b>${SYM}${formatAmt(sumWithTax)}</b>
+          ${t("currency.customShareSumWithTax", {base: SYM+formatAmt(sumBase), tax: SYM+formatAmt(tax), total: "<b>"+SYM+formatAmt(sumWithTax)+"</b>"})}
         </div>
         ${sumCheckHTML(total, sumWithTax)}
       `;
@@ -1536,9 +1550,9 @@
   function validateExpStep1(){
     const { total: amount } = getManualExpenseTotals();
     const itemTitle = document.getElementById("expDesc").value.trim();
-    if(!amount || amount <= 0) return { ok:false, message:"請輸入正確金額" };
-    if(!Number.isInteger(amount)) return { ok:false, message:"金額請輸入整數，不支援小數點" };
-    if(!itemTitle) return { ok:false, message:"請輸入項目" };
+    if(!amount || amount <= 0) return { ok:false, message:t("currency.amountInvalid") };
+    if(!Number.isInteger(amount)) return { ok:false, message:t("summary.amountMustBeInteger") };
+    if(!itemTitle) return { ok:false, message:t("currency.itemTitleRequired") };
     return { ok:true };
   }
 
@@ -1546,13 +1560,13 @@
     if(payerMode === "single") return { ok:true };
     const { total: amount } = getManualExpenseTotals();
     const payers = readAmountRows("expPayers");
-    if(!payers.length) return { ok:false, message:"至少要有一個人付錢" };
+    if(!payers.length) return { ok:false, message:t("currency.needAtLeastOnePayer") };
     const payerSum = payers.reduce((s,p)=>s+p.amount, 0);
     if(Math.abs(payerSum - amount) >= 0.5){
       const diff = Math.round((amount - payerSum) * 100) / 100;
       return { ok:false, message: diff > 0
-        ? `付款總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
-        : `付款總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入` };
+        ? t("summary.payerSumShort", {diff: SYM+formatAmt(diff), total: SYM+formatAmt(amount)})
+        : t("summary.payerSumOver", {diff: SYM+formatAmt(Math.abs(diff)), total: SYM+formatAmt(amount)}) };
     }
     return { ok:true };
   }
@@ -1561,49 +1575,57 @@
     const { subtotal, tax: taxAmount, total: amount } = getManualExpenseTotals();
     if(splitMode === "equal"){
       const participants = Array.from(document.querySelectorAll("#expParticipants input:checked")).map(i=>i.value);
-      if(!participants.length) return { ok:false, message:"至少要選一個人分攤" };
+      if(!participants.length) return { ok:false, message:t("currency.needAtLeastOneParticipant") };
       const { totalAddon } = getAddonsData();
       if(totalAddon > subtotal && subtotal > 0){
-        return { ok:false, message:`個人自付總額 (${SYM}${formatAmt(totalAddon)}) 超過不含稅總金額 (${SYM}${formatAmt(subtotal)})` };
+        return { ok:false, message:t("summary.addonExceedsSubtotal", {addon: SYM+formatAmt(totalAddon), subtotal: SYM+formatAmt(subtotal)}) };
       }
-    } else {
+    } else if(splitMode === "custom"){
       const customRows = readAmountRows("expSharesCustom");
-      if(!customRows.length) return { ok:false, message:"至少要有一個人分攤" };
+      if(!customRows.length) return { ok:false, message:t("currency.needAtLeastOneCustomShare") };
       const customBaseSum = customRows.reduce((s,p)=>s+p.amount, 0);
       if(taxAmount > 0){
         if(subtotal > 0 && Math.abs(customBaseSum - subtotal) >= 0.5){
           const diff = Math.round((subtotal - customBaseSum) * 100) / 100;
           return { ok:false, message: diff > 0
-            ? `自訂消費總額還差 ${SYM}${formatAmt(diff)}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上`
-            : `自訂消費總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟不含稅金額 ${SYM}${formatAmt(subtotal)} 對不上` };
+            ? t("summary.customShareShort", {diff: SYM+formatAmt(diff), subtotal: SYM+formatAmt(subtotal)})
+            : t("summary.customShareOver", {diff: SYM+formatAmt(Math.abs(diff)), subtotal: SYM+formatAmt(subtotal)}) };
         }
       } else {
         if(Math.abs(customBaseSum - amount) >= 0.5){
           const diff = Math.round((amount - customBaseSum) * 100) / 100;
           return { ok:false, message: diff > 0
-            ? `分攤總額還差 ${SYM}${formatAmt(diff)}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入`
-            : `分攤總額超過 ${SYM}${formatAmt(Math.abs(diff))}，跟支出金額 ${SYM}${formatAmt(amount)} 對不上，無法加入` };
+            ? t("summary.shareSumShort", {diff: SYM+formatAmt(diff), total: SYM+formatAmt(amount)})
+            : t("summary.shareSumOver", {diff: SYM+formatAmt(Math.abs(diff)), total: SYM+formatAmt(amount)}) };
         }
       }
+    } else {
+      // 依比例分攤：份數不用加總到金額，只要求至少一個人有填份數即可，
+      // 實際金額換算交給 computeRatioSplitShares() 處理。
+      const ratioRows = readRatioRows("expSharesRatio");
+      if(!ratioRows.length) return { ok:false, message:t("summary.ratioAtLeastOne") };
     }
     return { ok:true };
   }
 
-  const expWizardStepLabels = ["支出內容","誰付的錢","怎麼分攤","備註與日期"];
+  function expWizardStepLabels(){
+    return [t("currency.contentSectionTitle"), t("currency.payerSectionTitle"), t("currency.splitSectionTitle"), t("currency.noteDateSectionTitle")];
+  }
   function updateExpWizardChrome(index){
     document.querySelectorAll("#expWizardDots .form-wizard-dot").forEach((dot, i)=>{
       dot.classList.toggle("active", i === index);
       dot.classList.toggle("done", i < index);
     });
+    const labels = expWizardStepLabels();
     const titleEl = document.getElementById("expWizardStepTitle");
-    if(titleEl) titleEl.textContent = `步驟 ${index+1} / 4・${expWizardStepLabels[index]}`;
+    if(titleEl) titleEl.textContent = t("common.stepFormat", {step: index+1, total: 4, label: labels[index]});
     const backBtn = document.getElementById("expWizardBackBtn");
     if(backBtn) backBtn.classList.toggle("hidden", index === 0);
     const nextBtn = document.getElementById("addExpenseBtn");
     if(nextBtn){
-      nextBtn.textContent = (index === expWizardStepLabels.length - 1)
-        ? (editingExpenseId ? "更新這筆支出" : "加入這筆支出")
-        : "下一步";
+      nextBtn.textContent = (index === labels.length - 1)
+        ? (editingExpenseId ? t("currency.updateExpenseSubmit") : t("summary.addExpenseSubmit"))
+        : t("common.wizardNext");
     }
   }
 
@@ -1622,6 +1644,14 @@
     });
     return expWizardInstance;
   }
+  // 一開始就把 wizard 建起來（不用等使用者按下一步/編輯支出才觸發），
+  // 這樣 updateExpWizardChrome(0) 才會立刻跑一次，把 #expWizardStepTitle
+  // 從 HTML 裡寫死的中文預設字換成當下語言——不然在切換成日文/英文、
+  // 但還沒點過下一步之前，這行小字會一直停留在中文。
+  getExpWizard();
+  document.addEventListener("splitbill-lang-changed", ()=>{
+    if(expWizardInstance) updateExpWizardChrome(expWizardInstance.getCurrentIndex());
+  });
 
   async function resetExpWizardToStep0(){
     const wizard = await getExpWizard();
@@ -1698,7 +1728,7 @@
             addonAmounts
           });
         }
-      } else {
+      } else if(splitMode === "custom"){
         const customRows = readAmountRows("expSharesCustom");
 
         // 均分/自訂分攤的計算已經抽成共用的 expense-form-shared.js（ES
@@ -1707,6 +1737,19 @@
           const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
           shares = formShared.computeCustomSplitShares({ subtotal, taxAmount, taxSplitMode: manualTaxSplitMode, rows: customRows });
         }
+      } else {
+        const ratioRows = readRatioRows("expSharesRatio");
+        if(!ratioRows.length){
+          msg.textContent = t("summary.ratioAtLeastOne");
+          msg.className = "msg error";
+          return;
+        }
+        const formShared = await import("./expense-form-shared.js?v=" + APP_VERSION);
+        shares = formShared.computeRatioSplitShares({
+          subtotal, taxAmount, taxSplitMode: manualTaxSplitMode,
+          rows: ratioRows,
+          payerIds: payers.map(p => p.member_id)
+        });
       }
 
       // 項目保留乾淨標題（若編輯時原紀錄有隱藏 meta 標籤則保留於 description 末端）
@@ -1730,7 +1773,7 @@
           e.created_at && (now - new Date(e.created_at).getTime()) < 10 * 60 * 1000
         );
         if(dup){
-          const ok = await sbConfirm(`10 分鐘內已經有一筆一樣的「${itemTitle}」${SYM}${formatAmt(amount)}，是不是手滑重複記錄了？\n\n按「確定」會繼續新增這一筆，按「取消」則不新增。`, "🔔 重複支出確認");
+          const ok = await sbConfirm(t("currency.dupExpenseConfirm", {title: itemTitle, amount: SYM+formatAmt(amount)}), t("currency.dupExpenseTitle"));
           if(!ok) return;
         }
       }
@@ -1749,14 +1792,14 @@
       const { error } = editingExpenseId
         ? await sb.from("expenses").update(payload).eq("id", editingExpenseId)
         : await sb.from("expenses").insert(payload);
-      if(error){ msg.textContent = (editingExpenseId ? "更新失敗：" : "新增失敗：") + error.message; msg.className = "msg error"; return; }
+      if(error){ msg.textContent = (editingExpenseId ? t("currency.updateFailed") : t("currency.addFailed")) + error.message; msg.className = "msg error"; return; }
 
       if(userManuallyPickedCategory && itemTitle){
         const learnKeyword = normalizeCategoryKeyword(getFirstLineDesc(itemTitle));
         if(learnKeyword) saveCategoryLearning(learnKeyword, selectedExpCategory || "general");
       }
 
-      msg.textContent = editingExpenseId ? "已更新！" : "已加入！";
+      msg.textContent = editingExpenseId ? t("currency.updatedDone") : t("currency.addedDone");
       msg.className = "msg ok";
       const wasEditing = !!editingExpenseId;
       const btn = document.getElementById("addExpenseBtn");
@@ -1764,11 +1807,11 @@
       // 觸發「實體收據印出 ➔ 飛入帳本」動畫
       if(!wasEditing && typeof window.triggerReceiptFlyAnimation === "function"){
         const firstPayerId = (payers && payers[0] && payers[0].member_id);
-        const payerName = (firstPayerId && memberById[firstPayerId]) || (myMember && myMember.name) || "我";
+        const payerName = (firstPayerId && memberById[firstPayerId]) || (myMember && myMember.name) || t("summary.meFallback");
         const catMeta = (window.getCategoryMeta && window.getCategoryMeta(itemTitle, itemNote, selectedExpCategory)) || {};
         window.triggerReceiptFlyAnimation({
           buttonEl: btn,
-          desc: itemTitle || "新增支出",
+          desc: itemTitle || t("currency.newExpenseDefaultDesc"),
           amount: amount,
           symbol: SYM || "$",
           categoryIcon: catMeta.icon || "🧾",
@@ -1789,7 +1832,7 @@
       updateManualTaxTypeUI();
       document.getElementById("expDesc").value = "";
       if(document.getElementById("expNote")) document.getElementById("expNote").value = "";
-      document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
+      document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expSharesRatio .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
       document.getElementById("payerSumCheck").innerHTML = "";
       document.getElementById("shareSumCheck").innerHTML = "";
       sharedAddonItems = [];
@@ -1798,11 +1841,11 @@
       if(addonsPreview) addonsPreview.classList.add("hidden");
 
       await resetExpWizardToStep0();
-      btn.textContent = wasEditing ? "✓ 已更新" : "✓ 已加入";
+      btn.textContent = wasEditing ? t("currency.updatedCheckmark") : t("currency.addedCheckmark");
       btn.classList.add("btn-success");
       setTimeout(()=>{
         btn.classList.remove("btn-success");
-        btn.textContent = "下一步";
+        btn.textContent = t("common.wizardNext");
       }, 1100);
 
       await refreshExpenses();
@@ -2055,13 +2098,13 @@
       if(!aiData){
         const { title } = splitExpenseTitleAndNote(e.description, e.note);
         aiData = {
-          storeName: title || "聚餐收據",
+          storeName: title || t("currency.aiStoreDefaultValue"),
           subtotal: Number(e.amount) || 0,
           taxType: "inclusive",
           taxSplitMode: "ratio",
           items: [{
             id: "item_0_" + Date.now(),
-            name: title || "消費品項",
+            name: title || t("currency.genericItemFallback"),
             price: Number(e.amount) || 0,
             qty: 1,
             claimedMemberIds: (e.shares || []).map(s => s.member_id)
@@ -2082,7 +2125,7 @@
     sharedAddonItems = [];
     setAddonMode("custom");
     document.getElementById("editBanner").classList.remove("hidden");
-    document.getElementById("expFormTitle").textContent = "✎ 編輯支出";
+    document.getElementById("expFormTitle").textContent = t("currency.editingExpenseTitle");
     resetExpWizardToStep0();
 
     const expAmtInp = document.getElementById("expAmount");
@@ -2189,7 +2232,7 @@
     editingExpenseId = null;
     editingExpenseOriginal = null;
     document.getElementById("editBanner").classList.add("hidden");
-    document.getElementById("expFormTitle").textContent = "🧾 新增支出";
+    document.getElementById("expFormTitle").textContent = t("currency.expFormTitleDefault");
     const expAmtInp = document.getElementById("expAmount");
     if(expAmtInp){ expAmtInp.value = ""; clearRowCalc(expAmtInp); }
     const expTaxInp = document.getElementById("expTaxAmount");
@@ -2219,7 +2262,7 @@
       if(expTaxInp){ expTaxInp.value = ""; clearRowCalc(expTaxInp); }
       document.getElementById("expDesc").value = "";
       if(document.getElementById("expNote")) document.getElementById("expNote").value = "";
-      document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
+      document.querySelectorAll("#expPayers .amt-row-input, #expSharesCustom .amt-row-input, #expSharesRatio .amt-row-input, #expAddonsList .exp-addon-input").forEach(i=>{ i.value=""; clearRowCalc(i); });
       document.getElementById("payerSumCheck").innerHTML = "";
       document.getElementById("shareSumCheck").innerHTML = "";
       const addonsPreview = document.getElementById("expAddonsPreview");
@@ -2239,23 +2282,23 @@
       const payment_date = document.getElementById("repayDate").value;
       const msg = document.getElementById("repayMsg");
 
-      if(from_member === to_member){ msg.textContent = "付錢跟收錢不能是同一個人"; msg.className = "msg error"; return; }
-      if(!amount || amount <= 0){ msg.textContent = "請輸入正確金額"; msg.className = "msg error"; return; }
+      if(from_member === to_member){ msg.textContent = t("currency.repayFromToSame"); msg.className = "msg error"; return; }
+      if(!amount || amount <= 0){ msg.textContent = t("currency.amountInvalid"); msg.className = "msg error"; return; }
 
       const payload = { from_member, to_member, amount, note: note || null, payment_date, created_by: myMember.id, currency: CURRENCY };
       const { error } = editingRepaymentId
         ? await sb.from("repayments").update(payload).eq("id", editingRepaymentId)
         : await sb.from("repayments").insert(payload);
-      if(error){ msg.textContent = (editingRepaymentId ? "更新失敗：" : "新增失敗：") + error.message; msg.className = "msg error"; return; }
+      if(error){ msg.textContent = (editingRepaymentId ? t("currency.updateFailed") : t("currency.addFailed")) + error.message; msg.className = "msg error"; return; }
 
-      msg.textContent = editingRepaymentId ? "已更新！" : "已記錄還款！";
+      msg.textContent = editingRepaymentId ? t("currency.updatedDone") : t("currency.repaymentRecorded");
       msg.className = "msg ok";
       const wasEditing = !!editingRepaymentId;
-      addRepayBtn.textContent = wasEditing ? "✓ 已更新" : "✓ 已記錄";
+      addRepayBtn.textContent = wasEditing ? t("currency.updatedCheckmark") : t("currency.recordedCheckmark");
       addRepayBtn.classList.add("btn-success");
       setTimeout(()=>{
         addRepayBtn.classList.remove("btn-success");
-        addRepayBtn.textContent = "記錄這筆還款";
+        addRepayBtn.textContent = t("currency.recordRepayment");
       }, 1100);
       if(wasEditing) exitEditRepaymentMode();
       document.getElementById("repayAmount").value = "";
@@ -2271,8 +2314,8 @@
     clearTempEditOptions();
     editingRepaymentId = r.id;
     document.getElementById("repayEditBanner").classList.remove("hidden");
-    document.getElementById("repayFormTitle").textContent = "✎ 編輯還款";
-    document.getElementById("addRepaymentBtn").textContent = "更新這筆還款";
+    document.getElementById("repayFormTitle").textContent = t("currency.editingRepaymentTitle");
+    document.getElementById("addRepaymentBtn").textContent = t("currency.updateRepaymentSubmit");
 
     ensureSelectOption(document.getElementById("repayFrom"), r.from_member);
     ensureSelectOption(document.getElementById("repayTo"), r.to_member);
@@ -2291,7 +2334,7 @@
   function exitEditRepaymentMode(){
     editingRepaymentId = null;
     document.getElementById("repayEditBanner").classList.add("hidden");
-    document.getElementById("repayFormTitle").textContent = "💸 記錄還款";
+    document.getElementById("repayFormTitle").textContent = t("currency.repayFormTitleDefault");
     clearTempEditOptions();
   }
 
@@ -2299,7 +2342,7 @@
   if(cancelRepayEditBtn){
     cancelRepayEditBtn.addEventListener("click", ()=>{
       exitEditRepaymentMode();
-      document.getElementById("addRepaymentBtn").textContent = "記錄這筆還款";
+      document.getElementById("addRepaymentBtn").textContent = t("currency.recordRepayment");
       document.getElementById("repayAmount").value = "";
       document.getElementById("repayNote").value = "";
     });
@@ -2314,9 +2357,9 @@
   function paginationHTML(page, totalPages){
     if(totalPages <= 1) return "";
     return `<div class="pagination">
-      <button type="button" class="btn secondary small pagination-prev" ${page <= 0 ? "disabled" : ""}>← 上一頁</button>
-      <span class="pagination-info">第 ${page + 1} / ${totalPages} 頁</span>
-      <button type="button" class="btn secondary small pagination-next" ${page >= totalPages - 1 ? "disabled" : ""}>下一頁 →</button>
+      <button type="button" class="btn secondary small pagination-prev" ${page <= 0 ? "disabled" : ""}>${t("common.paginationPrev")}</button>
+      <span class="pagination-info">${t("common.paginationInfo", {page: page + 1, total: totalPages})}</span>
+      <button type="button" class="btn secondary small pagination-next" ${page >= totalPages - 1 ? "disabled" : ""}>${t("common.paginationNext")}</button>
     </div>`;
   }
   async function refreshExpenses(){
@@ -2446,7 +2489,7 @@
 
     function renderUI(){
       const selected = multiSelectStates[containerId] || [];
-      let summaryText = defaultLabel || "全部 (未篩選)";
+      let summaryText = defaultLabel || t("currency.filterAllDefault");
       let badgeHtml = "";
 
       if(selected.length > 0){
@@ -2456,7 +2499,7 @@
         } else if(selectedItems.length === 2){
           summaryText = `${selectedItems[0].shortLabel || selectedItems[0].label}、${selectedItems[1].shortLabel || selectedItems[1].label}`;
         } else if(selectedItems.length > 2){
-          summaryText = `${selectedItems[0].shortLabel || selectedItems[0].label} 等 ${selectedItems.length} 項`;
+          summaryText = t("currency.andNMore", {label: selectedItems[0].shortLabel || selectedItems[0].label, count: selectedItems.length});
         }
         badgeHtml = `<span class="sb-ms-count-badge">${selected.length}</span>`;
       }
@@ -2473,9 +2516,9 @@
         </button>
         <div class="sb-ms-popover ${isOpen ? 'show' : ''}">
           <div class="sb-ms-header">
-            <button type="button" class="sb-ms-action-btn select-all-btn">全選</button>
+            <button type="button" class="sb-ms-action-btn select-all-btn">${t("summary.selectAll")}</button>
             <span class="sb-ms-header-sep">|</span>
-            <button type="button" class="sb-ms-action-btn clear-all-btn">清除</button>
+            <button type="button" class="sb-ms-action-btn clear-all-btn">${t("common.clear")}</button>
           </div>
           <div class="sb-ms-list">
             ${options.map(opt => {
@@ -2577,15 +2620,20 @@
       iconHtml: renderAvatarHTML(m, "avatar-xs")
     }));
 
+    // shortLabel 以前用 .slice(0, 2) 硬切前兩個字，中文類別名稱大多剛好
+    //兩三個字還看得懂，但日文/英文名稱一截就變成不成意義的字根（例如
+    // 「レンタカー」被切成「レン」）。這裡的收合按鈕本來就有 CSS
+    // text-overflow:ellipsis，直接用完整名稱、交給 CSS 處理真正超出寬度
+    // 的情況就好，不用自己再手動截字串。
     const categoryOptions = Object.keys(CATEGORY_MAP || {}).filter(k => k !== "xcur").map(k => ({
       value: k,
       label: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name}`,
-      shortLabel: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name.slice(0, 2)}`
+      shortLabel: `${CATEGORY_MAP[k].icon} ${CATEGORY_MAP[k].name}`
     }));
 
     setupMultiSelectDropdown({
       containerId: "filterCategoryDropdown",
-      defaultLabel: "所有類別 (未篩選)",
+      defaultLabel: t("currency.filterAllCategories"),
       options: categoryOptions,
       onChange: () => {
         applyFiltersAndRenderHistory();
@@ -2594,7 +2642,7 @@
 
     setupMultiSelectDropdown({
       containerId: "filterPayerDropdown",
-      defaultLabel: "所有人 (未篩選)",
+      defaultLabel: t("currency.filterAllPeople"),
       options: memberOptions,
       onChange: () => {
         applyFiltersAndRenderHistory();
@@ -2603,7 +2651,7 @@
 
     setupMultiSelectDropdown({
       containerId: "filterInvolvedDropdown",
-      defaultLabel: "所有人 (未篩選)",
+      defaultLabel: t("currency.filterAllPeople"),
       options: memberOptions,
       onChange: () => {
         applyFiltersAndRenderHistory();
@@ -2612,7 +2660,7 @@
 
     setupMultiSelectDropdown({
       containerId: "filterRepayFromDropdown",
-      defaultLabel: "所有人 (未篩選)",
+      defaultLabel: t("currency.filterAllPeople"),
       options: memberOptions,
       onChange: () => {
         applyFiltersAndRenderRepayments();
@@ -2621,7 +2669,7 @@
 
     setupMultiSelectDropdown({
       containerId: "filterRepayToDropdown",
-      defaultLabel: "所有人 (未篩選)",
+      defaultLabel: t("currency.filterAllPeople"),
       options: memberOptions,
       onChange: () => {
         applyFiltersAndRenderRepayments();
@@ -2786,7 +2834,7 @@
           totalAmt += Number(item.amount) || 0;
         });
         statsWrap.classList.remove("hidden");
-        statsText.innerHTML = `🎯 找到 <b>${filteredItems.length}</b> 筆${isExp ? "支出" : "還款"} · 合計 <span class="stats-amt">${SYM}${formatAmt(totalAmt)}</span>`;
+        statsText.innerHTML = t("currency.historyStatsFound", {count: filteredItems.length, type: isExp ? t("common.expense") : t("common.repayment"), total: SYM+formatAmt(totalAmt)});
       } else {
         statsWrap.classList.add("hidden");
       }
@@ -3080,7 +3128,7 @@
     let note = "";
 
     if(cleanedExplicitNote){
-      title = cleanedDesc.replace(/\(AI自動拆單\)/g, "").trim() || "支出項目";
+      title = cleanedDesc.replace(/\(AI自動拆單\)/g, "").trim() || t("summary.notifExpenseItemFallback");
       note = cleanedExplicitNote;
     } else {
       const lines = cleanedDesc.split("\n").map(l => l.trim()).filter(Boolean);
@@ -3094,7 +3142,7 @@
         noteLines.unshift(xcurMatch[2].trim());
       }
 
-      title = firstLine.replace(/\(AI自動拆單\)/g, "").trim() || "支出項目";
+      title = firstLine.replace(/\(AI自動拆單\)/g, "").trim() || t("summary.notifExpenseItemFallback");
       note = noteLines.join("\n").trim();
     }
 
@@ -3120,8 +3168,8 @@
     }
     const xcurKey = match[0];
     const ok = await sbConfirm(
-      `這是一筆「跨幣別轉移」紀錄！\n\n確定要還原此轉移嗎？\n\n還原後將會同時：\n1. 刪除原外幣的結清紀錄（恢復外幣欠款）\n2. 刪除臺幣帳本中對應的欠款紀錄\n兩邊帳本將完全恢復原狀。`,
-      "🔔 Splitbill 還原確認"
+      t("currency.xcurRestoreConfirm"),
+      t("currency.xcurRestoreTitle")
     );
     if(!ok) return;
 
@@ -3138,10 +3186,10 @@
     const results = await Promise.all(promises);
     const err = results.find(r => r && r.error);
     if(err && err.error){
-      await sbAlert("還原失敗：" + err.error.message, "🔔 Splitbill 錯誤");
+      await sbAlert(t("currency.restoreFailed") + err.error.message, t("settings.errorTitle"));
       return;
     }
-    await sbAlert("✓ 已成功還原跨幣別轉移！外幣與臺幣帳本皆已恢復原狀。", "🔔 Splitbill 通知");
+    await sbAlert(t("currency.xcurRestoreSuccess"), t("common.notifyDialogTitle"));
     await refreshExpenses();
   }
 
@@ -3155,11 +3203,11 @@
     const list = Array.isArray(rows) ? rows : [rows];
     const ids = list.map(r => r.id);
     const { error } = await sb.from(table).delete().in("id", ids);
-    if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+    if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
     await refreshFn();
-    showToast("🗑️ 已刪除", label || "", "復原", async ()=>{
+    showToast(t("currency.deletedToastTitle"), label || "", t("currency.undoLabel"), async ()=>{
       const { error: restoreErr } = await sb.from(table).insert(list);
-      if(restoreErr){ await sbAlert("復原失敗：" + restoreErr.message, "🔔 Splitbill 錯誤"); return; }
+      if(restoreErr){ await sbAlert(t("currency.undoFailed") + restoreErr.message, t("settings.errorTitle")); return; }
       await refreshFn();
     });
   }
@@ -3167,239 +3215,14 @@
   let expenseById = {};
   let lastFilteredExpenses = [];
 
-  // ---------- 🖥️ 電腦版專屬：支出紀錄多選批量操作 ----------
-  const selectedExpenseIds = new Set();
-  let currentHistoryDetailId = null;
-
-  function updateBulkToolbar(){
-    const bar = document.getElementById("historyBulkToolbar");
-    const countEl = document.getElementById("historyBulkCount");
-    if(!bar) return;
-    const n = selectedExpenseIds.size;
-    bar.classList.toggle("show", n > 0);
-    if(countEl) countEl.textContent = n;
-  }
-
-  function clearBulkSelection(){
-    selectedExpenseIds.clear();
-    document.querySelectorAll(".exp-bulk-check").forEach(cb => { cb.checked = false; });
-    document.querySelectorAll(".exp-item.bulk-selected").forEach(el => el.classList.remove("bulk-selected"));
-    updateBulkToolbar();
-  }
-
-  function wireHistoryBulkToolbar(){
-    const clearBtn = document.getElementById("historyBulkClearBtn");
-    if(clearBtn) clearBtn.addEventListener("click", clearBulkSelection);
-
-    const deleteBtn = document.getElementById("historyBulkDeleteBtn");
-    if(deleteBtn){
-      deleteBtn.addEventListener("click", async ()=>{
-        const rows = Array.from(selectedExpenseIds).map(id => expenseById[id]).filter(Boolean);
-        if(!rows.length) return;
-        const ok = await sbConfirm(`確定要刪除這 ${rows.length} 筆支出嗎？\n\n刪除後一樣可以在跳出的提示裡按「復原」救回來。`, "🔔 批次刪除確認");
-        if(!ok) return;
-        clearBulkSelection();
-        await deleteRowsWithUndo("expenses", rows, refreshExpenses, `批次刪除 ${rows.length} 筆支出`);
-      });
-    }
-
-    const catBtn = document.getElementById("historyBulkCatBtn");
-    const catWrap = document.getElementById("historyBulkCatWrap");
-    const catSelect = document.getElementById("historyBulkCatSelect");
-    if(catBtn && catWrap && catSelect){
-      enhanceSelect(catSelect);
-      catBtn.addEventListener("click", ()=>{
-        catWrap.classList.toggle("hidden");
-      });
-      catSelect.addEventListener("change", async ()=>{
-        const cat = catSelect.value;
-        const ids = Array.from(selectedExpenseIds);
-        if(!cat || !ids.length) return;
-        catBtn.disabled = true;
-        const { error } = await sb.from("expenses").update({ category: cat }).in("id", ids);
-        catBtn.disabled = false;
-        catSelect.value = "";
-        enhanceSelect(catSelect);
-        catWrap.classList.add("hidden");
-        if(error){
-          await sbAlert("批次修改類別失敗：" + error.message, "🔔 Splitbill 錯誤");
-          return;
-        }
-        const count = ids.length;
-        clearBulkSelection();
-        await refreshExpenses();
-        await sbAlert(`✓ 已將 ${count} 筆支出的類別批次更新完成`, "🔔 Splitbill 通知");
-      });
-    }
-  }
-  wireHistoryBulkToolbar();
-
-  // ---------- 🖥️ 電腦版專屬：支出紀錄清單／明細右側常駐分欄 ----------
-  // 不傳 expense 進來的話，會照目前狀態自己判斷要顯示什麼（有勾選多筆
-  // 就顯示批量摘要，否則收合成空狀態提示）——checkbox 變動、關閉按鈕
-  // 都是呼叫不帶參數的這個版本讓畫面自己校正。
-  function renderHistoryDetailPane(expense){
-    const pane = document.getElementById("historyDetailPane");
-    if(!pane) return;
-
-    if(selectedExpenseIds.size > 0){
-      currentHistoryDetailId = null;
-      const items = Array.from(selectedExpenseIds).map(id => expenseById[id]).filter(Boolean);
-      const total = items.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-      pane.innerHTML = `
-        <div class="history-detail-head">
-          <div>
-            <div class="history-detail-title">已勾選 ${items.length} 筆</div>
-            <div class="history-detail-sub">批量操作模式</div>
-          </div>
-          <button type="button" class="history-detail-close" id="historyDetailCloseBtn" aria-label="關閉">✕</button>
-        </div>
-        <div class="history-detail-body">
-          <div class="history-detail-amt mono">${SYM}${formatAmt(total)}</div>
-          <div class="history-detail-section-title">已選項目</div>
-          <div class="history-detail-list">
-            ${items.map(e => {
-              const { title } = splitExpenseTitleAndNote(e.description, e.note);
-              return `<div class="history-detail-row"><span>${escapeHtml(title)}</span><span class="mono">${SYM}${formatAmt(e.amount)}</span></div>`;
-            }).join("")}
-          </div>
-        </div>
-      `;
-      pane.classList.add("open");
-      const closeBtn = document.getElementById("historyDetailCloseBtn");
-      if(closeBtn) closeBtn.addEventListener("click", clearBulkSelection);
-      return;
-    }
-
-    if(!expense){
-      currentHistoryDetailId = null;
-      pane.classList.remove("open");
-      pane.innerHTML = `
-        <div class="history-detail-empty">
-          <div class="history-detail-empty-icon">🧾</div>
-          <div>點選左側任一筆紀錄<br>就會在這裡展開明細</div>
-        </div>
-      `;
-      return;
-    }
-
-    currentHistoryDetailId = expense.id;
-    document.querySelectorAll("#expenseHistory .exp-item").forEach(rowEl => {
-      rowEl.classList.toggle("active-detail", rowEl.dataset.id === expense.id);
-    });
-
-    const { title, note } = splitExpenseTitleAndNote(expense.description, expense.note);
-    const myId = myMember && myMember.id;
-    const canEdit = isExpenseParty(expense, myId) || expense.created_by === myId;
-    const isXcur = isXcurStr(expense.description) || isXcurStr(expense.note);
-    const xcurId = isXcur ? (extractXcurId(expense.description) || extractXcurId(expense.note)) : null;
-    const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || expense.description, expense.note, expense.category)) || { icon: "🧾", name: "一般" };
-    const payers = expense.payers || [];
-    const shares = expense.shares || [];
-    const rowHTML = (memberId, amt) => `<div class="history-detail-row"><span class="history-detail-person">${renderAvatarHTML({ id: memberId, name: memberById[memberId] }, "avatar-xs")}${escapeHtml(memberById[memberId] || "?")}</span><span class="mono">${SYM}${formatAmt(amt)}</span></div>`;
-
-    pane.innerHTML = `
-      <div class="history-detail-head">
-        <div class="history-detail-head-main">
-          <div class="history-detail-cat">${catMeta.icon}</div>
-          <div>
-            <div class="history-detail-title">${escapeHtml(title)}</div>
-            <div class="history-detail-sub">${expense.expense_date}${formatTime(expense.created_at, expense.expense_date) ? " " + formatTime(expense.created_at, expense.expense_date) : ""}</div>
-          </div>
-        </div>
-        <button type="button" class="history-detail-close" id="historyDetailCloseBtn" aria-label="關閉">✕</button>
-      </div>
-      <div class="history-detail-body">
-        <div class="history-detail-amt mono">${SYM}${formatAmt(expense.amount)}</div>
-        ${note ? `<div class="history-detail-note">📝 ${escapeHtml(note.split("\n")[0])}</div>` : ""}
-
-        <div class="history-detail-section-title">類別</div>
-        <div class="history-detail-list">
-          <div class="history-detail-row"><span>${catMeta.icon} ${escapeHtml(catMeta.name)}</span></div>
-        </div>
-
-        <div class="history-detail-section-title">付款</div>
-        <div class="history-detail-list">
-          ${payers.map(p => rowHTML(p.member_id, p.amount)).join("") || `<div class="history-detail-row"><span>—</span></div>`}
-        </div>
-
-        <div class="history-detail-section-title">應付</div>
-        <div class="history-detail-list">
-          ${shares.map(s => rowHTML(s.member_id, s.amount)).join("") || `<div class="history-detail-row"><span>—</span></div>`}
-        </div>
-      </div>
-      <div class="history-detail-actions">
-        ${canEdit ? (isXcur
-          ? `${xcurId ? `<button type="button" class="btn secondary small" id="historyDetailEditRateBtn">✎ 編輯匯率</button>` : ""}<button type="button" class="btn secondary small" id="historyDetailRestoreBtn">↺ 還原轉移</button>`
-          : `<button type="button" class="btn secondary small" id="historyDetailEditBtn">✎ 編輯</button><button type="button" class="btn secondary small" id="historyDetailDeleteBtn">🗑️ 刪除</button>`
-        ) : ""}
-        ${expense.receipt_image_path ? `<button type="button" class="btn secondary small" id="historyDetailViewReceiptBtn">📷 查看收據原圖</button>` : ""}
-        <button type="button" class="btn small" id="historyDetailViewDebtBtn">查看債務關係</button>
-      </div>
-    `;
-    pane.classList.add("open");
-
-    const closeBtn = document.getElementById("historyDetailCloseBtn");
-    if(closeBtn) closeBtn.addEventListener("click", () => renderHistoryDetailPane());
-
-    const viewDebtBtn = document.getElementById("historyDetailViewDebtBtn");
-    if(viewDebtBtn) viewDebtBtn.addEventListener("click", () => showExpenseDebtDetail(expense));
-
-    const editBtn = document.getElementById("historyDetailEditBtn");
-    if(editBtn) editBtn.addEventListener("click", () => startEditExpense(expense));
-
-    // receipts bucket 是不公開的，一定要透過 createSignedUrl() 換一次性
-    // 的短效網址才能打開，不能直接組 public URL（會被 RLS 擋掉）。跟
-    // ai-receipt.js 裡編輯畫面那顆按鈕邏輯一樣，這裡另外寫一份是因為
-    // ai-receipt.js 是動態 import 的模組，進「紀錄」頁當下不保證已載入。
-    const viewReceiptBtn = document.getElementById("historyDetailViewReceiptBtn");
-    if(viewReceiptBtn) viewReceiptBtn.addEventListener("click", async () => {
-      viewReceiptBtn.disabled = true;
-      const originalText = viewReceiptBtn.textContent;
-      viewReceiptBtn.textContent = "⏳ 載入中…";
-      try {
-        const { data, error } = await sb.storage.from("receipts").createSignedUrl(expense.receipt_image_path, 300);
-        if(error || !data || !data.signedUrl) throw error || new Error("找不到這張收據原圖");
-        window.open(data.signedUrl, "_blank", "noopener");
-      } catch(err){
-        console.error("開啟收據原圖失敗：", err);
-        await sbAlert("找不到這張收據原圖，可能已經超過 180 天保留期限被清除了。", "無法開啟");
-      } finally {
-        viewReceiptBtn.disabled = false;
-        viewReceiptBtn.textContent = originalText;
-      }
-    });
-
-    const deleteBtn = document.getElementById("historyDetailDeleteBtn");
-    if(deleteBtn) deleteBtn.addEventListener("click", async () => {
-      await deleteRowsWithUndo("expenses", expense, refreshExpenses, getFirstLineDesc(expense.description, expense.note));
-      renderHistoryDetailPane();
-    });
-
-    const editRateBtn = document.getElementById("historyDetailEditRateBtn");
-    if(editRateBtn) editRateBtn.addEventListener("click", () => {
-      if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(xcurId);
-    });
-
-    const restoreBtn = document.getElementById("historyDetailRestoreBtn");
-    if(restoreBtn) restoreBtn.addEventListener("click", () => {
-      handleCrossCurrencyDelete(expense.description || expense.note, async ()=>{
-        const { error } = await sb.from("expenses").delete().eq("id", expense.id);
-        if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
-        await refreshExpenses();
-        renderHistoryDetailPane();
-      });
-    });
-  }
-
   function renderHistory(expenses){
     const el = document.getElementById("expenseHistory");
     if(!el) return;
     lastFilteredExpenses = expenses;
     if(!expenses.length){
       el.innerHTML = cachedExpenses.length
-        ? emptyStateHTML("🔍", "沒有符合篩選條件的紀錄", "試試看調整上面的篩選條件")
-        : emptyStateHTML("🧾", "還沒有任何支出紀錄", "點上面「支出」分頁新增第一筆吧");
+        ? emptyStateHTML("🔍", t("currency.noFilterMatchTitle"), t("currency.noFilterMatchDesc"))
+        : emptyStateHTML("🧾", t("currency.noExpensesTitle"), t("currency.noExpensesDesc"));
       return;
     }
     const totalPages = Math.ceil(expenses.length / historyPageSize);
@@ -3414,7 +3237,7 @@
     const groups = [];
     let curGroup = null;
     pageItems.forEach(e => {
-      const d = e.expense_date || "未指定日期";
+      const d = e.expense_date || t("currency.unspecifiedDate");
       if(!curGroup || curGroup.date !== d){
         curGroup = { date: d, items: [], total: 0 };
         groups.push(curGroup);
@@ -3434,7 +3257,7 @@
         const isXcur = isXcurStr(e.description) || isXcurStr(e.note);
         const xcurId = isXcur ? (extractXcurId(e.description) || extractXcurId(e.note)) : null;
         const isAiSplit = Boolean((e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細"))) || (e.note && e.note.includes("<!--AI_RECEIPT_DATA:")));
-        const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || e.description, e.note, e.category)) || { icon: "🧾", type: "general", name: "一般" };
+        const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || e.description, e.note, e.category)) || { icon: "🧾", type: "general", name: t("currency.categoryGeneralFallback") };
         const icon = catMeta.icon;
         const payerNames = (e.payers || []).map(p => highlightSearchMatch(memberById[p.member_id] || "?", searchKw)).join("、");
         const shareNames = (e.shares || []).map(s => highlightSearchMatch(memberById[s.member_id] || "?", searchKw)).join("、");
@@ -3444,21 +3267,20 @@
         const highlightedTitle = highlightSearchMatch(title, searchKw);
         const highlightedNote = highlightSearchMatch(firstLineNote.length > 40 ? firstLineNote.slice(0, 38) + "…" : firstLineNote, searchKw);
         const highlightedAmt = highlightSearchMatch(formatAmt(e.amount), searchKw);
-        return `<div class="exp-item${selectedExpenseIds.has(e.id) ? " bulk-selected" : ""}" data-id="${e.id}" title="點擊查看本項目的債務關係表與品項明細">
-          <input type="checkbox" class="exp-bulk-check" data-id="${e.id}"${selectedExpenseIds.has(e.id) ? " checked" : ""} aria-label="勾選這筆支出">
+        return `<div class="exp-item" data-id="${e.id}" title="${t("currency.clickToViewDebtDetail")}">
           <div class="exp-cat-badge exp-cat-${catMeta.type}" title="${catMeta.name}">${icon}</div>
           <div class="exp-main">
-            <div class="exp-desc">${highlightedTitle}${isAiSplit ? '<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI 拆單</span>' : ""}${isXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}</div>
+            <div class="exp-desc">${highlightedTitle}${isAiSplit ? `<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">${t("currency.aiSplitBadge")}</span>` : ""}${isXcur ? `<span class="xcur-badge">${t("currency.xcurBadge")}</span>` : ""}</div>
             <div class="exp-meta">
-              ${firstLineNote ? `<span class="exp-meta-line" style="color:var(--ink);font-weight:600;opacity:0.9;">📝 備註：${highlightedNote}</span>` : ""}
-              <span class="exp-meta-line">時間：${e.expense_date}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}（${highlightSearchMatch(memberById[e.created_by] || "?", searchKw)}）</span>
-              <span class="exp-meta-line">付款：${payerNames || "—"}</span>
-              <span class="exp-meta-line">應付：${shareNames || "—"}</span>
+              ${firstLineNote ? `<span class="exp-meta-line" style="color:var(--ink);font-weight:600;opacity:0.9;">${t("currency.notePrefix")}${highlightedNote}</span>` : ""}
+              <span class="exp-meta-line">${t("currency.timePrefix")}${e.expense_date}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}（${highlightSearchMatch(memberById[e.created_by] || "?", searchKw)}）</span>
+              <span class="exp-meta-line">${t("currency.paymentPrefix")}${payerNames || "—"}</span>
+              <span class="exp-meta-line">${t("currency.owePrefix")}${shareNames || "—"}</span>
             </div>
           </div>
           <div class="exp-right">
             <div class="exp-amt">${SYM}${highlightedAmt}${conversionHint(e.amount)}</div>
-            ${canEdit ? `<div class="exp-actions">${isXcur ? `${xcurId ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}<button class="exp-del exp-xcur-restore" data-id="${e.id}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>` : `<button class="exp-edit" data-id="${e.id}" title="編輯">✎</button><button class="exp-del" data-id="${e.id}" title="刪除">✕</button>`}</div>` : ""}
+            ${canEdit ? `<div class="exp-actions">${isXcur ? `${xcurId ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="${t("currency.editRateTitle")}" aria-label="${t("currency.editRateTitle")}">✎</button>` : ""}<button class="exp-del exp-xcur-restore" data-id="${e.id}" title="${t("currency.restoreThisTransferTitle")}" aria-label="${t("currency.restoreAria")}">↺</button>` : `<button class="exp-edit" data-id="${e.id}" title="${t("common.edit")}">✎</button><button class="exp-del" data-id="${e.id}" title="${t("settings.delete")}">✕</button>`}</div>` : ""}
           </div>
         </div>`;
       }).join("");
@@ -3468,9 +3290,9 @@
           <div class="exp-date-group-header">
             <div class="exp-date-group-title">📅 ${dateTitle}</div>
             <div class="exp-date-group-badge">
-              <span class="badge-count">${g.items.length} 筆</span>
+              <span class="badge-count">${t("common.countUnit", {count: g.items.length})}</span>
               <span class="badge-sep">·</span>
-              <span class="badge-subtotal">當日小計 <b>${SYM}${formatAmt(g.total)}</b></span>
+              <span class="badge-subtotal">${t("currency.dailySubtotal")} <b>${SYM}${formatAmt(g.total)}</b></span>
             </div>
           </div>
           ${itemsHtml}
@@ -3478,34 +3300,12 @@
       `;
     }).join("") + paginationHTML(expensePage, totalPages);
 
-    // 勾選清單重新渲染後，把已經不存在的舊 id 清掉（例如被刪除、或篩選
-    // 條件換了看不到了），不然批量工具列的筆數會跟畫面上實際看得到的
-    // 勾選框對不起來。
-    Array.from(selectedExpenseIds).forEach(id => { if(!expenseById[id]) selectedExpenseIds.delete(id); });
-    updateBulkToolbar();
-
     el.querySelectorAll(".exp-item").forEach(itemEl => {
-      itemEl.classList.toggle("active-detail", !selectedExpenseIds.size && itemEl.dataset.id === currentHistoryDetailId);
       itemEl.addEventListener("click", (evt) => {
-        if(evt.target.closest(".exp-actions") || evt.target.closest("button") || evt.target.matches(".exp-bulk-check")) return;
+        if(evt.target.closest(".exp-actions") || evt.target.closest("button")) return;
         const e = expenseById[itemEl.dataset.id];
         if(!e) return;
-        if(document.getElementById("historyWorkspace") && window.innerWidth >= 9999){
-          renderHistoryDetailPane(e);
-        } else {
-          showExpenseDebtDetail(e);
-        }
-      });
-    });
-
-    el.querySelectorAll(".exp-bulk-check").forEach(cb=>{
-      cb.addEventListener("click", (evt) => evt.stopPropagation());
-      cb.addEventListener("change", () => {
-        const id = cb.dataset.id;
-        if(cb.checked) selectedExpenseIds.add(id); else selectedExpenseIds.delete(id);
-        cb.closest(".exp-item").classList.toggle("bulk-selected", cb.checked);
-        updateBulkToolbar();
-        renderHistoryDetailPane();
+        showExpenseDebtDetail(e);
       });
     });
 
@@ -3517,7 +3317,7 @@
         if(isXcurStr(rawDesc)){
           return handleCrossCurrencyDelete(rawDesc, async ()=>{
             const { error } = await sb.from("expenses").delete().eq("id", btn.dataset.id);
-            if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+            if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
             await refreshExpenses();
           });
         }
@@ -3542,14 +3342,6 @@
     if(prevBtn) prevBtn.addEventListener("click", ()=>{ expensePage--; renderHistory(lastFilteredExpenses); });
     const nextBtn = el.querySelector(".pagination-next");
     if(nextBtn) nextBtn.addEventListener("click", ()=>{ expensePage++; renderHistory(lastFilteredExpenses); });
-
-    // 資料重新整理後（例如即時同步收到別人新增/編輯的異動），如果右側
-    // 明細欄目前開著，用最新的資料重畫一次，不會停在舊的那一刻。
-    if(typeof renderHistoryDetailPane === "function" && document.getElementById("historyDetailPane")){
-      if(selectedExpenseIds.size > 0 || (currentHistoryDetailId && expenseById[currentHistoryDetailId])){
-        renderHistoryDetailPane(expenseById[currentHistoryDetailId]);
-      }
-    }
   }
 
   // 把「一鍵抵銷」產生的兩筆方向相反的還款（同一個 offset_group）
@@ -3582,8 +3374,8 @@
     lastFilteredRepayments = repayments;
     if(!repayments.length){
       el.innerHTML = cachedRepayments.length
-        ? emptyStateHTML("🔍", "沒有符合篩選條件的紀錄", "試試看調整上面的篩選條件")
-        : emptyStateHTML("💸", "還沒有任何還款紀錄", "有人還錢的時候記得來記一筆");
+        ? emptyStateHTML("🔍", t("currency.noFilterMatchTitle"), t("currency.noFilterMatchDesc"))
+        : emptyStateHTML("💸", t("currency.noRepaymentsTitle"), t("currency.noRepaymentsDesc"));
       return;
     }
     const units = groupRepayments(repayments);
@@ -3602,7 +3394,7 @@
     const groups = [];
     let curGroup = null;
     pageUnits.forEach(u => {
-      const d = (u.items && u.items[0] && u.items[0].payment_date) || "未指定日期";
+      const d = (u.items && u.items[0] && u.items[0].payment_date) || t("currency.unspecifiedDate");
       if(!curGroup || curGroup.date !== d){
         curGroup = { date: d, units: [], total: 0 };
         groups.push(curGroup);
@@ -3622,12 +3414,12 @@
           return `<div class="exp-item">
             <div class="exp-cat-badge" style="background:color-mix(in srgb, #5C7CFA 12%, var(--card));">🔄</div>
             <div class="exp-main">
-              <div class="exp-desc">${highlightSearchMatch(memberById[a.from_member] || "?", searchKw)} ↔ ${highlightSearchMatch(memberById[a.to_member] || "?", searchKw)} 互相抵銷${isXcur ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}</div>
-              <div class="exp-meta">紀錄時間：${a.payment_date}${formatTime(a.created_at, a.payment_date) ? " " + formatTime(a.created_at, a.payment_date) : ""}（${highlightSearchMatch(memberById[a.created_by] || "?", searchKw)}）</div>
+              <div class="exp-desc">${highlightSearchMatch(memberById[a.from_member] || "?", searchKw)} ↔ ${highlightSearchMatch(memberById[a.to_member] || "?", searchKw)} ${t("currency.mutualOffset")}${isXcur ? `<span class="xcur-badge">${t("currency.convertedToTwd")}</span>` : ""}</div>
+              <div class="exp-meta">${t("currency.recordTimePrefix")}${a.payment_date}${formatTime(a.created_at, a.payment_date) ? " " + formatTime(a.created_at, a.payment_date) : ""}（${highlightSearchMatch(memberById[a.created_by] || "?", searchKw)}）</div>
             </div>
             <div class="exp-right">
               <div class="exp-amt">${SYM}${highlightSearchMatch(formatAmt(a.amount), searchKw)}${conversionHint(a.amount)}</div>
-              ${canEdit ? `<div class="exp-actions">${(isXcur && xcurId) ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}<button class="exp-del exp-del-group ${isXcur ? "exp-xcur-restore" : ""}" data-group="${a.offset_group}" title="${isXcur ? "還原跨幣別轉移" : "刪除這組抵銷"}" aria-label="${isXcur ? "還原" : "刪除"}">${isXcur ? "↺" : "✕"}</button></div>` : ""}
+              ${canEdit ? `<div class="exp-actions">${(isXcur && xcurId) ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="${t("currency.editRateTitle")}" aria-label="${t("currency.editRateTitle")}">✎</button>` : ""}<button class="exp-del exp-del-group ${isXcur ? "exp-xcur-restore" : ""}" data-group="${a.offset_group}" title="${isXcur ? t("currency.restoreXcurTransferTitle") : t("currency.deleteOffsetGroupTitle")}" aria-label="${isXcur ? t("currency.restoreAria") : t("settings.delete")}">${isXcur ? "↺" : "✕"}</button></div>` : ""}
             </div>
           </div>`;
         }
@@ -3639,12 +3431,12 @@
         return `<div class="exp-item">
           <div class="exp-cat-badge" style="background:color-mix(in srgb, #40C057 12%, var(--card));">💸</div>
           <div class="exp-main">
-            <div class="exp-desc">${highlightSearchMatch(memberById[r.from_member] || "?", searchKw)} 還 ${highlightSearchMatch(memberById[r.to_member] || "?", searchKw)}${isXcur ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}</div>
-            <div class="exp-meta">紀錄時間：${r.payment_date}${formatTime(r.created_at, r.payment_date) ? " " + formatTime(r.created_at, r.payment_date) : ""}（${highlightSearchMatch(memberById[r.created_by] || "?", searchKw)}）${cleanNote ? " ・ " + highlightSearchMatch(cleanNote, searchKw) : ""}</div>
+            <div class="exp-desc">${t("currency.repayFromTo", {from: highlightSearchMatch(memberById[r.from_member] || "?", searchKw), to: highlightSearchMatch(memberById[r.to_member] || "?", searchKw)})}${isXcur ? `<span class="xcur-badge">${t("currency.convertedToTwd")}</span>` : ""}</div>
+            <div class="exp-meta">${t("currency.recordTimePrefix")}${r.payment_date}${formatTime(r.created_at, r.payment_date) ? " " + formatTime(r.created_at, r.payment_date) : ""}（${highlightSearchMatch(memberById[r.created_by] || "?", searchKw)}）${cleanNote ? " ・ " + highlightSearchMatch(cleanNote, searchKw) : ""}</div>
           </div>
           <div class="exp-right">
             <div class="exp-amt">${SYM}${highlightSearchMatch(formatAmt(r.amount), searchKw)}${conversionHint(r.amount)}</div>
-            ${canEdit ? `<div class="exp-actions">${isXcur ? `${xcurId ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}<button class="exp-del exp-xcur-restore" data-id="${r.id}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>` : `<button class="exp-edit" data-id="${r.id}" title="編輯">✎</button><button class="exp-del" data-id="${r.id}" title="刪除">✕</button>`}</div>` : ""}
+            ${canEdit ? `<div class="exp-actions">${isXcur ? `${xcurId ? `<button class="exp-xcur-editrate" data-xcur="${xcurId}" title="${t("currency.editRateTitle")}" aria-label="${t("currency.editRateTitle")}">✎</button>` : ""}<button class="exp-del exp-xcur-restore" data-id="${r.id}" title="${t("currency.restoreThisTransferTitle")}" aria-label="${t("currency.restoreAria")}">↺</button>` : `<button class="exp-edit" data-id="${r.id}" title="${t("common.edit")}">✎</button><button class="exp-del" data-id="${r.id}" title="${t("settings.delete")}">✕</button>`}</div>` : ""}
           </div>
         </div>`;
       }).join("");
@@ -3654,9 +3446,9 @@
           <div class="exp-date-group-header">
             <div class="exp-date-group-title">📅 ${dateTitle}</div>
             <div class="exp-date-group-badge">
-              <span class="badge-count">${g.units.length} 筆</span>
+              <span class="badge-count">${t("common.countUnit", {count: g.units.length})}</span>
               <span class="badge-sep">·</span>
-              <span class="badge-subtotal">當日小計 <b>${SYM}${formatAmt(g.total)}</b></span>
+              <span class="badge-subtotal">${t("currency.dailySubtotal")} <b>${SYM}${formatAmt(g.total)}</b></span>
             </div>
           </div>
           ${unitsHtml}
@@ -3674,11 +3466,11 @@
         if(isXcurStr(group) || isXcurStr(rawNote)){
           return handleCrossCurrencyDelete(group || rawNote, async ()=>{
             const { error } = await sb.from("repayments").delete().eq("offset_group", group);
-            if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+            if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
             await refreshExpenses();
           });
         }
-        await deleteRowsWithUndo("repayments", items, refreshExpenses, "一鍵抵銷紀錄");
+        await deleteRowsWithUndo("repayments", items, refreshExpenses, t("currency.oneClickOffsetRecord"));
       });
     });
     el.querySelectorAll(".exp-del:not(.exp-del-group)").forEach(btn=>{
@@ -3689,14 +3481,14 @@
         if(isXcurStr(rawNote)){
           return handleCrossCurrencyDelete(rawNote, async ()=>{
             const { error } = await sb.from("repayments").delete().eq("id", btn.dataset.id);
-            if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+            if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
             await refreshExpenses();
           });
         }
         if(!rep) return;
-        const fromName = memberById[rep.from_member] || "有人";
-        const toName = memberById[rep.to_member] || "有人";
-        await deleteRowsWithUndo("repayments", rep, refreshExpenses, `${fromName} 還 ${toName}`);
+        const fromName = memberById[rep.from_member] || t("summary.someone");
+        const toName = memberById[rep.to_member] || t("summary.someone");
+        await deleteRowsWithUndo("repayments", rep, refreshExpenses, t("currency.repayFromTo", {from: fromName, to: toName}));
       });
     });
     el.querySelectorAll(".exp-edit").forEach(btn=>{
@@ -3724,9 +3516,9 @@
       const parts = dateStr.split("-");
       if(parts.length === 3){
         const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        const weekdays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+        const weekdays = t("currency.weekdays").split(",");
         const weekday = weekdays[d.getDay()] || "";
-        return `${Number(parts[1])}月${Number(parts[2])}日 · ${weekday}`;
+        return t("currency.dateGroupTitle", {month: Number(parts[1]), day: Number(parts[2]), weekday});
       }
     }catch(e){}
     return dateStr;
@@ -3798,7 +3590,7 @@
   }
   function bucketLabel(granularity, start){
     if(granularity === "day" || granularity === "week") return `${start.getMonth() + 1}/${start.getDate()}`;
-    if(granularity === "month") return `${start.getMonth() + 1}月`;
+    if(granularity === "month") return t("currency.monthUnit", {month: start.getMonth() + 1});
     return `${start.getFullYear()}`;
   }
 
@@ -3836,7 +3628,7 @@
     const wrap = document.getElementById("spendChartWrap");
     if(!wrap) return;
     if(!data.some(d => d.owe > 0 || d.received > 0)){
-      wrap.innerHTML = `<p class="filter-hint">這段時間沒有跟你相關的支出或還款</p>`;
+      wrap.innerHTML = `<p class="filter-hint">${t("currency.noFlowChartData")}</p>`;
       return;
     }
     const max = Math.max(1, ...data.map(d => Math.max(d.owe, d.received)));
@@ -3861,11 +3653,11 @@
         ${downLabel}
         <text x="${cx.toFixed(1)}" y="${h - 4}" text-anchor="middle" class="spend-bar-label">${d.label}</text>`;
     }).join("");
-    wrap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" class="spend-chart" role="img" aria-label="跟我有關的欠款與還款趨勢">
+    wrap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" class="spend-chart" role="img" aria-label="${t("currency.flowChartAriaLabel")}">
       <line x1="0" y1="${midY}" x2="${w}" y2="${midY}" class="flow-zero-line"/>
       ${bars}
     </svg>
-    <div class="flow-chart-legend"><span class="legend-up">■ 我的欠款</span><span class="legend-down">■ 已收還款</span></div>`;
+    <div class="flow-chart-legend"><span class="legend-up">${t("currency.legendOwe")}</span><span class="legend-down">${t("currency.legendReceived")}</span></div>`;
   }
 
   function updateChartRangeLabel(bucketStarts){
@@ -3875,7 +3667,7 @@
     const toLabel = chartGranularity === "week"
       ? bucketLabel(chartGranularity, bucketEnd(chartGranularity, bucketStarts[3]))
       : bucketLabel(chartGranularity, bucketStarts[3]);
-    label.textContent = chartGranularity === "year" ? `${fromLabel}年 – ${toLabel}年` : `${fromLabel} – ${toLabel}`;
+    label.textContent = chartGranularity === "year" ? t("currency.yearRangeLabel", {from: fromLabel, to: toLabel}) : t("currency.rangeLabel", {from: fromLabel, to: toLabel});
     const nextBtn = document.getElementById("chartNextBtn");
     if(nextBtn) nextBtn.disabled = chartOffset >= 0;
   }
@@ -3941,7 +3733,7 @@
 
     const originalText = btn.textContent;
     btn.disabled = true;
-    btn.textContent = "傳送中…";
+    btn.textContent = t("currency.sendingEllipsis");
 
     const { data, error } = await sb.rpc("send_debt_reminder", {
       p_debtor_member_id: debtorId,
@@ -3954,15 +3746,15 @@
 
     if(error){
       console.error("提醒發送失敗：", error);
-      await sbAlert("提醒發送失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
+      await sbAlert(t("currency.reminderSendFailed"), t("settings.errorTitle"));
       return;
     }
     if(data === "THROTTLED"){
-      await sbAlert("這筆債務 24 小時內已經提醒過了，晚點再試試看。", "🔔 Splitbill 提醒");
+      await sbAlert(t("currency.reminderThrottled"), t("currency.reminderThrottledTitle"));
       return;
     }
     if(data === "FORBIDDEN"){
-      await sbAlert("提醒發送失敗，請稍後再試一次。", "🔔 Splitbill 錯誤");
+      await sbAlert(t("currency.reminderSendFailed"), t("settings.errorTitle"));
       return;
     }
 
@@ -3973,7 +3765,7 @@
       body: { debtorMemberId: debtorId, creditorMemberId: creditorId, amount: amt, currency: CURRENCY }
     }).catch(()=>{});
 
-    await sbAlert(`✓ 已提醒 ${memberById[debtorId] || "對方"}！`, "🔔 Splitbill 通知");
+    await sbAlert(t("currency.reminderSentSuccess", {name: memberById[debtorId] || t("currency.counterpartFallback")}), t("common.notifyDialogTitle"));
   }
 
 
@@ -3998,7 +3790,7 @@
       balEl.innerHTML = memberRows.map(m=>{
         const amt = balance[m.id] || 0;
         const cls = amt > 0.05 ? "pos" : amt < -0.05 ? "neg" : "zero";
-        const label = amt > 0.05 ? `該收 ${SYM}${formatAmt(amt)}${conversionHint(amt)}` : amt < -0.05 ? `該付 ${SYM}${formatAmt(Math.abs(amt))}${conversionHint(Math.abs(amt))}` : "已結清";
+        const label = amt > 0.05 ? t("summary.owedLabel", {amount: SYM+formatAmt(amt)+conversionHint(amt)}) : amt < -0.05 ? t("summary.oweLabel", {amount: SYM+formatAmt(Math.abs(amt))+conversionHint(Math.abs(amt))}) : t("summary.settledShort");
         return `<div class="balance-row"><span>${escapeHtml(m.name)}</span><span class="amt ${cls}">${label}</span></div>`;
       }).join("");
     }
@@ -4006,22 +3798,29 @@
     // myMember 偶爾會在 loadMembers() 還沒跑完時就先被 Realtime 觸發的
     // refreshExpenses() 呼叫到這裡，這幾行「我自己」相關的畫面沒防呆
     // 直接讀 myMember.id 會整個 crash 掉，先跳過、等 myMember 準備好
-    // 之後下一次渲染自然會補上。myAmt 要留到外層給下面的 KPI 橫條用，
-    // 所以宣告在 if 外面、guard 裡面只負責賦值。
-    let myAmt = 0;
+    // 之後下一次渲染自然會補上。
     if(myMember){
-      myAmt = balance[myMember.id] || 0;
+      const myAmt = balance[myMember.id] || 0;
       const myCls = myAmt > 0.05 ? "pos" : myAmt < -0.05 ? "neg" : "zero";
       const myAbs = Math.abs(myAmt);
       const myBalanceAmtEl = document.getElementById("myBalanceAmt");
       if(myBalanceAmtEl){
         if(myCls === "zero"){
-          myBalanceAmtEl.innerHTML = "已結清 🎉";
+          myBalanceAmtEl.innerHTML = t("summary.settledCheer");
         } else {
-          const statusText = myCls === "pos" ? "該收" : "該付";
-          myBalanceAmtEl.innerHTML = `${statusText} ${SYM}${formatAmt(myAbs)}${conversionHint(myAbs)}`;
+          myBalanceAmtEl.innerHTML = myCls === "pos"
+            ? t("summary.owedLabel", {amount: SYM+formatAmt(myAbs)+conversionHint(myAbs)})
+            : t("summary.oweLabel", {amount: SYM+formatAmt(myAbs)+conversionHint(myAbs)});
         }
         myBalanceAmtEl.className = "my-balance-amt " + myCls;
+        // 金額文字（例如「精算済み🎉」）是這裡非同步渲染出來的，比頁面
+        // 一開始設定標題文字晚很多；旁邊 myBalanceLabel 那時候量測可用
+        // 寬度用的還是還沒放大金額文字前的舊寬度，這裡金額確定之後要
+        // 再校正一次，不然日文幣別名稱較長時還是可能撞在一起或跳行。
+        if(typeof window.fitTextToOneLine === "function"){
+          const balanceLabelEl = document.getElementById("myBalanceLabel");
+          if(balanceLabelEl) window.fitTextToOneLine(balanceLabelEl, 11);
+        }
       }
 
       const myBalanceEl = document.getElementById("myBalance");
@@ -4047,26 +3846,6 @@
     const owedForRender = buildDebtMatrix(expenses, repayments);
     renderSettlement(expenses, repayments, owedForRender);
     renderDebtMatrix(expenses, repayments, owedForRender);
-
-    // 📈 渲染電腦端 4 大 KPI 核心數據指標橫條 (Desktop KPI Strip)
-    if(typeof renderDesktopKpiStrip === "function"){
-      const totalGroupSpend = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-      const myTotalPaid = expenses.reduce((s, e) => {
-        const p = (e.payers || []).find(x => x.member_id === (myMember && myMember.id));
-        return s + (p ? Number(p.amount || 0) : 0);
-      }, 0);
-      let unsettledCount = 0;
-      Object.keys(owedForRender).forEach(creditorId => {
-        unsettledCount += Object.keys(owedForRender[creditorId] || {}).length;
-      });
-      renderDesktopKpiStrip("desktopKpiContainer", {
-        totalGroupSpend,
-        myTotalPaid,
-        myNetBalance: myAmt,
-        unsettledCount,
-        currencySymbol: SYM
-      });
-    }
   }
 
   // ==========================================================
@@ -4108,7 +3887,7 @@
     if(from) expList = expList.filter(e => e.expense_date >= from);
     if(to) expList = expList.filter(e => e.expense_date <= to);
     if(!expList.length){
-      wrap.innerHTML = `<p class="filter-hint">這段時間沒有任何支出紀錄</p>`;
+      wrap.innerHTML = `<p class="filter-hint">${t("currency.noExpensesInPeriod")}</p>`;
       return;
     }
 
@@ -4118,7 +3897,7 @@
       : expList;
 
     if(!filteredExp.length){
-      wrap.innerHTML = `<p class="filter-hint">${donutScope === "my" ? "目前沒有跟你相關的支出" : "目前沒有支出紀錄"}</p>`;
+      wrap.innerHTML = `<p class="filter-hint">${donutScope === "my" ? t("currency.noRelatedExpenses") : t("currency.noExpenseRecords")}</p>`;
       return;
     }
 
@@ -4126,7 +3905,7 @@
     let totalAmt = 0;
 
     filteredExp.forEach(e => {
-      const meta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note, e.category)) || { icon: "🧾", name: "一般支出", type: "general", color: "#868E96" };
+      const meta = (window.getCategoryMeta && window.getCategoryMeta(e.description, e.note, e.category)) || { icon: "🧾", name: t("currency.generalExpenseFallback"), type: "general", color: "#868E96" };
       let amt = 0;
       if(donutScope === "my"){
         const myShare = (e.shares || []).find(s => s.member_id === myId);
@@ -4153,7 +3932,7 @@
 
     const catList = Object.values(catMap).sort((a, b) => b.amount - a.amount);
     if(!catList.length || totalAmt <= 0.01){
-      wrap.innerHTML = `<p class="filter-hint">尚無有效支出金額</p>`;
+      wrap.innerHTML = `<p class="filter-hint">${t("currency.noValidExpenseAmount")}</p>`;
       return;
     }
 
@@ -4199,9 +3978,9 @@
             ${paths}
           </svg>
           <div class="donut-center-info is-pop" id="donutCenterInfo">
-            <span class="donut-center-label">${donutScope === "my" ? "我的支出" : "全團總額"}</span>
+            <span class="donut-center-label">${donutScope === "my" ? t("currency.myExpenseLabel") : t("currency.groupTotalLabel")}</span>
             <span class="donut-center-amt">${SYM}${formatAmt(totalAmt)}</span>
-            <span class="donut-center-sub">${catList.length} 類別</span>
+            <span class="donut-center-sub">${t("currency.categoryCountUnit", {count: catList.length})}</span>
           </div>
         </div>
         <div class="donut-legend-list">
@@ -4223,7 +4002,7 @@
           centerInfo.innerHTML = `
             <span class="donut-center-label">${cat.icon} ${escapeHtml(cat.name)}</span>
             <span class="donut-center-amt" style="color:${cat.color}">${SYM}${formatAmt(cat.amount)}</span>
-            <span class="donut-center-sub">${pct}% · 共 ${cat.count} 筆</span>
+            <span class="donut-center-sub">${t("currency.pctAndCount", {pct, count: cat.count})}</span>
           `;
           centerInfo.classList.remove("is-pop");
           void centerInfo.offsetWidth;
@@ -4237,9 +4016,9 @@
         const centerInfo = document.getElementById("donutCenterInfo");
         if(centerInfo){
           centerInfo.innerHTML = `
-            <span class="donut-center-label">${donutScope === "my" ? "我的支出" : "全團總額"}</span>
+            <span class="donut-center-label">${donutScope === "my" ? t("currency.myExpenseLabel") : t("currency.groupTotalLabel")}</span>
             <span class="donut-center-amt">${SYM}${formatAmt(totalAmt)}</span>
-            <span class="donut-center-sub">${catList.length} 類別</span>
+            <span class="donut-center-sub">${t("currency.categoryCountUnit", {count: catList.length})}</span>
           `;
         }
         wrap.querySelectorAll(".donut-legend-item").forEach(el => el.classList.remove("active"));
@@ -4293,13 +4072,13 @@
     const nameEl = document.getElementById("catModalName");
     const subEl = document.getElementById("catModalSub");
     if(iconEl) iconEl.textContent = catIcon || "🧾";
-    if(nameEl) nameEl.textContent = catName || "類別支出";
-    if(subEl) subEl.textContent = `${isMyScope ? "我的支出" : "全團支出"} · 共 ${matchingExpenses.length} 筆 · ${SYM}${formatAmt(catTotal)}`;
+    if(nameEl) nameEl.textContent = catName || t("currency.categoryExpenseFallback");
+    if(subEl) subEl.textContent = t("currency.categoryModalSubtitle", {scope: isMyScope ? t("currency.myExpenseScope") : t("currency.groupExpenseScope"), count: matchingExpenses.length, total: SYM+formatAmt(catTotal)});
 
     const listEl = document.getElementById("catModalList");
     if(listEl){
       if(!matchingExpenses.length){
-        listEl.innerHTML = emptyStateHTML("📭", "暫無支出紀錄", "此類別目前沒有任何支出紀錄。");
+        listEl.innerHTML = emptyStateHTML("📭", t("currency.noExpensesShort"), t("currency.categoryNoExpensesDesc"));
       } else {
         listEl.innerHTML = matchingExpenses.map(e => {
           const { title, note } = splitExpenseTitleAndNote(e.description, e.note);
@@ -4311,21 +4090,22 @@
 
           // 付款人：只出現氣泡頭貼
           const payersAvatarsHtml = payers.map(p => {
-            const m = (memberRows || activeMembers || []).find(mem => mem.id === p.member_id) || { id: p.member_id, name: (memberById && memberById[p.member_id]) || "成員" };
-            return `<span class="cat-exp-avatar-bubble" title="付款人: ${escapeHtml(m.name)}${payers.length > 1 ? ` (${SYM}${formatAmt(p.amount)})` : ''}">${renderAvatarHTML(m, "avatar-xs")}</span>`;
+            const m = (memberRows || activeMembers || []).find(mem => mem.id === p.member_id) || { id: p.member_id, name: (memberById && memberById[p.member_id]) || t("common.memberFallback") };
+            return `<span class="cat-exp-avatar-bubble" title="${escapeHtml(t("currency.payerTooltip", {name: m.name, extra: payers.length > 1 ? ` (${SYM}${formatAmt(p.amount)})` : ''}))}">${renderAvatarHTML(m, "avatar-xs")}</span>`;
           }).join("");
 
           // 應付人：只出現氣泡頭貼
           const sharesAvatarsHtml = shares.map(s => {
-            const m = (memberRows || activeMembers || []).find(mem => mem.id === s.member_id) || { id: s.member_id, name: (memberById && memberById[s.member_id]) || "成員" };
+            const m = (memberRows || activeMembers || []).find(mem => mem.id === s.member_id) || { id: s.member_id, name: (memberById && memberById[s.member_id]) || t("common.memberFallback") };
             const isMe = s.member_id === myId;
-            return `<span class="cat-exp-avatar-bubble ${isMe ? 'is-me' : ''}" title="應付人: ${escapeHtml(m.name)}${isMe ? ' (我)' : ''}${shares.length > 1 ? ` (${SYM}${formatAmt(s.amount)})` : ''}">${renderAvatarHTML(m, "avatar-xs")}</span>`;
+            const extra = (isMe ? t("common.meSuffix") : '') + (shares.length > 1 ? ` (${SYM}${formatAmt(s.amount)})` : '');
+            return `<span class="cat-exp-avatar-bubble ${isMe ? 'is-me' : ''}" title="${escapeHtml(t("currency.shareTooltip", {name: m.name, extra}))}">${renderAvatarHTML(m, "avatar-xs")}</span>`;
           }).join("");
 
           let myShareBadge = "";
           const myShare = shares.find(s => s.member_id === myId);
           if(myShare && Number(myShare.amount) > 0){
-            myShareBadge = `<div class="cat-exp-my-share">我分攤 ${SYM}${formatAmt(myShare.amount)}</div>`;
+            myShareBadge = `<div class="cat-exp-my-share">${t("currency.myShareLabel", {amount: SYM+formatAmt(myShare.amount)})}</div>`;
           }
 
           return `
@@ -4342,11 +4122,11 @@
               </div>
               <div class="cat-exp-card-bottom">
                 <div class="cat-exp-avatar-row">
-                  <span class="cat-exp-row-label">💳 付款</span>
+                  <span class="cat-exp-row-label">${t("currency.paymentRowLabel")}</span>
                   <div class="cat-exp-avatar-stack">${payersAvatarsHtml || "—"}</div>
                 </div>
                 <div class="cat-exp-avatar-row">
-                  <span class="cat-exp-row-label">👥 應付</span>
+                  <span class="cat-exp-row-label">${t("currency.oweRowLabel")}</span>
                   <div class="cat-exp-avatar-stack">${sharesAvatarsHtml || "—"}</div>
                 </div>
               </div>
@@ -4471,14 +4251,14 @@
     if(!el) return;
     if(!tx.length){
       el.disabled = true;
-      el.innerHTML = '<option value="">目前帳務已經平衡，不用轉帳給任何人 🎉</option>';
+      el.innerHTML = `<option value="">${t("currency.allSettledNoTransfer")}</option>`;
       enhanceSelect(el);
       return;
     }
     el.disabled = false;
-    el.innerHTML = '<option value="">請選擇建議還款…</option>' + tx.map((t,i)=>{
-      const twdText = conversionHintText(t.amt);
-      return `<option value="${i}" data-from="${t.from}" data-to="${t.to}" data-amt="${t.amt}">${escapeHtml(memberById[t.from] || "?")} 還 ${escapeHtml(memberById[t.to] || "?")}　${SYM}${formatAmt(t.amt)}${twdText ? "（" + twdText + "）" : ""}</option>`;
+    el.innerHTML = `<option value="">${t("currency.selectSuggestedRepay")}</option>` + tx.map((tItem,i)=>{
+      const twdText = conversionHintText(tItem.amt);
+      return `<option value="${i}" data-from="${tItem.from}" data-to="${tItem.to}" data-amt="${tItem.amt}">${t("currency.repayFromTo", {from: escapeHtml(memberById[tItem.from] || "?"), to: escapeHtml(memberById[tItem.to] || "?")})}　${SYM}${formatAmt(tItem.amt)}${twdText ? "（" + twdText + "）" : ""}</option>`;
     }).join("");
     enhanceSelect(el);
     el.onchange = ()=>{
@@ -4676,9 +4456,9 @@ function renderDebtMatrix(
         '<th class="matrix-side-label matrix-top-label" colspan="' +
           ids.length +
         '">' +
-          "債務人" +
+          t("currency.debtorHeader") +
         "</th>" +
-        '<th rowspan="2">應收款</th>' +
+        '<th rowspan="2">' + t("currency.receivableHeader") + '</th>' +
       "</tr>" +
       "<tr>";
 
@@ -4715,7 +4495,7 @@ function renderDebtMatrix(
           '<th class="matrix-side-label matrix-left-label" rowspan="' +
           ids.length +
           '">' +
-          "債權人" +
+          t("currency.creditorHeader") +
           "</th>";
       }
 
@@ -4777,12 +4557,7 @@ function renderDebtMatrix(
                 debtorId +
                 '"' +
                 ' title="' +
-                escapeHtml(debtorFullName) +
-                ' 欠 ' +
-                escapeHtml(creditorFullName) +
-                ' ' +
-                SYM +
-                formatAmt(amount) +
+                escapeHtml(t("currency.owesTooltip", {debtor: debtorFullName, creditor: creditorFullName, amount: SYM+formatAmt(amount)})) +
                 '"' +
               ">" +
                 formatAmt(amount) +
@@ -4803,10 +4578,8 @@ function renderDebtMatrix(
                 debtorId +
                 '"' +
                 ' title="' +
-                escapeHtml(debtorFullName) +
-                ' 與 ' +
-                escapeHtml(creditorFullName) +
-                ' 已結清"' +
+                escapeHtml(t("currency.settledTooltip", {debtor: debtorFullName, creditor: creditorFullName})) +
+                '"' +
               '></td>';
 
           }
@@ -4852,7 +4625,7 @@ function renderDebtMatrix(
 
       "<tr>" +
 
-        '<th class="matrix-foot-label" colspan="2">應付款</th>';
+        '<th class="matrix-foot-label" colspan="2">' + t("currency.payableFooter") + '</th>';
 
 
   ids.forEach(
@@ -5006,7 +4779,7 @@ function syncMatrixFilterMeBtn(){
   if(!matrixFilterMeBtn) return;
   const textEl = document.getElementById("matrixFilterMeBtnText");
   matrixFilterMeBtn.classList.toggle("active", matrixShowOnlyMine);
-  if(textEl) textEl.textContent = matrixShowOnlyMine ? "🔗 完整矩陣" : "👤 與我相關";
+  if(textEl) textEl.textContent = matrixShowOnlyMine ? t("currency.fullMatrixLabel") : t("currency.matrixFilterMe");
 }
 
 // ==========================================================
@@ -5017,8 +4790,9 @@ if(copySettlementBtn){
   copySettlementBtn.addEventListener("click", async ()=>{
     const owed = buildDebtMatrix(cachedExpenses, cachedRepayments);
     const { ids } = computeDebtMatrixIds(owed);
-    const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
-    const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
+    const groupName = (myMember && myMember.groups && myMember.groups.name) || t("currency.groupNameFallback");
+    const localeMap = { "zh-Hant": "zh-TW", ja: "ja-JP", en: "en-US" };
+    const nowStr = new Date().toLocaleString(localeMap[getLang()] || "zh-TW", { hour12: false });
     let text = "";
 
     // 欠款人（debtor）排外層，同一個人要付給不同人的幾筆才會排在一起，
@@ -5030,8 +4804,8 @@ if(copySettlementBtn){
         const amt = owed[creditorId] && owed[creditorId][debtorId];
         if(amt && amt > 0.05){
           activeDebts.push({
-            debtor: memberById[debtorId] || "某成員",
-            creditor: memberById[creditorId] || "某成員",
+            debtor: memberById[debtorId] || t("currency.memberFallbackAlt"),
+            creditor: memberById[creditorId] || t("currency.memberFallbackAlt"),
             amount: amt
           });
         }
@@ -5039,10 +4813,10 @@ if(copySettlementBtn){
     });
 
     if(activeDebts.length === 0){
-      text = `🎉【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n\n✨ 目前所有款項皆已結清，沒有任何未結債務！`;
+      text = t("currency.allSettledClipboard", {group: groupName, currency: CURRENCY_LABEL, code: CURRENCY, time: nowStr});
     } else {
-      const debtLines = activeDebts.map(d => `• ${d.debtor} 應付 ${d.creditor}：${SYM}${formatAmt(d.amount)}`).join("\n");
-      text = `🧾【Splitbill 逐筆債務結算】\n👥 群組：${groupName}\n💰 幣別：${CURRENCY_LABEL} (${CURRENCY})\n📅 結算時間：${nowStr}\n------------------------\n📌 應結清款項明細（共 ${activeDebts.length} 筆）：\n${debtLines}\n------------------------\n✨ 請確認後完成轉帳！`;
+      const debtLines = activeDebts.map(d => t("currency.debtLineItem", {debtor: d.debtor, creditor: d.creditor, amount: SYM+formatAmt(d.amount)})).join("\n");
+      text = t("currency.debtSettlementClipboard", {group: groupName, currency: CURRENCY_LABEL, code: CURRENCY, time: nowStr, count: activeDebts.length, lines: debtLines});
     }
 
     try {
@@ -5060,12 +4834,12 @@ if(copySettlementBtn){
       }
 
       const originalHtml = copySettlementBtn.innerHTML;
-      copySettlementBtn.innerHTML = "<span>✓ 已複製結算文字</span>";
+      copySettlementBtn.innerHTML = t("currency.copiedSettlementText");
       setTimeout(()=>{ copySettlementBtn.innerHTML = originalHtml; }, 2500);
 
-      await sbAlert(`已成功將結算清單複製到剪貼簿！\n\n可直接貼到 LINE 或通訊軟體與大家核對。`, "📋 結算清單複製成功");
+      await sbAlert(t("currency.copySuccessBody"), t("currency.copySuccessTitle"));
     } catch(err){
-      await sbAlert("複製失敗，請手動複製：" + err.message, "🔔 Splitbill 提醒");
+      await sbAlert(t("currency.copyFailedPrefix") + err.message, t("currency.copyFailedTitle"));
     }
   });
 }
@@ -5229,8 +5003,9 @@ function renderSettlementImageCanvas(){
     });
   });
 
-  const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
-  const nowStr = new Date().toLocaleString("zh-TW", { hour12: false });
+  const groupName = (myMember && myMember.groups && myMember.groups.name) || t("currency.groupNameFallback");
+  const canvasLocaleMap = { "zh-Hant": "zh-TW", ja: "ja-JP", en: "en-US" };
+  const nowStr = new Date().toLocaleString(canvasLocaleMap[getLang()] || "zh-TW", { hour12: false });
 
   // 尺寸比照網頁 .debt-matrix 實際的緊湊程度（font-size:11.5px、
   // padding:8px 4px、姓名欄 min/max-width 3.2em~5.2em），不要用畫布上
@@ -5271,11 +5046,11 @@ function renderSettlementImageCanvas(){
   ctx.textAlign = "center";
   ctx.fillStyle = T.accent;
   ctx.font = "700 24px 'Noto Sans TC', sans-serif";
-  ctx.fillText("🧮 Splitbill 債務關係表", W / 2, 42);
+  ctx.fillText(t("currency.settlementImageTitle"), W / 2, 42);
 
   ctx.fillStyle = dark ? "#A9A7B3" : "#686074";
   ctx.font = "500 14px 'Noto Sans TC', sans-serif";
-  ctx.fillText(`👥 ${groupName}　💰 ${CURRENCY_LABEL} (${CURRENCY})　📅 ${nowStr}`, W / 2, 68);
+  ctx.fillText(t("currency.settlementImageSubtitle", {group: groupName, currency: CURRENCY_LABEL, code: CURRENCY, time: nowStr}), W / 2, 68);
 
   // ---------- 表格本體（顏色跟格線都對照 shared.css 的 .debt-matrix） ----------
   const tableX = PAD, tableY = cardHeaderH;
@@ -5311,7 +5086,7 @@ function renderSettlementImageCanvas(){
   // 只有「債權人」.matrix-left-label 才是直排），置中寫在成員欄位上方
   ctx.textAlign = "center";
   ctx.font = "700 11px 'Noto Sans TC', sans-serif";
-  ctx.fillText("債務人", tableX + labelColW + nameColW + cellColW * n / 2, tableY + headerRowH / 2 + 1);
+  ctx.fillText(t("currency.debtorHeader"), tableX + labelColW + nameColW + cellColW * n / 2, tableY + headerRowH / 2 + 1);
 
   ctx.font = "700 11.5px 'Noto Sans TC', sans-serif";
   ids.forEach((id, i) => {
@@ -5320,14 +5095,14 @@ function renderSettlementImageCanvas(){
   });
 
   ctx.font = "700 11px 'Noto Sans TC', sans-serif";
-  ctx.fillText("應收款", totalColX + totalColW / 2, tableY + headerRowH);
+  ctx.fillText(t("currency.receivableHeader"), totalColX + totalColW / 2, tableY + headerRowH);
 
   // 左側「債權人」欄跟每一列的姓名欄一樣是 headerBg（跟 .matrix-side-label /
   // .matrix-row-name 對應），「債權人」文字直排（由上往下）
   ctx.fillStyle = T.headerBg;
   ctx.fillRect(tableX, tableY + headerRowH * 2, labelColW + nameColW, dataRowH * n);
   ctx.fillStyle = T.headerText;
-  drawSettlementVerticalLabel(ctx, "債權人", tableX + labelColW / 2, tableY + headerRowH * 2, dataRowH * n, "700 11px 'Noto Sans TC', sans-serif");
+  drawSettlementVerticalLabel(ctx, t("currency.creditorHeader"), tableX + labelColW / 2, tableY + headerRowH * 2, dataRowH * n, "700 11px 'Noto Sans TC', sans-serif");
 
   // 資料列
   ids.forEach((creditorId, r) => {
@@ -5376,7 +5151,7 @@ function renderSettlementImageCanvas(){
   ctx.fillRect(tableX, footY, tableW, footRowH);
   ctx.fillStyle = T.headerText;
   ctx.font = "700 11px 'Noto Sans TC', sans-serif";
-  ctx.fillText("應付款", tableX + labelColW + nameColW / 2, footY + footRowH / 2 + 1);
+  ctx.fillText(t("currency.payableFooter"), tableX + labelColW + nameColW / 2, footY + footRowH / 2 + 1);
 
   ids.forEach((debtorId, c) => {
     let colTotal = 0;
@@ -5448,7 +5223,7 @@ function renderSettlementImageCanvas(){
   ctx.textAlign = "center";
   ctx.fillStyle = T.footerText;
   ctx.font = "600 12px 'Noto Sans TC', sans-serif";
-  ctx.fillText("由 Splitbill 產生", W / 2, H - cardFooterH / 2 + 4);
+  ctx.fillText(t("currency.generatedBySplitbill"), W / 2, H - cardFooterH / 2 + 4);
   ctx.textAlign = "left";
 
   return canvas;
@@ -5473,12 +5248,12 @@ if(exportSettlementImgBtn){
   exportSettlementImgBtn.addEventListener("click", async ()=>{
     const originalHtml = exportSettlementImgBtn.innerHTML;
     exportSettlementImgBtn.disabled = true;
-    exportSettlementImgBtn.innerHTML = "<span>⏳ 產生中…</span>";
+    exportSettlementImgBtn.innerHTML = t("currency.generatingEllipsis");
     try {
       const canvas = renderSettlementImageCanvas();
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
       if(!blob){
-        await sbAlert("圖片產生失敗，請再試一次。", "🔔 Splitbill 錯誤");
+        await sbAlert(t("currency.imageGenFailed"), t("settings.errorTitle"));
         return;
       }
 
@@ -5490,8 +5265,8 @@ if(exportSettlementImgBtn){
       if(img) img.src = dataUrl || currentSettlementImgUrl;
       if(settlementImgModal) settlementImgModal.classList.add("show");
 
-      const groupName = (myMember && myMember.groups && myMember.groups.name) || "分帳群組";
-      const filename = `Splitbill結算_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
+      const groupName = (myMember && myMember.groups && myMember.groups.name) || t("currency.groupNameFallback");
+      const filename = `${t("currency.settlementFilePrefix")}_${groupName}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.png`;
       const file = new File([blob], filename, { type: "image/png" });
       const isCapacitor = typeof window.Capacitor !== "undefined" && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform();
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -5511,20 +5286,20 @@ if(exportSettlementImgBtn){
                 });
                 if(saved && saved.uri){
                   await window.Capacitor.Plugins.Share.share({
-                    title: `Splitbill 帳務結算 - ${groupName}`,
-                    text: `這是 ${groupName} 的帳務結算圖`,
+                    title: t("currency.shareTitle", {group: groupName}),
+                    text: t("currency.shareText", {group: groupName}),
                     url: saved.uri,
-                    dialogTitle: "分享結算圖片"
+                    dialogTitle: t("currency.shareDialogTitle")
                   });
                   return true;
                 }
               }
             } else if(window.Capacitor.Plugins.Share){
               await window.Capacitor.Plugins.Share.share({
-                title: `Splitbill 帳務結算 - ${groupName}`,
-                text: `這是 ${groupName} 的帳務結算圖`,
+                title: t("currency.shareTitle", {group: groupName}),
+                text: t("currency.shareText", {group: groupName}),
                 url: dataUrl || currentSettlementImgUrl,
-                dialogTitle: "分享結算圖片"
+                dialogTitle: t("currency.shareDialogTitle")
               });
               return true;
             }
@@ -5539,14 +5314,14 @@ if(exportSettlementImgBtn){
             if(navigator.canShare && navigator.canShare({ files: [file] })){
               await navigator.share({
                 files: [file],
-                title: `Splitbill 帳務結算 - ${groupName}`,
-                text: `這是 ${groupName} 的帳務結算圖`
+                title: t("currency.shareTitle", {group: groupName}),
+                text: t("currency.shareText", {group: groupName})
               });
               return true;
             } else {
               await navigator.share({
-                title: `Splitbill 帳務結算 - ${groupName}`,
-                text: `這是 ${groupName} 的帳務結算圖`,
+                title: t("currency.shareTitle", {group: groupName}),
+                text: t("currency.shareText", {group: groupName}),
                 url: location.href
               });
               return true;
@@ -5567,10 +5342,10 @@ if(exportSettlementImgBtn){
             const copyBtn = document.getElementById("settlementImgCopyBtn");
             if(copyBtn){
               const old = copyBtn.innerHTML;
-              copyBtn.innerHTML = "✓ 已複製！";
+              copyBtn.innerHTML = t("currency.copiedCheckmark");
               setTimeout(()=>{ copyBtn.innerHTML = old; }, 2000);
             }
-            showToast("📋 圖片已複製", "可直接切換到 LINE / 社群按「貼上」發送！");
+            showToast(t("currency.imageCopiedToastTitle"), t("currency.imageCopiedToastBody"));
             return true;
           } catch(e){
             console.warn("ClipboardItem write error:", e);
@@ -5590,7 +5365,7 @@ if(exportSettlementImgBtn){
                 data: base64Data,
                 directory: "DOCUMENTS"
               });
-              showToast("💾 圖片已儲存", `已儲存至裝置「文件 / ${filename}」`);
+              showToast(t("currency.imageSavedToastTitle"), t("currency.imageSavedToastBody", {filename}));
               return;
             }
           } catch(e){
@@ -5609,7 +5384,7 @@ if(exportSettlementImgBtn){
           } catch(e){}
 
           // 提示手機長按儲存相簿
-          sbAlert("📱 手機儲存相簿教學：\n\n1. 請直接「長按」上方預覽圖片\n2. 選擇「下載圖片 / 儲存影像」或「分享到 LINE」\n即可存入手機相簿或傳送給朋友！", "💡 儲存至相簿");
+          sbAlert(t("currency.mobileSaveInstructions"), t("currency.saveToAlbumTitle"));
           return;
         }
 
@@ -5631,7 +5406,7 @@ if(exportSettlementImgBtn){
         copyBtn.onclick = async () => {
           const ok = await handleCopyImage();
           if(!ok){
-            await sbAlert("您的裝置暫不支援剪貼簿直接拷貝圖片，請直接「長按上方圖片」選擇「拷貝」或「儲存影像」。", "💡 複製提示");
+            await sbAlert(t("currency.clipboardUnsupported"), t("currency.copyHintTitle"));
           }
         };
       }
@@ -5657,7 +5432,7 @@ if(exportSettlementImgBtn){
       }
     } catch(err){
       console.error("匯出結算圖片失敗：", err);
-      await sbAlert("匯出圖片失敗：" + (err.message || "未知錯誤"), "🔔 Splitbill 錯誤");
+      await sbAlert(t("currency.exportImageFailed") + (err.message || t("currency.unknownError")), t("settings.errorTitle"));
     } finally {
       exportSettlementImgBtn.disabled = false;
       exportSettlementImgBtn.innerHTML = originalHtml;
@@ -5702,8 +5477,8 @@ async function copyToClipboard(text){
 // 「自付」本來就夠白話不用改。純粹換字，算式還是同一條字串，不拆成好幾行。
 function relabelCalcText(calc){
   return String(calc || "")
-    .replace(/平分/g, "共同支出")
-    .replace(/稅額/g, "稅/服務費");
+    .replace(/平分/g, t("currency.calcSharedLabel"))
+    .replace(/稅額/g, t("currency.calcTaxLabel"));
 }
 function showExpenseDebtDetail(e){
   const modal = document.getElementById("expenseDebtModal");
@@ -5713,7 +5488,7 @@ function showExpenseDebtDetail(e){
   if(!modal || !body) return;
 
   const { title, note } = splitExpenseTitleAndNote(e.description || "", e.note || "");
-  const cleanTitle = title || "支出明細";
+  const cleanTitle = title || t("currency.expenseDetailFallback");
   const cleanBodyText = note || "";
 
   const icon = getCategoryIcon(title || e.description || "", e.category);
@@ -5756,10 +5531,10 @@ function showExpenseDebtDetail(e){
     const name = escapeHtml(memberById[p.member_id] || "?");
     const amt = `${SYM}${formatAmt(p.amount)}`;
     const toggleBtn = p.calc
-      ? `<button type="button" class="exp-debt-calc-toggle" onclick="this.closest('.exp-debt-row-item-wrap').classList.toggle('is-expanded')" title="展開/收合計算機算式"><span class="exp-calc-toggle-icon">▾</span></button>`
+      ? `<button type="button" class="exp-debt-calc-toggle" onclick="this.closest('.exp-debt-row-item-wrap').classList.toggle('is-expanded')" title="${t("currency.toggleCalcTitle")}"><span class="exp-calc-toggle-icon">▾</span></button>`
       : "";
     const expandRow = p.calc
-      ? `<div class="exp-debt-calc-expand-row"><div class="exp-debt-calc-badge-expanded" title="計算機算式：${escapeHtml(p.calc)}">${escapeHtml(p.calc)}</div></div>`
+      ? `<div class="exp-debt-calc-expand-row"><div class="exp-debt-calc-badge-expanded" title="${escapeHtml(t("currency.calcFormulaTitle", {calc: p.calc}))}">${escapeHtml(p.calc)}</div></div>`
       : "";
 
     return `<div class="exp-debt-row-item-wrap">
@@ -5779,10 +5554,10 @@ function showExpenseDebtDetail(e){
     const name = escapeHtml(memberById[s.member_id] || "?");
     const amt = `${SYM}${formatAmt(s.amount)}`;
     const toggleBtn = s.calc
-      ? `<button type="button" class="exp-debt-calc-toggle" onclick="this.closest('.exp-debt-row-item-wrap').classList.toggle('is-expanded')" title="展開/收合計算機算式"><span class="exp-calc-toggle-icon">▾</span></button>`
+      ? `<button type="button" class="exp-debt-calc-toggle" onclick="this.closest('.exp-debt-row-item-wrap').classList.toggle('is-expanded')" title="${t("currency.toggleCalcTitle")}"><span class="exp-calc-toggle-icon">▾</span></button>`
       : "";
     const expandRow = s.calc
-      ? `<div class="exp-debt-calc-expand-row"><div class="exp-debt-calc-badge-expanded" title="計算機算式：${escapeHtml(relabelCalcText(s.calc))}">${escapeHtml(relabelCalcText(s.calc))}</div></div>`
+      ? `<div class="exp-debt-calc-expand-row"><div class="exp-debt-calc-badge-expanded" title="${escapeHtml(t("currency.calcFormulaTitle", {calc: relabelCalcText(s.calc)}))}">${escapeHtml(relabelCalcText(s.calc))}</div></div>`
       : "";
 
     return `<div class="exp-debt-row-item-wrap">
@@ -5815,7 +5590,7 @@ function showExpenseDebtDetail(e){
         <div style="display:inline-flex;align-items:center;gap:6px;">
           ${renderAvatarHTML({ id: f.debtorId, name: memberById[f.debtorId] }, "avatar-xs")}
           <b>${escapeHtml(memberById[f.debtorId] || "?")}</b>
-          <span style="color:var(--ink-soft);font-size:11.5px;">欠</span>
+          <span style="color:var(--ink-soft);font-size:11.5px;">${t("currency.owesInline")}</span>
           ${renderAvatarHTML({ id: f.creditorId, name: memberById[f.creditorId] }, "avatar-xs")}
           <b>${escapeHtml(memberById[f.creditorId] || "?")}</b>
         </div>
@@ -5823,7 +5598,7 @@ function showExpenseDebtDetail(e){
       </div>
     `).join("");
   } else {
-    flowsHtml = `<div style="text-align:center;padding:12px;color:var(--ink-soft);font-size:12px;">此筆為個人支出，未產生雙方債務關係。</div>`;
+    flowsHtml = `<div style="text-align:center;padding:12px;color:var(--ink-soft);font-size:12px;">${t("currency.noDebtRelation")}</div>`;
   }
 
   // 找出有實質債權的成員（列：應收款 > 0）與有實質債務的成員（欄：應付款 > 0）
@@ -5856,8 +5631,8 @@ function showExpenseDebtDetail(e){
     <thead>
       <tr>
         <th class="matrix-corner" colspan="2" rowspan="2"></th>
-        <th class="matrix-side-label matrix-top-label" colspan="${debtorIds.length}">債務人</th>
-        <th rowspan="2">應收款</th>
+        <th class="matrix-side-label matrix-top-label" colspan="${debtorIds.length}">${t("currency.debtorHeader")}</th>
+        <th rowspan="2">${t("currency.receivableHeader")}</th>
       </tr>
       <tr>
         ${debtorIds.map(dId => `<th class="matrix-col-name" title="${escapeHtml(memberById[dId] || "?")}">${escapeHtml(truncateNameChars(memberById[dId] || "?", 5))}</th>`).join("")}
@@ -5878,14 +5653,14 @@ function showExpenseDebtDetail(e){
           if(amt > 0.005){
             rowTotal += amt;
             grandTotal += amt;
-            return `<td class="matrix-cell has-debt" title="${escapeHtml(memberById[dId] || "?")} 欠 ${escapeHtml(memberById[cId] || "?")} ${SYM}${formatAmt(amt)}">${formatAmt(amt)}${conversionHint(amt)}</td>`;
+            return `<td class="matrix-cell has-debt" title="${escapeHtml(t("currency.owesTooltip", {debtor: memberById[dId] || "?", creditor: memberById[cId] || "?", amount: SYM+formatAmt(amt)}))}">${formatAmt(amt)}${conversionHint(amt)}</td>`;
           }
           return `<td class="matrix-cell"></td>`;
         }).join("");
 
         return `
           <tr>
-            ${rIdx === 0 ? `<th class="matrix-side-label matrix-left-label" rowspan="${creditorIds.length}">債權人</th>` : ""}
+            ${rIdx === 0 ? `<th class="matrix-side-label matrix-left-label" rowspan="${creditorIds.length}">${t("currency.creditorHeader")}</th>` : ""}
             <th class="matrix-row-name" title="${escapeHtml(memberById[cId] || "?")}">${escapeHtml(truncateNameChars(memberById[cId] || "?", 5))}</th>
             ${cells}
             <td class="matrix-total">${rowTotal > 0.005 ? formatAmt(rowTotal) + conversionHint(rowTotal) : "0"}</td>
@@ -5898,7 +5673,7 @@ function showExpenseDebtDetail(e){
   const tfootHtml = `
     <tfoot>
       <tr>
-        <th class="matrix-foot-label" colspan="2">應付款</th>
+        <th class="matrix-foot-label" colspan="2">${t("currency.payableFooter")}</th>
         ${debtorIds.map(dId => {
           let colTotal = 0;
           creditorIds.forEach(cId => {
@@ -5918,7 +5693,7 @@ function showExpenseDebtDetail(e){
     // 多個付款人：顯示「債務關係表」（不用債務清單）
     dynamicDebtSection = `
       <div class="exp-debt-matrix-section">
-        <div class="exp-debt-matrix-title">📊 本項目債務關係表</div>
+        <div class="exp-debt-matrix-title">${t("currency.itemDebtMatrixTitle")}</div>
         <div class="exp-debt-table-wrap">
           <table class="debt-matrix">
             ${theadHtml}
@@ -5932,7 +5707,7 @@ function showExpenseDebtDetail(e){
     // 1 個付款人：顯示「債務清單」（不用債務關係表）
     dynamicDebtSection = `
       <div class="exp-debt-matrix-section">
-        <div class="exp-debt-matrix-title">⚡ 債務清單</div>
+        <div class="exp-debt-matrix-title">${t("currency.debtListTitle")}</div>
         <div class="exp-debt-flows">
           ${flowsHtml}
         </div>
@@ -5945,10 +5720,10 @@ function showExpenseDebtDetail(e){
   let breakdownCardHtml = cleanBodyText ? `
     <div class="exp-debt-breakdown-card">
       <div class="exp-debt-breakdown-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <span>📝 備註與分攤明細</span>
+        <span>${t("currency.noteBreakdownTitle")}</span>
         <div class="ai-copy-btn-group">
-          <button type="button" class="ai-btn-copy-compact" id="expDebtCopyCompactBtn" title="複製精簡版總額與每人應付金額">⚡ 複製精簡版</button>
-          <button type="button" class="ai-btn-copy-full" id="expDebtCopyFullBtn" title="複製完整品項明細與算式">📋 複製完整版</button>
+          <button type="button" class="ai-btn-copy-compact" id="expDebtCopyCompactBtn" title="${t("currency.copyCompactTitleFull")}">${t("currency.aiCopyCompact")}</button>
+          <button type="button" class="ai-btn-copy-full" id="expDebtCopyFullBtn" title="${t("currency.aiCopyFullTitle")}">${t("currency.aiCopyFull")}</button>
         </div>
       </div>
       <div class="exp-debt-breakdown-content">${escapeHtml(cleanBodyText)}</div>
@@ -5962,9 +5737,9 @@ function showExpenseDebtDetail(e){
         <span class="exp-debt-info-total">${SYM}${formatAmt(e.amount)}</span>
       </div>
       <div class="exp-debt-info-list">
-        <div style="font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;">💰 付款人</div>
+        <div style="font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;">${t("currency.payerListTitle")}</div>
         ${payerDetails}
-        <div style="font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:8px;">👥 個人分攤額</div>
+        <div style="font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-top:8px;">${t("currency.personalShareListTitle")}</div>
         ${shareDetails}
       </div>
     </div>
@@ -5982,34 +5757,34 @@ function showExpenseDebtDetail(e){
     expDebtCopyCompactBtn.addEventListener("click", async (ev)=>{
       ev.stopPropagation();
       const aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
-      const store = (aiData && aiData.storeName) || cleanTitle || "支出項目";
+      const store = (aiData && aiData.storeName) || cleanTitle || t("summary.notifExpenseItemFallback");
       const curCode = e.currency || (aiData && aiData.currencyCode) || CURRENCY;
       const curObj = (CURRENCIES || []).find(c => c.code === curCode);
       const curSym = (curObj && curObj.symbol) || CURRENCY_SYMBOL || "$";
       const totalAmt = Number(e.amount) || 0;
 
       const lines = [];
-      lines.push(`🏪 店家/項目：${store}`);
+      lines.push(t("currency.storeItemLine", {store}));
       if(aiData && aiData.taxType === "inclusive"){
-        lines.push(`💰 總額：${curSym}${formatAmt(totalAmt)} (已內含稅)`);
+        lines.push(t("currency.totalInclusiveLine", {amount: curSym+formatAmt(totalAmt)}));
       } else if(aiData && (aiData.serviceCharge || aiData.tax)){
-        lines.push(`💰 總額：${curSym}${formatAmt(totalAmt)} (含服務費/稅 ${curSym}${formatAmt((aiData.serviceCharge || 0) + (aiData.tax || 0))})`);
+        lines.push(t("currency.totalWithTaxLine", {amount: curSym+formatAmt(totalAmt), tax: curSym+formatAmt((aiData.serviceCharge || 0) + (aiData.tax || 0))}));
       } else {
-        lines.push(`💰 總額：${curSym}${formatAmt(totalAmt)}`);
+        lines.push(t("currency.totalLine", {amount: curSym+formatAmt(totalAmt)}));
       }
-      lines.push(`\n👥 各成員應付金額：`);
+      lines.push(t("currency.memberAmountsHeader"));
       if(e.shares && e.shares.length > 0){
         e.shares.forEach(s => {
           const name = memberById[s.member_id] || "?";
-          lines.push(`  ・${name}：${curSym}${formatAmt(s.amount)}`);
+          lines.push(t("currency.memberAmountLine", {name, amount: curSym+formatAmt(s.amount)}));
         });
       } else {
-        lines.push(`  (全員平分)`);
+        lines.push(t("currency.equalSplitNote"));
       }
 
       await copyToClipboard(lines.join("\n"));
-      expDebtCopyCompactBtn.textContent = "✓ 已複製精簡版";
-      setTimeout(()=>{ expDebtCopyCompactBtn.textContent = "⚡ 複製精簡版"; }, 1500);
+      expDebtCopyCompactBtn.textContent = t("currency.copiedCompact");
+      setTimeout(()=>{ expDebtCopyCompactBtn.textContent = t("currency.aiCopyCompact"); }, 1500);
     });
   }
 
@@ -6017,7 +5792,7 @@ function showExpenseDebtDetail(e){
     expDebtCopyFullBtn.addEventListener("click", async (ev)=>{
       ev.stopPropagation();
       const aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
-      const store = (aiData && aiData.storeName) || cleanTitle || "支出項目";
+      const store = (aiData && aiData.storeName) || cleanTitle || t("summary.notifExpenseItemFallback");
       const curCode = e.currency || (aiData && aiData.currencyCode) || CURRENCY;
       const curObj = (CURRENCIES || []).find(c => c.code === curCode);
       const curSym = (curObj && curObj.symbol) || CURRENCY_SYMBOL || "$";
@@ -6028,24 +5803,24 @@ function showExpenseDebtDetail(e){
         fullText = cleanBodyText;
       } else {
         const fullLines = [];
-        fullLines.push(`🏪 店家/項目：${store}`);
-        fullLines.push(`💰 總額：${curSym}${formatAmt(totalAmt)}`);
-        fullLines.push(`📅 日期：${e.expense_date || ""}`);
+        fullLines.push(t("currency.storeItemLine", {store}));
+        fullLines.push(t("currency.totalLine", {amount: curSym+formatAmt(totalAmt)}));
+        fullLines.push(t("currency.dateLine", {date: e.expense_date || ""}));
         const payerNames = (e.payers || []).map(p => `${memberById[p.member_id] || "?"} (${curSym}${formatAmt(p.amount)})`).join("、");
-        if(payerNames) fullLines.push(`💰 付款人：${payerNames}`);
-        fullLines.push(`\n👥 分攤明細：`);
+        if(payerNames) fullLines.push(t("currency.payerLine", {names: payerNames}));
+        fullLines.push(t("currency.shareBreakdownHeader"));
         (e.shares || []).forEach(s => {
           const name = memberById[s.member_id] || "?";
           const calc = s.calc ? ` (${s.calc})` : "";
-          fullLines.push(`  ・${name}：${curSym}${formatAmt(s.amount)}${calc}`);
+          fullLines.push(t("currency.memberAmountLine", {name, amount: curSym+formatAmt(s.amount)+calc}));
         });
-        if(cleanBodyText) fullLines.push(`\n📝 備註：\n${cleanBodyText}`);
+        if(cleanBodyText) fullLines.push(t("currency.noteLine", {note: cleanBodyText}));
         fullText = fullLines.join("\n");
       }
 
       await copyToClipboard(fullText);
-      expDebtCopyFullBtn.textContent = "✓ 已複製完整版";
-      setTimeout(()=>{ expDebtCopyFullBtn.textContent = "📋 複製完整版"; }, 1500);
+      expDebtCopyFullBtn.textContent = t("currency.copiedFull");
+      setTimeout(()=>{ expDebtCopyFullBtn.textContent = t("currency.aiCopyFull"); }, 1500);
     });
   }
 
@@ -6060,16 +5835,16 @@ function showExpenseDebtDetail(e){
       expDebtModalEditBtn.style.display = "none";
     } else if(isExpXcurDetail){
       expDebtModalEditBtn.style.display = expXcurIdDetail ? "inline-flex" : "none";
-      expDebtModalEditBtn.textContent = "✎ 編輯匯率";
-      expDebtModalEditBtn.title = "編輯匯率";
+      expDebtModalEditBtn.textContent = t("currency.editRateBtn");
+      expDebtModalEditBtn.title = t("currency.editRateTitle");
       expDebtModalEditBtn.onclick = () => {
         modal.classList.remove("show");
         if(typeof openXcurRateEditModal === "function") openXcurRateEditModal(expXcurIdDetail);
       };
     } else {
       expDebtModalEditBtn.style.display = "inline-flex";
-      expDebtModalEditBtn.textContent = "✎ 編輯";
-      expDebtModalEditBtn.title = "編輯此筆支出";
+      expDebtModalEditBtn.textContent = t("currency.editShort");
+      expDebtModalEditBtn.title = t("currency.editThisExpenseTitle");
       expDebtModalEditBtn.onclick = () => {
         modal.classList.remove("show");
         startEditExpense(e);
@@ -6084,7 +5859,7 @@ function showExpenseDebtDetail(e){
         modal.classList.remove("show");
         handleCrossCurrencyDelete(e.description, async ()=>{
           const { error } = await sb.from("expenses").delete().eq("id", e.id);
-          if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+          if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
           await refreshExpenses();
         });
       };
@@ -6105,14 +5880,14 @@ function showExpenseDebtDetail(e){
       expDebtModalViewReceiptBtn.onclick = async () => {
         expDebtModalViewReceiptBtn.disabled = true;
         const originalText = expDebtModalViewReceiptBtn.textContent;
-        expDebtModalViewReceiptBtn.textContent = "⏳ 載入中…";
+        expDebtModalViewReceiptBtn.textContent = t("currency.loadingWithHourglass");
         try {
           const { data, error } = await sb.storage.from("receipts").createSignedUrl(e.receipt_image_path, 300);
-          if(error || !data || !data.signedUrl) throw error || new Error("找不到這張收據原圖");
+          if(error || !data || !data.signedUrl) throw error || new Error("receipt image not found");
           window.open(data.signedUrl, "_blank", "noopener");
         } catch(err){
           console.error("開啟收據原圖失敗：", err);
-          await sbAlert("找不到這張收據原圖，可能已經超過 180 天保留期限被清除了。", "無法開啟");
+          await sbAlert(t("currency.receiptImgExpired"), t("currency.cannotOpenTitle"));
         } finally {
           expDebtModalViewReceiptBtn.disabled = false;
           expDebtModalViewReceiptBtn.textContent = originalText;
@@ -6164,7 +5939,7 @@ async function openXcurRateEditModal(xcurId){
   ]);
 
   if(expErr || repErr || !expRows || !expRows.length || !repRows || !repRows.length){
-    await sbAlert("找不到這筆跨幣別轉入的完整紀錄，可能其中一邊已經被刪除或還原過了。", "🔔 Splitbill 錯誤");
+    await sbAlert(t("currency.xcurFullRecordNotFound"), t("settings.errorTitle"));
     return;
   }
 
@@ -6185,7 +5960,7 @@ async function openXcurRateEditModal(xcurId){
   const saveBtn = document.getElementById("xcurRateEditSaveBtn");
   const closeBtn = document.getElementById("xcurRateEditCloseBtn");
 
-  if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>欠</span> <b>${escapeHtml(creditorName)}</b>`;
+  if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>${t("currency.owesInline")}</span> <b>${escapeHtml(creditorName)}</b>`;
   if(origAmtEl) origAmtEl.textContent = `${foreignCurrency.symbol}${formatAmt(foreignAmt)} ${foreignCurrency.label}`;
   if(ratePrefix) ratePrefix.textContent = `1 ${foreignCurrency.code} = NT$`;
   if(rateInput) rateInput.value = existingRate > 0 ? existingRate : 1;
@@ -6203,7 +5978,7 @@ async function openXcurRateEditModal(xcurId){
     fetchRateBtn.onclick = async ()=>{
       const originalText = fetchRateBtn.textContent;
       fetchRateBtn.disabled = true;
-      fetchRateBtn.textContent = "抓取中…";
+      fetchRateBtn.textContent = t("currency.fetchingEllipsis");
       const rate = await fetchRateForCurrencyCode(foreignCurrency.code);
       fetchRateBtn.disabled = false;
       fetchRateBtn.textContent = originalText;
@@ -6211,7 +5986,7 @@ async function openXcurRateEditModal(xcurId){
         rateInput.value = rate;
         updateCalculation();
       } else {
-        await sbAlert("抓取即時匯率失敗，請稍後再試或手動輸入。", "🔔 Splitbill 提醒");
+        await sbAlert(t("currency.fetchRateFailed"), t("common.notifyDialogTitle"));
       }
     };
   }
@@ -6224,49 +5999,49 @@ async function openXcurRateEditModal(xcurId){
     saveBtn.onclick = async ()=>{
       const r = parseFloat(rateInput.value) || 0;
       if(r <= 0){
-        await sbAlert("匯率必須大於 0", "🔔 Splitbill 提醒");
+        await sbAlert(t("currency.rateMustBePositive"), t("common.notifyDialogTitle"));
         return;
       }
       const newTwdAmt = Math.round(foreignAmt * r);
       if(newTwdAmt <= 0){
-        await sbAlert("換算金額必須大於 0", "🔔 Splitbill 提醒");
+        await sbAlert(t("currency.convertedAmountMustBePositive"), t("common.notifyDialogTitle"));
         return;
       }
 
       saveBtn.disabled = true;
-      saveBtn.textContent = "儲存中…";
+      saveBtn.textContent = t("currency.savingEllipsisPlain");
 
       const newPayers = (expRow.payers || []).map(p => ({ ...p, amount: newTwdAmt }));
       const newShares = (expRow.shares || []).map(s => ({ ...s, amount: newTwdAmt }));
 
       const { error: updateExpErr } = await sb.from("expenses").update({
         amount: newTwdAmt,
-        note: `${foreignCurrency.symbol}${formatAmt(foreignAmt)} 匯率 ${r}`,
+        note: t("currency.xcurNoteTemplate", {amount: foreignCurrency.symbol+formatAmt(foreignAmt), rate: r}),
         payers: newPayers,
         shares: newShares
       }).eq("id", expRow.id);
 
       if(updateExpErr){
-        await sbAlert("更新臺幣帳本失敗：" + updateExpErr.message, "🔔 Splitbill 錯誤");
+        await sbAlert(t("currency.updateTwdLedgerFailed") + updateExpErr.message, t("settings.errorTitle"));
         saveBtn.disabled = false;
-        saveBtn.textContent = "儲存新匯率";
+        saveBtn.textContent = t("currency.saveNewRate");
         return;
       }
 
       const { error: updateRepErr } = await sb.from("repayments").update({
-        note: `轉為臺幣欠款 NT$${newTwdAmt.toLocaleString()} (匯率 ${r}) [xcur:${xcurId}]`
+        note: t("currency.xcurRepayNoteTemplate", {amount: newTwdAmt.toLocaleString(), rate: r, id: xcurId})
       }).eq("id", repRow.id);
 
       saveBtn.disabled = false;
-      saveBtn.textContent = "儲存新匯率";
+      saveBtn.textContent = t("currency.saveNewRate");
 
       if(updateRepErr){
-        await sbAlert("臺幣帳本已更新，但外幣端的備註更新失敗：" + updateRepErr.message + "\n\n（金額本身不受影響，只是備註文字沒同步，不影響帳務正確性）", "🔔 Splitbill 提醒");
+        await sbAlert(t("currency.xcurNoteSyncFailed", {error: updateRepErr.message}), t("common.notifyDialogTitle"));
       }
 
       modal.classList.remove("show");
       await refreshExpenses();
-      await sbAlert(`✓ 已更新匯率為 ${r}，臺幣應付金額調整為 NT$${newTwdAmt.toLocaleString()}。`, "🔔 Splitbill 通知");
+      await sbAlert(t("currency.rateUpdateSuccess", {rate: r, amount: newTwdAmt.toLocaleString()}), t("common.notifyDialogTitle"));
     };
   }
 
@@ -6453,13 +6228,13 @@ function showPairDetail(
   // 而反向的「B 欠 A」在此頁面永遠維持中性灰色（is-owed），聚焦主體。
   const balanceText = (fwd, rev, fwdDelta = 0) => {
     if(fwd <= 0.01 && rev <= 0.01){
-      return `<div class="ledger-row-balance"><span class="balance-chip is-clear">✓ 雙方此時已結清</span></div>`;
+      return `<div class="ledger-row-balance"><span class="balance-chip is-clear">${t("currency.bothSettledNow")}</span></div>`;
     }
     const fwdCls = fwd <= 0.01 ? "is-owed" : (fwdDelta < -0.01 ? "is-repay" : "is-owe");
 
     return `<div class="ledger-row-balance">`
-      + `<span class="balance-chip ${fwdCls}"><span class="chip-names">${debtorName} 欠 ${creditorName}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span>`
-      + `<span class="balance-chip is-owed"><span class="chip-names">${creditorName} 欠 ${debtorName}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
+      + `<span class="balance-chip ${fwdCls}"><span class="chip-names">${t("currency.debtorOwesCreditor", {debtor: debtorName, creditor: creditorName})}</span> <span class="chip-amt">${SYM}${formatAmt(fwd)}</span></span>`
+      + `<span class="balance-chip is-owed"><span class="chip-names">${t("currency.debtorOwesCreditor", {debtor: creditorName, creditor: debtorName})}</span> <span class="chip-amt">${SYM}${formatAmt(rev)}</span></span>`
       + `</div>`;
   };
   // 單筆事件金額前面的正負號/顏色，改成看這筆事件實際有沒有讓 debtorId
@@ -6570,9 +6345,9 @@ function showPairDetail(
       <div class="debt-detail-top-bar">
         <div class="debt-detail-title-main">
           <span class="debt-detail-title-icon">📊</span>
-          <span>債務明細</span>
+          <span>${t("currency.debtDetailTitle")}</span>
         </div>
-        <button type="button" id="matrixDetailClose" class="debt-detail-close" aria-label="關閉">✕</button>
+        <button type="button" id="matrixDetailClose" class="debt-detail-close" aria-label="${t("common.close")}">✕</button>
       </div>
 
       <!-- 頂部動態金流傳送條（獨立滿版置中） -->
@@ -6582,7 +6357,7 @@ function showPairDetail(
           <div class="debt-flow-party debtor">
             <div class="debt-flow-avatar-wrap">
               ${renderAvatarHTML({ id: debtorId, name: memberById[debtorId] }, "avatar-md")}
-              <span class="debt-flow-role-badge debtor">應付</span>
+              <span class="debt-flow-role-badge debtor">${t("currency.payerRoleBadge")}</span>
             </div>
             <span class="debt-flow-name" title="${escapeHtml(memberById[debtorId] || "")}">${escapeHtml(memberById[debtorId] || "?")}</span>
           </div>
@@ -6593,7 +6368,7 @@ function showPairDetail(
               <span class="debt-flow-arrow">➔</span>
             </div>
             <div class="debt-flow-amount-pill ${remainingDebt <= 0.01 ? 'settled' : ''}">
-              ${remainingDebt > 0.01 ? `欠 ${SYM}${formatAmt(remainingDebt)}` : `✓ 已結清`}
+              ${remainingDebt > 0.01 ? t("currency.owesAmountPill", {amount: SYM+formatAmt(remainingDebt)}) : t("currency.settledCheckSimple")}
             </div>
           </div>
 
@@ -6601,7 +6376,7 @@ function showPairDetail(
           <div class="debt-flow-party creditor">
             <div class="debt-flow-avatar-wrap">
               ${renderAvatarHTML({ id: creditorId, name: memberById[creditorId] }, "avatar-md")}
-              <span class="debt-flow-role-badge creditor">收款</span>
+              <span class="debt-flow-role-badge creditor">${t("currency.receiverRoleBadge")}</span>
             </div>
             <span class="debt-flow-name" title="${escapeHtml(memberById[creditorId] || "")}">${escapeHtml(memberById[creditorId] || "?")}</span>
           </div>
@@ -6612,10 +6387,10 @@ function showPairDetail(
       ${totalCyclePages > 0 ? `
         <div class="debt-cycle-tabs">
           <button type="button" class="debt-cycle-tab ${olderCyclePage === 0 ? 'active' : ''}" id="matrixActiveCycleTab">
-            🔥 進行中 (${visibleEvents.length})
+            ${t("currency.activeTab", {count: visibleEvents.length})}
           </button>
           <button type="button" class="debt-cycle-tab ${olderCyclePage > 0 ? 'active' : ''}" id="matrixHistoryCycleTab">
-            📜 結清記錄 (${totalCyclePages})
+            ${t("currency.settledRecordsTab", {count: totalCyclePages})}
           </button>
         </div>
       ` : ""}
@@ -6624,22 +6399,22 @@ function showPairDetail(
       <div class="debt-detail-section">
         <div class="debt-section-title">
           <span class="debt-section-icon">${olderCyclePage > 0 ? '📜' : '📋'}</span>
-          <span>${olderCyclePage > 0 ? '結清記錄' : '往來紀錄'}</span>
-          <span class="debt-section-count">${olderCyclePage > 0 ? olderEvents.length : visibleEvents.length} 筆</span>
-          <button type="button" class="ledger-sort-toggle-btn" id="matrixLedgerSortBtn" title="切換排序方向" aria-label="切換排序方向">
-            ${ledgerSortAsc ? "⬇ 舊到新" : "⬆ 新到舊"}
+          <span>${olderCyclePage > 0 ? t("currency.settledRecordsTitle") : t("currency.transactionHistoryTitle")}</span>
+          <span class="debt-section-count">${t("common.countUnit", {count: olderCyclePage > 0 ? olderEvents.length : visibleEvents.length})}</span>
+          <button type="button" class="ledger-sort-toggle-btn" id="matrixLedgerSortBtn" title="${t("currency.toggleSortDirection")}" aria-label="${t("currency.toggleSortDirection")}">
+            ${ledgerSortAsc ? t("currency.sortOldToNew") : t("currency.sortNewToOld")}
           </button>
         </div>
 
         ${olderCyclePage > 0 ? `
           <!-- 歷史存檔步進卡片 -->
           <div class="debt-archive-stepper-card">
-            <button type="button" class="archive-step-btn" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>← 上一輪</button>
+            <button type="button" class="archive-step-btn" id="matrixCyclePrevBtn" ${olderCyclePage >= totalCyclePages ? "disabled" : ""}>${t("currency.prevRound")}</button>
             <div class="archive-step-info">
-              <span class="archive-step-title">第 ${displayRound} / ${totalCyclePages} 輪</span>
-              <span class="archive-step-sub">已結清 ✓</span>
+              <span class="archive-step-title">${t("currency.roundLabel", {round: displayRound, total: totalCyclePages})}</span>
+              <span class="archive-step-sub">${t("currency.settledCheckSuffix")}</span>
             </div>
-            <button type="button" class="archive-step-btn" id="matrixCycleNextBtn" ${olderCyclePage <= 1 ? "disabled" : ""}>下一輪 →</button>
+            <button type="button" class="archive-step-btn" id="matrixCycleNextBtn" ${olderCyclePage <= 1 ? "disabled" : ""}>${t("currency.nextRound")}</button>
           </div>
         ` : ""}
 
@@ -6656,7 +6431,7 @@ function showPairDetail(
       const e = ev.expense;
       const myId = myMember && myMember.id;
       const canEditExpense = isExpenseParty(e, myId) || e.created_by === myId;
-      const firstLine = getFirstLineDesc(e.description || "未命名支出");
+      const firstLine = getFirstLineDesc(e.description || t("summary.untitledExpense"));
       const isAiSplit = Boolean(e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細")));
       const isExpXcur = isXcurStr(e.description);
       const expXcurId = isExpXcur ? extractXcurId(e.description) : null;
@@ -6664,11 +6439,11 @@ function showPairDetail(
 
       return `
         <div class="ledger-row-wrap ${rowWrapClass(ev)}" data-id="${e.id}">
-          <div class="ledger-timeline-node is-expense" title="${catMeta.icon || '🧾'} 支出">${catMeta.icon || "🧾"}</div>
+          <div class="ledger-timeline-node is-expense" title="${t("currency.expenseIconTitle", {icon: catMeta.icon || '🧾'})}">${catMeta.icon || "🧾"}</div>
           <div class="ledger-row ledger-row-open-expense" data-id="${e.id}">
             <div class="ledger-row-header">
               <div class="ledger-row-name">
-                ${escapeHtml(firstLine)}${isAiSplit ? '<span class="ai-split-badge" style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">🤖 AI</span>' : ""}${isExpXcur ? '<span class="xcur-badge">💱 跨幣轉入</span>' : ""}
+                ${escapeHtml(firstLine)}${isAiSplit ? `<span class="ai-split-badge" style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">${t("currency.aiShortBadge")}</span>` : ""}${isExpXcur ? `<span class="xcur-badge">${t("currency.xcurBadge")}</span>` : ""}
               </div>
               <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(ev.amount)}</div>
             </div>
@@ -6679,11 +6454,11 @@ function showPairDetail(
               ${canEditExpense ? `
                 <div class="ledger-row-quick-actions">
                   ${isExpXcur ? `
-                    ${expXcurId ? `<button type="button" class="exp-xcur-editrate" data-xcur="${expXcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}
-                    <button type="button" class="exp-del debt-exp-del exp-xcur-restore" data-id="${e.id}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
+                    ${expXcurId ? `<button type="button" class="exp-xcur-editrate" data-xcur="${expXcurId}" title="${t("currency.editRateTitle")}" aria-label="${t("currency.editRateTitle")}">✎</button>` : ""}
+                    <button type="button" class="exp-del debt-exp-del exp-xcur-restore" data-id="${e.id}" title="${t("currency.restoreThisTransferTitle")}" aria-label="${t("currency.restoreAria")}">↺</button>
                   ` : `
-                    <button type="button" class="exp-edit debt-exp-edit" data-id="${e.id}" title="編輯" aria-label="編輯">✎</button>
-                    <button type="button" class="exp-del debt-exp-del" data-id="${e.id}" title="刪除" aria-label="刪除">✕</button>
+                    <button type="button" class="exp-edit debt-exp-edit" data-id="${e.id}" title="${t("common.edit")}" aria-label="${t("common.edit")}">✎</button>
+                    <button type="button" class="exp-del debt-exp-del" data-id="${e.id}" title="${t("settings.delete")}" aria-label="${t("settings.delete")}">✕</button>
                   `}
                 </div>
               ` : ""}
@@ -6704,11 +6479,11 @@ function showPairDetail(
     const repXcurId = isRepXcur ? (r.offset_group || extractXcurId(r.note)) : null;
     return `
       <div class="ledger-row-wrap ${rowWrapClass(ev)}" data-id="${r.id}">
-        <div class="ledger-timeline-node is-repay" title="💸 還款">💸</div>
+        <div class="ledger-timeline-node is-repay" title="${t("currency.repaymentIconTitle")}">💸</div>
         <div class="ledger-row" onclick="if(!event.target.closest('button')){this.closest('.ledger-row-wrap').classList.toggle('is-expanded')}">
           <div class="ledger-row-header">
             <div class="ledger-row-name">
-              ${(r.offset_group && !isXcurStr(r.offset_group)) ? `<span class="champion-tag">抵銷</span> ` : ""}${escapeHtml(memberById[r.from_member] || "?")} 還 ${escapeHtml(memberById[r.to_member] || "?")}${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? '<span class="xcur-badge">💱 轉為臺幣</span>' : ""}
+              ${(r.offset_group && !isXcurStr(r.offset_group)) ? `<span class="champion-tag">${t("currency.offsetTag")}</span> ` : ""}${t("currency.repayFromTo", {from: escapeHtml(memberById[r.from_member] || "?"), to: escapeHtml(memberById[r.to_member] || "?")})}${(isXcurStr(r.note) || isXcurStr(r.offset_group)) ? `<span class="xcur-badge">${t("currency.convertedToTwd")}</span>` : ""}
             </div>
             <div class="ledger-row-amount ${rowColor(ev).cls}">${rowColor(ev).sign}${SYM}${formatAmt(amount)}</div>
           </div>
@@ -6719,11 +6494,11 @@ function showPairDetail(
             ${canEditRepay ? `
               <div class="ledger-row-quick-actions">
                 ${isRepXcur ? `
-                  ${repXcurId ? `<button class="exp-xcur-editrate" data-xcur="${repXcurId}" title="編輯匯率" aria-label="編輯匯率">✎</button>` : ""}
-                  <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"} exp-xcur-restore" data-id="${r.id}" data-group="${r.offset_group || ""}" title="還原這筆跨幣別轉移" aria-label="還原">↺</button>
+                  ${repXcurId ? `<button class="exp-xcur-editrate" data-xcur="${repXcurId}" title="${t("currency.editRateTitle")}" aria-label="${t("currency.editRateTitle")}">✎</button>` : ""}
+                  <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"} exp-xcur-restore" data-id="${r.id}" data-group="${r.offset_group || ""}" title="${t("currency.restoreThisTransferTitle")}" aria-label="${t("currency.restoreAria")}">↺</button>
                 ` : `
-                  ${!r.offset_group ? `<button class="exp-edit debt-repay-edit" data-id="${r.id}" title="編輯" aria-label="編輯">✎</button>` : ""}
-                  <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="刪除" aria-label="刪除">✕</button>
+                  ${!r.offset_group ? `<button class="exp-edit debt-repay-edit" data-id="${r.id}" title="${t("common.edit")}" aria-label="${t("common.edit")}">✎</button>` : ""}
+                  <button class="exp-del ${r.offset_group ? "debt-repay-del-group" : "debt-repay-del"}" data-id="${r.id}" data-group="${r.offset_group || ""}" title="${t("settings.delete")}" aria-label="${t("settings.delete")}">✕</button>
                 `}
               </div>
             ` : ""}
@@ -6732,12 +6507,12 @@ function showPairDetail(
         </div>
         <div class="ledger-row-detail">
           <div class="debt-info-row">
-            <span class="debt-info-label">記帳者</span>
+            <span class="debt-info-label">${t("currency.recordedByLabel")}</span>
             <div class="debt-info-value">${escapeHtml(memberById[r.created_by] || "?")}</div>
           </div>
           ${r.note ? `
             <div class="debt-info-row">
-              <span class="debt-info-label">備註</span>
+              <span class="debt-info-label">${t("currency.noteLabel")}</span>
               <div class="debt-info-value">${escapeHtml(cleanXcurText(r.note))}</div>
             </div>
           ` : ""}
@@ -6761,10 +6536,10 @@ function showPairDetail(
       <div class="debt-empty-state">
         <div class="debt-empty-icon">💸</div>
         <div class="debt-empty-title">
-          尚有 ${SYM}${formatAmt(remainingDebt)} 待結清
+          ${t("currency.pendingSettleAmount", {amount: SYM+formatAmt(remainingDebt)})}
         </div>
         <div class="debt-empty-text">
-          目前沒有直接的支出紀錄，此筆款項代表 <b>${escapeHtml(memberById[creditorId] || "對方")}</b> 先前有多還／溢付的款項。
+          ${t("currency.overpaidExplanation", {name: escapeHtml(memberById[creditorId] || t("currency.counterpartFallback"))})}
         </div>
       </div>
     `;
@@ -6777,13 +6552,13 @@ function showPairDetail(
             <div class="stamp-inner">
               <span class="stamp-check">✓</span>
               <span class="stamp-text">ALL CLEARED</span>
-              <span class="stamp-sub">已全數結清</span>
+              <span class="stamp-sub">${t("currency.allClearedSubtext")}</span>
             </div>
           </div>
         </div>
         ${totalCyclePages > 0 ? `
           <button type="button" class="btn secondary small" id="matrixViewHistoryArchiveBtn" style="margin:10px auto 4px;display:block;white-space:nowrap;">
-            📜 結清記錄 (${totalCyclePages} 輪)
+            ${t("currency.settledRecordsRoundsBtn", {count: totalCyclePages})}
           </button>
         ` : ""}
       </div>
@@ -6802,8 +6577,8 @@ function showPairDetail(
     // 歷史存檔底部
     html += `
       <div class="debt-archive-footer-card">
-        <div class="archive-settled-text">✓ 此輪帳目已全數結清</div>
-        <button type="button" class="btn secondary small" id="matrixBackToActiveBtn">↩ 返回進行中</button>
+        <div class="archive-settled-text">${t("currency.roundFullySettled")}</div>
+        <button type="button" class="btn secondary small" id="matrixBackToActiveBtn">${t("currency.backToActive")}</button>
       </div>
     `;
   } else {
@@ -6813,12 +6588,10 @@ function showPairDetail(
       html += `
         <div class="debt-offset-card">
           <div class="debt-offset-text">
-            ${escapeHtml(memberById[creditorId] || "?")} 同時也欠 ${escapeHtml(memberById[debtorId] || "?")}
-            ${SYM}${formatAmt(reverseDebt)}，可以互相抵銷 ${SYM}${formatAmt(offsetAmt)}，
-            不用實際付現金。
+            ${t("currency.mutualOffsetExplanation", {creditor: escapeHtml(memberById[creditorId] || "?"), debtor: escapeHtml(memberById[debtorId] || "?"), reverseAmount: SYM+formatAmt(reverseDebt), offsetAmount: SYM+formatAmt(offsetAmt)})}
           </div>
           ${canOffset ? `<button type="button" id="matrixDetailOffsetBtn" class="btn secondary small">
-            一鍵抵銷 ${SYM}${formatAmt(offsetAmt)}
+            ${t("currency.oneClickOffsetBtn", {amount: SYM+formatAmt(offsetAmt)})}
           </button>` : ""}
         </div>
       `;
@@ -6828,7 +6601,7 @@ function showPairDetail(
       html += `
         <div class="debt-cleared">
           <span class="debt-cleared-icon">✓</span>
-          <span>這筆債務已全部結清</span>
+          <span>${t("currency.debtFullyCleared")}</span>
         </div>
       `;
     }
@@ -6838,16 +6611,16 @@ function showPairDetail(
       html += `
         <div class="debt-repay-action-wrap" style="display:flex;flex-direction:column;gap:8px;">
           <button type="button" class="btn btn-repay-direct" id="matrixDetailRepayBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
-            💸 記錄還款（${escapeHtml(memberById[debtorId] || "?")} 還 ${escapeHtml(memberById[creditorId] || "?")} ${SYM}${formatAmt(remainingDebt)}）
+            ${t("currency.recordRepaymentBtn", {debtor: escapeHtml(memberById[debtorId] || "?"), creditor: escapeHtml(memberById[creditorId] || "?"), amount: SYM+formatAmt(remainingDebt)})}
           </button>
           ${CURRENCY !== "TWD" ? `
             <button type="button" class="btn secondary btn-twd-settle" id="matrixDetailTwdSettleBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
-              💱 以臺幣結算
+              ${t("currency.twdSettleBtn")}
             </button>
           ` : ""}
           ${canRemind ? `
             <button type="button" class="btn-remind-direct" id="matrixDetailRemindBtn" data-debtor="${debtorId}" data-creditor="${creditorId}" data-amt="${remainingDebt}">
-              🔔 提醒對方
+              ${t("currency.remindCounterpartBtn")}
             </button>
           ` : ""}
         </div>
@@ -7013,7 +6786,7 @@ function showPairDetail(
       const goTwdBtn = document.getElementById("twdSettleGoTwdBtn");
       const closeTwdBtn = document.getElementById("twdSettleCloseBtn");
 
-      if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>欠</span> <b>${escapeHtml(creditorName)}</b>`;
+      if(routeEl) routeEl.innerHTML = `<b>${escapeHtml(debtorName)}</b> <span>${t("currency.owesInline")}</span> <b>${escapeHtml(creditorName)}</b>`;
       if(origAmtEl) origAmtEl.textContent = `${SYM}${formatAmt(amt)} ${CURRENCY_LABEL}`;
       if(ratePrefix) ratePrefix.textContent = `1 ${CURRENCY} = NT$`;
 
@@ -7039,7 +6812,7 @@ function showPairDetail(
           }
           const originalText = fetchRateBtn.textContent;
           fetchRateBtn.disabled = true;
-          fetchRateBtn.textContent = "抓取中…";
+          fetchRateBtn.textContent = t("currency.fetchingEllipsis");
           const rate = await fetchConversionRate();
           fetchRateBtn.disabled = false;
           fetchRateBtn.textContent = originalText;
@@ -7053,15 +6826,15 @@ function showPairDetail(
       const directClearBtn = document.getElementById("twdSettleDirectClearBtn");
       if(directClearBtn){
         directClearBtn.disabled = false;
-        directClearBtn.textContent = `在此一鍵結清 (${CURRENCY_LABEL}欠款歸零)`;
+        directClearBtn.textContent = t("currency.oneClickSettleHereBtn", {currency: CURRENCY_LABEL});
         directClearBtn.onclick = async ()=>{
           const r = parseFloat(rateInput.value) || (conversionRate || 1);
           const twdAmt = Math.round(amt * r);
-          const note = `以臺幣 NT$${twdAmt.toLocaleString()} 結清 (匯率 ${r})`;
+          const note = t("currency.directClearNote", {amount: twdAmt.toLocaleString(), rate: r});
           const today = new Date().toISOString().slice(0,10);
 
           directClearBtn.disabled = true;
-          directClearBtn.textContent = "結清中…";
+          directClearBtn.textContent = t("currency.settlingEllipsis");
 
           const { error } = await sb.from("repayments").insert({
             from_member: fromId,
@@ -7074,9 +6847,9 @@ function showPairDetail(
           });
 
           if(error){
-            await sbAlert("結清失敗：" + error.message, "🔔 Splitbill 錯誤");
+            await sbAlert(t("currency.settleFailed") + error.message, t("settings.errorTitle"));
             directClearBtn.disabled = false;
-            directClearBtn.textContent = `在此一鍵結清 (${CURRENCY_LABEL}欠款歸零)`;
+            directClearBtn.textContent = t("currency.oneClickSettleHereBtn", {currency: CURRENCY_LABEL});
             return;
           }
 
@@ -7086,12 +6859,12 @@ function showPairDetail(
       }
 
       if(goTwdBtn){
-        goTwdBtn.textContent = "轉為臺幣欠款";
+        goTwdBtn.textContent = t("currency.convertToTwdDebtBtn");
         goTwdBtn.onclick = async ()=>{
           const r = parseFloat(rateInput.value) || (conversionRate || 1);
           const twdAmt = Math.round(amt * r);
           if(twdAmt <= 0){
-            await sbAlert("換算金額必須大於 0", "🔔 Splitbill 提醒");
+            await sbAlert(t("currency.convertedAmountMustBePositive"), t("common.notifyDialogTitle"));
             return;
           }
 
@@ -7099,14 +6872,14 @@ function showPairDetail(
           const today = new Date().toISOString().slice(0, 10);
 
           goTwdBtn.disabled = true;
-          goTwdBtn.textContent = "轉移中…";
+          goTwdBtn.textContent = t("currency.transferringEllipsis");
 
           // 1. 在外幣帳本建立還款 (結清外幣欠款)
           const { data: repData, error: repErr } = await sb.from("repayments").insert({
             from_member: fromId,
             to_member: toId,
             amount: amt,
-            note: `轉為臺幣欠款 NT$${twdAmt.toLocaleString()} (匯率 ${r}) [xcur:${xcurId}]`,
+            note: t("currency.xcurRepayNoteTemplate", {amount: twdAmt.toLocaleString(), rate: r, id: xcurId}),
             payment_date: today,
             created_by: myMember.id,
             currency: CURRENCY,
@@ -7114,15 +6887,15 @@ function showPairDetail(
           }).select();
 
           if(repErr){
-            await sbAlert("轉移失敗：" + repErr.message, "🔔 Splitbill 錯誤");
+            await sbAlert(t("currency.transferFailed") + repErr.message, t("settings.errorTitle"));
             goTwdBtn.disabled = false;
-            goTwdBtn.textContent = "轉為臺幣欠款";
+            goTwdBtn.textContent = t("currency.convertToTwdDebtBtn");
             return;
           }
 
           // 2. 在臺幣 (TWD) 帳本建立支出 (使債權人墊付，債務人產生應負擔之欠款)
-          const descTitle = `${CURRENCY_LABEL}債務轉入 [xcur:${xcurId}]`;
-          const descNote = `${SYM}${formatAmt(amt)} 匯率 ${r}`;
+          const descTitle = t("currency.xcurDebtTransferTitle", {currency: CURRENCY_LABEL, id: xcurId});
+          const descNote = t("currency.xcurNoteTemplate", {amount: SYM+formatAmt(amt), rate: r});
 
           const { error: expErr } = await sb.from("expenses").insert({
             description: descTitle,
@@ -7140,9 +6913,9 @@ function showPairDetail(
             if(repData && repData[0]){
               await sb.from("repayments").delete().eq("id", repData[0].id);
             }
-            await sbAlert("寫入臺幣帳本失敗：" + expErr.message, "🔔 Splitbill 錯誤");
+            await sbAlert(t("currency.writeTwdLedgerFailed") + expErr.message, t("settings.errorTitle"));
             goTwdBtn.disabled = false;
-            goTwdBtn.textContent = "轉為臺幣欠款";
+            goTwdBtn.textContent = t("currency.convertToTwdDebtBtn");
             return;
           }
 
@@ -7150,8 +6923,11 @@ function showPairDetail(
           await refreshExpenses();
           if(typeof fireConfetti === "function") fireConfetti();
           await sbAlert(
-            `🎉 轉移成功！\n\n1. ${CURRENCY_LABEL}欠款 ${SYM}${formatAmt(amt)} 已結清歸零。\n2. 已在「臺幣帳本」自動新增 NT$${twdAmt.toLocaleString()} 欠款（由 ${memberById[fromId] || "債務人"} 欠 ${memberById[toId] || "債權人"}），並自動與既有臺幣款項合併結算。\n\n※ 若有需要，雙方隨時可於歷史紀錄點擊 ↺ 一鍵還原兩邊帳本。`,
-            "🔔 Splitbill 通知"
+            t("currency.xcurTransferSuccessMsg", {
+              currency: CURRENCY_LABEL, amount: SYM+formatAmt(amt), twdAmount: twdAmt.toLocaleString(),
+              debtor: memberById[fromId] || t("currency.debtorHeader"), creditor: memberById[toId] || t("currency.creditorHeader")
+            }),
+            t("common.notifyDialogTitle")
           );
         };
       }
@@ -7208,7 +6984,7 @@ function showPairDetail(
         el.style.display = "none";
         return handleCrossCurrencyDelete(rawDesc, async ()=>{
           const { error } = await sb.from("expenses").delete().eq("id", btn.dataset.id);
-          if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+          if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
           await refreshExpenses();
         });
       }
@@ -7243,7 +7019,7 @@ function showPairDetail(
         el.style.display = "none";
         return handleCrossCurrencyDelete(rawNote || rawGroup, async ()=>{
           const { error } = await sb.from("repayments").delete().eq("id", btn.dataset.id);
-          if(error){ await sbAlert("刪除失敗：" + error.message, "🔔 Splitbill 錯誤"); return; }
+          if(error){ await sbAlert(t("currency.deleteFailed") + error.message, t("settings.errorTitle")); return; }
           await refreshExpenses();
         });
       }
@@ -7251,10 +7027,10 @@ function showPairDetail(
         const groupRows = cachedRepayments.filter(x => x.offset_group === btn.dataset.group);
         if(!groupRows.length) return;
         el.style.display = "none";
-        await deleteRowsWithUndo("repayments", groupRows, refreshExpenses, "抵銷紀錄");
+        await deleteRowsWithUndo("repayments", groupRows, refreshExpenses, t("currency.offsetRecordLabel"));
       } else {
         if(!r) return;
-        const label = `${memberById[r.from_member] || "?"} → ${memberById[r.to_member] || "?"}`;
+        const label = t("currency.repayArrowLabel", {from: memberById[r.from_member] || "?", to: memberById[r.to_member] || "?"});
         el.style.display = "none";
         await deleteRowsWithUndo("repayments", r, refreshExpenses, label);
       }
@@ -7275,13 +7051,13 @@ function showPairDetail(
 
     offsetBtn.onclick = async ()=>{
 
-      const ok = await sbConfirm(`確定要抵銷 ${SYM}${formatAmt(offsetAmt)} 嗎？兩人互相的欠款將互相沖銷。`);
+      const ok = await sbConfirm(t("currency.confirmOffsetAmount", {amount: SYM+formatAmt(offsetAmt)}));
       if(!ok) return;
 
       offsetBtn.disabled = true;
 
       const today = new Date().toISOString().slice(0,10);
-      const note = "手動抵銷";
+      const note = t("currency.manualOffsetNote");
       // 用同一個 offset_group 把這兩筆方向相反的還款綁在一起，
       // 歷史紀錄裡才能合併顯示、一起刪除，不會被單獨改掉一半。
       const offsetGroup = crypto.randomUUID();
@@ -7292,7 +7068,7 @@ function showPairDetail(
       ]);
 
       if(error){
-        await sbAlert("抵銷失敗：" + error.message, "🔔 Splitbill 錯誤");
+        await sbAlert(t("currency.offsetFailed") + error.message, t("settings.errorTitle"));
         offsetBtn.disabled = false;
         return;
       }
@@ -7340,8 +7116,8 @@ function showPairDetail(
       const repayments = cachedRepayments.filter(passesRepayFilter);
       const lines = [];
 
-      lines.push("支出紀錄");
-      lines.push(toCSVRow(["日期","項目說明",`總金額(${SYM})`,"付款","應付","記帳者"]));
+      lines.push(t("currency.csvExpenseSection"));
+      lines.push(toCSVRow(t("currency.csvExpenseHeaders", {sym: SYM}).split(",")));
       expenses.forEach(e=>{
         const payerText = (e.payers || []).map(p => `${memberById[p.member_id] || "?"}${SYM}${p.amount}${p.calc ? `(${p.calc})` : ""}`).join("；");
         const shareText = (e.shares || []).map(s => `${memberById[s.member_id] || "?"}${SYM}${s.amount}${s.calc ? `(${s.calc})` : ""}`).join("；");
@@ -7349,8 +7125,8 @@ function showPairDetail(
       });
 
       lines.push("");
-      lines.push("還款紀錄");
-      lines.push(toCSVRow(["日期","誰還錢","誰收錢",`金額(${SYM})`,"備註"]));
+      lines.push(t("currency.csvRepaymentSection"));
+      lines.push(toCSVRow(t("currency.csvRepaymentHeaders", {sym: SYM}).split(",")));
       repayments.forEach(r=>{
         lines.push(toCSVRow([r.payment_date, memberById[r.from_member] || "?", memberById[r.to_member] || "?", r.amount, r.note || ""]));
       });
@@ -7360,7 +7136,7 @@ function showPairDetail(
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `帳務紀錄_${CURRENCY}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.download = `${t("currency.csvFilenamePrefix")}_${CURRENCY}_${new Date().toISOString().slice(0,10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
