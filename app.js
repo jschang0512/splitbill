@@ -947,6 +947,7 @@
     generateDueRecurringExpenses();
     subscribeRealtime();
     ensurePushSubscribed();
+    if(typeof initLocationWeatherWidget === "function") initLocationWeatherWidget().catch(()=>{});
 
     // 從通知夾點「週期性支出已自動記錄」跳過來的（?openExpense=支出id），
     // 資料載入完直接幫忙開好那筆的明細視窗，不用使用者自己在紀錄裡找。

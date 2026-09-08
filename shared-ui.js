@@ -728,4 +728,128 @@ async function initNotificationBell(sb, myMember){
     })
     .subscribe();
 }
+
+// ============================================================
+// 📍 城市／🌤️ 天氣小徽章：summary.html／currency.html／settings.html
+// 共用，畫面上 app-header 標題正上方那兩顆小膠囊（城市在左、天氣在右，
+// 分別對應 #locationCard/#locationText 與 #weatherCard/#weatherText 這幾個
+// id，頁面上要有這些容器才會顯示）。定位優先用瀏覽器 GPS + OpenStreetMap
+// Nominatim 反查城市/行政區，被拒絕或裝置不支援時退回用 IP 概略定位，兩條
+// 路徑都會盡量連帶查出行政區（例如「新北市」+「樹林區」），查不到就只顯示
+// 城市。天氣用 Open-Meteo，跟定位共用同一組經緯度、不用另外要權限。
+// ============================================================
+const WEATHER_ICON_MAP = {
+  0:"☀️", 1:"🌤️", 2:"⛅", 3:"☁️",
+  45:"🌫️", 48:"🌫️",
+  51:"🌦️", 53:"🌦️", 55:"🌦️", 56:"🌧️", 57:"🌧️",
+  61:"🌧️", 63:"🌧️", 65:"🌧️", 66:"🌧️", 67:"🌧️",
+  71:"🌨️", 73:"🌨️", 75:"🌨️", 77:"🌨️",
+  80:"🌦️", 81:"🌧️", 82:"⛈️", 85:"🌨️", 86:"🌨️",
+  95:"⛈️", 96:"⛈️", 99:"⛈️"
+};
+
+async function fetchOpenMeteoWeather(lat, lon){
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 4000);
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`;
+    const r = await fetch(url, { signal: ctrl.signal });
+    if(!r.ok) return null;
+    const d = await r.json();
+    if(!d.current || d.current.temperature_2m === undefined) return null;
+    return { temp: Math.round(d.current.temperature_2m), icon: WEATHER_ICON_MAP[d.current.weather_code] || "🌡️" };
+  } catch(e){ return null; }
+}
+
+// IP 定位備援：GPS 沒開權限、使用者拒絕、裝置不支援，或反查失敗時才會用到。
+// 原本試過 freeipapi.com，實測瀏覽器直接呼叫會被 CORS 擋掉（沒有回
+// Access-Control-Allow-Origin，這種問題只有真的在瀏覽器裡測才測得出來，
+// 文件看不出來）。改用 BigDataCloud 的免費 client-side reverse-geocode
+// API——沒帶經緯度參數呼叫的話，它會自動退回用「這次請求的來源 IP」查
+// 位置（lookupSource 會回傳 "ip geolocation"），瀏覽器端直接 fetch 測過
+// 沒有 CORS 問題，一樣免費、不用金鑰。準確度只到城市/行政區等級，比 GPS
+// 粗略，但總比完全沒有備援、直接放棄自動偵測好。
+async function getIpBasedLocation(){
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=zh", { signal: ctrl.signal });
+    if(!r.ok) return null;
+    const d = await r.json();
+    const cc = (d.countryCode || "").toLowerCase();
+    if(!cc) return null;
+    const city = d.city || d.locality || "";
+    const district = (d.locality && d.locality !== city) ? d.locality : "";
+    return { countryCode: cc, city, district, countryName: d.countryName || "", lat: d.latitude, lon: d.longitude };
+  } catch(e){ return null; }
+}
+
+function composeLocationLabel(city, district){
+  if(city && district && district !== city) return city + district;
+  return city || district || "";
+}
+
+function renderLocationBadge(locationLabel){
+  const card = document.getElementById("locationCard");
+  const textEl = document.getElementById("locationText");
+  if(!card || !textEl) return;
+  if(!locationLabel){ card.classList.add("hidden"); return; }
+  textEl.textContent = locationLabel;
+  card.title = locationLabel;
+  card.classList.remove("hidden");
+}
+
+function renderWeatherBadge(weather){
+  const card = document.getElementById("weatherCard");
+  const textEl = document.getElementById("weatherText");
+  if(!card || !textEl) return;
+  if(!weather){ card.classList.add("hidden"); return; }
+  const full = `${weather.icon} ${weather.temp}°C`;
+  textEl.textContent = full;
+  card.title = full;
+  card.classList.remove("hidden");
+}
+
+// onDetected(info)：選用 callback，帶回 {lat, lon, countryCode, city,
+// district, countryName}，讓 summary.html 這類需要額外邏輯（例如切換國家
+// 時跳出「建議切換幣別」提示）的頁面自己接著處理；currency.html/
+// settings.html 只需要顯示這兩顆徽章，不用傳這個參數。沒有 #locationCard/
+// #weatherCard 容器的頁面（不在 summary/currency/settings 範圍內）呼叫這
+// 支函式也不會出錯，只是徽章不會顯示（renderXxxBadge 內部會做 null 檢查）。
+async function initLocationWeatherWidget(onDetected){
+  let lat, lon, countryCode = '', city = '', district = '', countryName = '';
+  try {
+    if(!navigator.geolocation) throw new Error("no geolocation");
+    const pos = await new Promise((res, rej) => {
+      navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+    });
+    lat = pos.coords.latitude; lon = pos.coords.longitude;
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&addressdetails=1&accept-language=zh-TW,zh,en`;
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } }).catch(() => null);
+    if(!r || !r.ok) throw new Error("reverse geocode failed");
+    const d = await r.json();
+    const addr = d.address || {};
+    countryCode = (addr.country_code || '').toLowerCase();
+    city = addr.city || addr.county || addr.state || '';
+    district = addr.suburb || addr.city_district || addr.town || addr.village || '';
+    countryName = addr.country || '';
+  } catch(e){
+    const ipLoc = await getIpBasedLocation();
+    if(!ipLoc) return null;
+    lat = ipLoc.lat; lon = ipLoc.lon;
+    countryCode = ipLoc.countryCode; city = ipLoc.city; district = ipLoc.district; countryName = ipLoc.countryName;
+  }
+  if(!countryCode) return null;
+
+  renderLocationBadge(composeLocationLabel(city, district));
+  if(lat !== undefined && lon !== undefined){
+    const weather = await fetchOpenMeteoWeather(lat, lon);
+    renderWeatherBadge(weather);
+  }
+
+  const info = { lat, lon, countryCode, city, district, countryName };
+  if(typeof onDetected === "function") onDetected(info);
+  return info;
+}
+window.initLocationWeatherWidget = initLocationWeatherWidget;
 window.initNotificationBell = initNotificationBell;

@@ -272,6 +272,13 @@ body::after{
   margin:0;
   color:var(--ink);
 }
+.app-header h1.page-title-clickable{
+  cursor:pointer;
+}
+.app-header h1.page-title-clickable:hover{
+  text-decoration:underline dotted;
+  text-underline-offset:4px;
+}
 .app-header .nav-links{
   display:flex;
   /* 曾經試過橫向滑動（使用者反應「返回總覽」會被滑到看不見）、也試過
@@ -393,6 +400,13 @@ body::after{
   color:var(--ink-soft);
   margin-left:auto;
 }
+.location-weather-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:10px;
+}
 .location-weather-badge{
   display:inline-flex;
   align-items:center;
@@ -404,12 +418,15 @@ body::after{
   font-weight:600;
   color:var(--ink-soft);
   white-space:nowrap;
-  max-width:90%;
+  max-width:48%;
   overflow:hidden;
   text-overflow:ellipsis;
 }
-.app-header .location-weather-badge{
-  margin-bottom:10px;
+.location-weather-row #weatherCard{
+  margin-left:auto;
+}
+.location-weather-row #locationCard:not(.hidden) ~ #weatherCard{
+  margin-left:0;
 }
 
 .exchange-rate-hint{
@@ -4297,7 +4314,7 @@ button.dd-btn {
    Splitbill Custom Modal Dialog
    ============================================================ */
 .sb-dialog-card{
-  max-width:380px !important;
+  max-width:400px !important;
   padding:22px 24px !important;
   border-radius:24px !important;
   box-shadow:0 20px 60px rgba(0,0,0,.35) !important;
@@ -4332,6 +4349,53 @@ button.dd-btn {
 }
 .sb-dialog-actions .btn{
   margin-top:0 !important;
+}
+
+/* 目的地小知識卡（showCountryInfoDialog）：2 欄小卡片格線，取代原本一行
+   一句、要一直往下滑的陽春列表。透過 showSbDialog 的 html 參數塞進
+   .sb-dialog-body。.sb-dialog-body 有 white-space:pre-line（給舊版純文字
+   \n 換行用），這個屬性會被繼承下來，讓 JS 樣板字串裡縮排/換行留下的純
+   空白文字節點在 Grid 排版裡被當成「保留格式的空白」而不是可忽略的
+   whitespace，變成一個個佔掉整列高度的隱形匿名格子——每格看起來多出
+   一大截空白就是這樣來的。這裡明確蓋掉繼承值恢復成 normal 排除掉。 */
+.country-info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  white-space:normal;
+}
+.country-info-cell{
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:9px 11px;
+  min-width:0;
+}
+.country-info-cell-head{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-bottom:3px;
+}
+.country-info-icon{
+  font-size:13px;
+  line-height:1;
+}
+.country-info-label{
+  font-size:10.5px;
+  color:var(--ink-soft);
+}
+.country-info-value{
+  font-size:13px;
+  font-weight:700;
+  color:var(--ink);
+  line-height:1.35;
+  word-break:break-word;
+}
+.country-info-eu-note{
+  font-size:13px;
+  line-height:1.7;
+  color:var(--ink);
 }
 
 /* ============================================================

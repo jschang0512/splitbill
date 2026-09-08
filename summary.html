@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=827">
-<link rel="stylesheet" href="shared.css?v=827">
+<link rel="stylesheet" href="theme.css?v=838">
+<link rel="stylesheet" href="shared.css?v=838">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="i18n.js?v=827"></script>
-<script src="currencies.js?v=827"></script>
-<script src="version.js?v=827"></script>
-<script src="shared-ui.js?v=827"></script>
-<script src="theme.js?v=827" defer></script>
-<script src="app-banner.js?v=827" defer></script>
+<script src="i18n.js?v=838"></script>
+<script src="currencies.js?v=838"></script>
+<script src="version.js?v=838"></script>
+<script src="shared-ui.js?v=838"></script>
+<script src="theme.js?v=838" defer></script>
+<script src="app-banner.js?v=838" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -91,8 +91,13 @@ if("serviceWorker" in navigator){
 <div class="wrap">
 
   <div class="app-header">
-    <div class="location-weather-badge hidden" id="locationWeatherCard">
-      <span id="locationWeatherText"></span>
+    <div class="location-weather-row">
+      <div class="location-weather-badge hidden" id="locationCard">
+        <span id="locationText"></span>
+      </div>
+      <div class="location-weather-badge hidden" id="weatherCard">
+        <span id="weatherText"></span>
+      </div>
     </div>
     <div class="title-row">
       <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
@@ -1437,106 +1442,30 @@ renderNavLinks();
 
   // ============================================================
   // 🌏 GPS 城市/國家變化偵測（GPS 拿不到時退而求其次用免費 IP 定位）
+  // 城市/天氣兩顆徽章的偵測與渲染邏輯搬到 shared-ui.js 的
+  // initLocationWeatherWidget() 共用給 summary/currency/settings 三頁；
+  // 這裡只留這頁專屬的「切換國家時提示切換幣別」邏輯，透過 callback 接手。
   // ============================================================
-  // IP 定位備援：GPS 沒開權限、使用者拒絕、裝置不支援，或反查失敗時才會用到。
-  // 原本試過 freeipapi.com，實測瀏覽器直接呼叫會被 CORS 擋掉（沒有回
-  // Access-Control-Allow-Origin，這種問題只有真的在瀏覽器裡測才測得出來，
-  // 文件看不出來）。改用 BigDataCloud 的免費 client-side reverse-geocode
-  // API——沒帶經緯度參數呼叫的話，它會自動退回用「這次請求的來源 IP」查
-  // 位置（lookupSource 會回傳 "ip geolocation"），瀏覽器端直接 fetch 測過
-  // 沒有 CORS 問題，一樣免費、不用金鑰。準確度只到城市等級，比 GPS 粗略，
-  // 但總比完全沒有備援、直接放棄自動偵測好。
-  async function getIpBasedLocation(){
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 4000);
-      const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=zh", { signal: ctrl.signal });
-      if(!r.ok) return null;
-      const d = await r.json();
-      const cc = (d.countryCode || "").toLowerCase();
-      if(!cc) return null;
-      return { countryCode: cc, city: d.city || d.locality || "", countryName: d.countryName || "", lat: d.latitude, lon: d.longitude };
-    } catch(e){ return null; }
-  }
-
-  // 📍 目的地天氣：Open-Meteo，免費、不用金鑰（非商業用途每天 1 萬次額度，
-  // 個人記帳 App 用量完全用不完），跟定位共用同一組經緯度，不用另外問權限。
-  const WEATHER_ICON_MAP = {
-    0:"☀️", 1:"🌤️", 2:"⛅", 3:"☁️",
-    45:"🌫️", 48:"🌫️",
-    51:"🌦️", 53:"🌦️", 55:"🌦️", 56:"🌧️", 57:"🌧️",
-    61:"🌧️", 63:"🌧️", 65:"🌧️", 66:"🌧️", 67:"🌧️",
-    71:"🌨️", 73:"🌨️", 75:"🌨️", 77:"🌨️",
-    80:"🌦️", 81:"🌧️", 82:"⛈️", 85:"🌨️", 86:"🌨️",
-    95:"⛈️", 96:"⛈️", 99:"⛈️"
-  };
-  async function fetchOpenMeteoWeather(lat, lon){
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 4000);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`;
-      const r = await fetch(url, { signal: ctrl.signal });
-      if(!r.ok) return null;
-      const d = await r.json();
-      if(!d.current || d.current.temperature_2m === undefined) return null;
-      return { temp: Math.round(d.current.temperature_2m), icon: WEATHER_ICON_MAP[d.current.weather_code] || "🌡️" };
-    } catch(e){ return null; }
-  }
-  function renderLocationWeatherBadge(weather, placeLabel){
-    const card = document.getElementById("locationWeatherCard");
-    const textEl = document.getElementById("locationWeatherText");
-    if(!card || !textEl) return;
-    if(!weather || !placeLabel){ card.classList.add("hidden"); return; }
-    const full = `${weather.icon} ${placeLabel} ${weather.temp}°C`;
-    textEl.textContent = full;
-    card.title = full;
-    card.classList.remove("hidden");
-  }
-
   async function detectAndNotifyLocationChange(){
     const CC_MAP = { jp:'JPY', kr:'KRW', th:'THB', sg:'SGD', hk:'HKD', cn:'CNY', gb:'GBP', us:'USD', au:'AUD', vn:'VND', tw:'TWD', fr:'EUR', de:'EUR', it:'EUR', es:'EUR', nl:'EUR', be:'EUR', at:'EUR', pl:'EUR', se:'EUR', my:'MYR', id:'IDR', ph:'PHP', in:'INR' };
-
-    let lat, lon, countryCode = '', city = '', countryName = '';
-    try {
-      if(!navigator.geolocation) throw new Error("no geolocation");
-      const pos = await new Promise((res, rej) => {
-        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
-      });
-      lat = pos.coords.latitude; lon = pos.coords.longitude;
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=5&addressdetails=1&accept-language=zh-TW,zh,en`;
-      const r = await fetch(url, { headers: { 'Accept': 'application/json' } }).catch(() => null);
-      if(!r || !r.ok) throw new Error("reverse geocode failed");
-      const d = await r.json();
-      const addr = d.address || {};
-      countryCode = (addr.country_code || '').toLowerCase();
-      city = addr.city || addr.town || addr.state || '';
-      countryName = addr.country || '';
-    } catch(e){
-      const ipLoc = await getIpBasedLocation();
-      if(!ipLoc) return;
-      lat = ipLoc.lat; lon = ipLoc.lon;
-      countryCode = ipLoc.countryCode; city = ipLoc.city; countryName = ipLoc.countryName;
-    }
-    if(!countryCode) return;
-
-    const detectedCurrency = CC_MAP[countryCode] || null;
-    const lastCountry = localStorage.getItem('sb_last_country_code');
-    localStorage.setItem('sb_last_country_code', countryCode);
-    if(city) localStorage.setItem('sb_last_city', city);
-    if(lastCountry && lastCountry !== countryCode && detectedCurrency){
-      const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
-      const curOk = avail.includes(detectedCurrency);
-      const cnLabel = countryName || countryCode.toUpperCase();
-      const cityStr = city ? ` ${city}` : '';
-      if(typeof showToast === 'function'){
-        showToast(t("summary.detectedLocation", {location: cnLabel + cityStr}), curOk ? t("summary.quickAddWillPreselect", {currency: detectedCurrency}) : t("summary.currencyNotEnabledReminder", {currency: detectedCurrency}), 6000);
+    if(typeof initLocationWeatherWidget !== "function") return;
+    await initLocationWeatherWidget((info) => {
+      const { countryCode, city, countryName } = info;
+      if(!countryCode) return;
+      const detectedCurrency = CC_MAP[countryCode] || null;
+      const lastCountry = localStorage.getItem('sb_last_country_code');
+      localStorage.setItem('sb_last_country_code', countryCode);
+      if(city) localStorage.setItem('sb_last_city', city);
+      if(lastCountry && lastCountry !== countryCode && detectedCurrency){
+        const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
+        const curOk = avail.includes(detectedCurrency);
+        const cnLabel = countryName || countryCode.toUpperCase();
+        const cityStr = city ? ` ${city}` : '';
+        if(typeof showToast === 'function'){
+          showToast(t("summary.detectedLocation", {location: cnLabel + cityStr}), curOk ? t("summary.quickAddWillPreselect", {currency: detectedCurrency}) : t("summary.currencyNotEnabledReminder", {currency: detectedCurrency}), 6000);
+        }
       }
-    }
-
-    if(lat !== undefined && lon !== undefined){
-      const weather = await fetchOpenMeteoWeather(lat, lon);
-      renderLocationWeatherBadge(weather, city || countryName || countryCode.toUpperCase());
-    }
+    });
   }
 
   // ============================================================

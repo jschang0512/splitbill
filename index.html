@@ -99,16 +99,16 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=827">
-<link rel="stylesheet" href="shared.css?v=827">
+<link rel="stylesheet" href="theme.css?v=838">
+<link rel="stylesheet" href="shared.css?v=838">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
-<script src="i18n.js?v=827"></script>
-<script src="currencies.js?v=827"></script>
-<script src="version.js?v=827"></script>
-<script src="shared-ui.js?v=827"></script>
-<script src="theme.js?v=827" defer></script>
-<script src="app-banner.js?v=827" defer></script>
+<script src="i18n.js?v=838"></script>
+<script src="currencies.js?v=838"></script>
+<script src="version.js?v=838"></script>
+<script src="shared-ui.js?v=838"></script>
+<script src="theme.js?v=838" defer></script>
+<script src="app-banner.js?v=838" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -211,9 +211,9 @@ if("serviceWorker" in navigator){
       <div class="login-card-title" id="loginCardTitle" data-i18n="login.welcomeTitle">歡迎登入</div>
 
       <div id="newAuthPane">
-        <label id="authEmailLabel" data-i18n="login.accountLabel">帳號（使用者名稱或電子信箱）</label>
-        <input type="text" id="authEmail" data-i18n-placeholder="login.accountPlaceholder" placeholder="使用者名稱或 you@gmail.com">
-        <label id="authNameLabel" class="hidden" data-i18n="login.usernameLabel">全域使用者名稱</label>
+        <label id="authEmailLabel" data-i18n="login.accountLabel">登入帳號或電子信箱</label>
+        <input type="text" id="authEmail" data-i18n-placeholder="login.accountPlaceholder" placeholder="登入帳號或 you@gmail.com">
+        <label id="authNameLabel" class="hidden" data-i18n="login.usernameLabel">登入帳號</label>
         <input type="text" id="authName" class="hidden" data-i18n-placeholder="login.usernamePlaceholder" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
         <label data-i18n="login.passwordLabel">密碼</label>
         <div class="pw-input-wrap">
@@ -282,7 +282,7 @@ if("serviceWorker" in navigator){
       <p class="settings-hint" data-i18n="groupChoice.hint2">⚠️ 如果你已經有 Splitbill 帳號，卻看到這個畫面，代表這個信箱還沒連結到你原本的帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個帳號連結上去。</p>
 
       <div id="groupChoiceUsernameWrap" class="hidden">
-        <label data-i18n="login.usernameLabel">全域使用者名稱</label>
+        <label data-i18n="login.usernameLabel">登入帳號</label>
         <p class="settings-hint" data-i18n="groupChoice.usernameTakenHint">這個名字剛好被別人搶走了，改一個再試一次。</p>
         <input type="text" id="groupChoiceUsername" data-i18n-placeholder="login.usernamePlaceholder" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
       </div>
@@ -330,7 +330,7 @@ if("serviceWorker" in navigator){
       <h2 data-i18n="oauthConfirm.title">👋 建立新帳號</h2>
       <p class="settings-hint" id="oauthConfirmCreatingText"></p>
       <p class="settings-hint" data-i18n="oauthConfirm.warning">⚠️ 如果你已經有 Splitbill 帳號，進入這個畫面代表你還沒連結這個 Google/Discord 帳號——請按下面「登出」，改用原本的方式登入，再到⚙️設定裡把這個 Google/Discord 帳號連結上去。</p>
-      <label data-i18n="login.usernameLabel">全域使用者名稱</label>
+      <label data-i18n="login.usernameLabel">登入帳號</label>
       <input type="text" id="oauthConfirmName" data-i18n-placeholder="login.usernamePlaceholder" placeholder="中文、英文、數字、底線，2~20 個字" maxlength="20">
       <label data-i18n="oauthConfirm.setPasswordLabel">設定一組密碼（以後也可以直接用密碼登入）</label>
       <div class="pw-input-wrap">

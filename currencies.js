@@ -46,6 +46,96 @@ const CURRENCIES = [
 // 「TW」），這裡改成真的圖片，跨平台外觀一致。萬一圖沒載到（離線、CDN
 // 抽風），onerror 退回原本的 emoji，不會整塊空白。只能用在「一般 HTML」
 // 的地方——瀏覽器原生 <option> 不支援嵌圖，那些地方還是只能用文字。
+// 🌍 目的地小知識卡：行車方向／國際電話區碼／官方語言／首都／小費文化／
+// 現金卡片普及度／插座電壓／緊急電話，這些幾乎不會變動的地理/文化事實
+// 直接寫死在這裡，不打外部 API——原本評估用 REST Countries API，實測
+// 瀏覽器直接 fetch 會被 CORS 擋掉（跟之前 freeipapi.com 同一種問題，只有
+// 真的在瀏覽器裡測才測得出來），而且這種資料本來就幾乎不會變，沒必要為了
+// 它冒一次外部服務不穩定的風險。language/capital 直接存三語字串（不透過
+// i18n.js 的全站字典 key），因為這是「資料」不是「介面文字」，跟
+// TAIWAN_BANKS 銀行清單是同樣的處理方式；plugVoltage/emergency 是數字/
+// 型號組成的資料，三語都長一樣，也不用另外存三份。小費文化(tipping)跟
+// 現金卡片普及度(payment)改用「等級代碼＋i18n.js 共用短句」而不是每個
+// 國家各寫一句三語長文——25 個國家 × 3 語言 × 完整句子的維護成本太高，
+// 用等級（none/optional/expected/included、cash/mixed/card/cashless）
+// 對應到少數幾句共用翻譯，各國只要選等級就好；US/GB 這種有具體慣例百分比
+// 的另外加 tippingNote 小字補充，其他國家不用。欄位標籤（「官方語言」等）
+// 才走 i18n.js。key 對應 CURRENCIES 裡的 country 欄位；country:"eu" 是
+// 多國共用的歐元，另外用 country.euNote 顯示提示文字，不放進這張表。
+const COUNTRY_INFO = {
+  tw: { dialCode: "+886", drivingSide: "right", language: { "zh-Hant": "中文（國語）", ja: "中国語（北京語）", en: "Mandarin Chinese" }, capital: { "zh-Hant": "臺北", ja: "台北", en: "Taipei" }, tipping: "none", payment: "mixed", plugVoltage: "Type A/B, 110V", emergency: "110 (Police) / 119 (Fire, Ambulance)" },
+  jp: { dialCode: "+81", drivingSide: "left", language: { "zh-Hant": "日文", ja: "日本語", en: "Japanese" }, capital: { "zh-Hant": "東京", ja: "東京", en: "Tokyo" }, tipping: "none", payment: "cash", plugVoltage: "Type A, 100V", emergency: "110 (Police) / 119 (Fire, Ambulance)" },
+  kr: { dialCode: "+82", drivingSide: "right", language: { "zh-Hant": "韓文", ja: "韓国語", en: "Korean" }, capital: { "zh-Hant": "首爾", ja: "ソウル", en: "Seoul" }, tipping: "none", payment: "card", plugVoltage: "Type C/F, 220V", emergency: "112 (Police) / 119 (Fire, Ambulance)" },
+  cn: { dialCode: "+86", drivingSide: "right", language: { "zh-Hant": "中文（普通話）", ja: "中国語（普通話）", en: "Mandarin Chinese" }, capital: { "zh-Hant": "北京", ja: "北京", en: "Beijing" }, tipping: "none", payment: "cashless", plugVoltage: "Type A/C/I, 220V", emergency: "110 (Police) / 120 (Ambulance) / 119 (Fire)" },
+  hk: { dialCode: "+852", drivingSide: "left", language: { "zh-Hant": "廣東話、英文", ja: "広東語・英語", en: "Cantonese, English" }, capital: { "zh-Hant": "—（特別行政區）", ja: "―（特別行政区）", en: "— (Special Administrative Region)" }, tipping: "optional", payment: "card", plugVoltage: "Type G, 220V", emergency: "999 (All)" },
+  mo: { dialCode: "+853", drivingSide: "left", language: { "zh-Hant": "廣東話、葡萄牙文", ja: "広東語・ポルトガル語", en: "Cantonese, Portuguese" }, capital: { "zh-Hant": "—（特別行政區）", ja: "―（特別行政区）", en: "— (Special Administrative Region)" }, tipping: "optional", payment: "card", plugVoltage: "Type G, 220V", emergency: "999 (All)" },
+  us: { dialCode: "+1", drivingSide: "right", language: { "zh-Hant": "英文", ja: "英語", en: "English" }, capital: { "zh-Hant": "華盛頓特區", ja: "ワシントンD.C.", en: "Washington, D.C." }, tipping: "expected", tippingNote: "15–20%", payment: "card", plugVoltage: "Type A/B, 120V", emergency: "911 (All)" },
+  vn: { dialCode: "+84", drivingSide: "right", language: { "zh-Hant": "越南文", ja: "ベトナム語", en: "Vietnamese" }, capital: { "zh-Hant": "河內", ja: "ハノイ", en: "Hanoi" }, tipping: "optional", payment: "cash", plugVoltage: "Type A/C, 220V", emergency: "113 (Police) / 115 (Ambulance)" },
+  th: { dialCode: "+66", drivingSide: "left", language: { "zh-Hant": "泰文", ja: "タイ語", en: "Thai" }, capital: { "zh-Hant": "曼谷", ja: "バンコク", en: "Bangkok" }, tipping: "optional", payment: "mixed", plugVoltage: "Type A/C, 220V", emergency: "191 (Police) / 1669 (Ambulance)" },
+  ph: { dialCode: "+63", drivingSide: "right", language: { "zh-Hant": "菲律賓文、英文", ja: "フィリピノ語・英語", en: "Filipino, English" }, capital: { "zh-Hant": "馬尼拉", ja: "マニラ", en: "Manila" }, tipping: "optional", payment: "cash", plugVoltage: "Type A/B/C, 220V", emergency: "911 (All)" },
+  sg: { dialCode: "+65", drivingSide: "left", language: { "zh-Hant": "英文、馬來文、華語、坦米爾文", ja: "英語・マレー語・中国語・タミル語", en: "English, Malay, Mandarin, Tamil" }, capital: { "zh-Hant": "—（城市國家）", ja: "―（都市国家）", en: "— (City-state)" }, tipping: "included", payment: "card", plugVoltage: "Type G, 230V", emergency: "999 (Police) / 995 (Fire, Ambulance)" },
+  my: { dialCode: "+60", drivingSide: "left", language: { "zh-Hant": "馬來文", ja: "マレー語", en: "Malay" }, capital: { "zh-Hant": "吉隆坡", ja: "クアラルンプール", en: "Kuala Lumpur" }, tipping: "optional", payment: "mixed", plugVoltage: "Type G, 230V", emergency: "999 (All)" },
+  id: { dialCode: "+62", drivingSide: "left", language: { "zh-Hant": "印尼文", ja: "インドネシア語", en: "Indonesian" }, capital: { "zh-Hant": "雅加達", ja: "ジャカルタ", en: "Jakarta" }, tipping: "optional", payment: "cash", plugVoltage: "Type C/F, 230V", emergency: "110 (Police) / 118 (Ambulance)" },
+  kh: { dialCode: "+855", drivingSide: "right", language: { "zh-Hant": "高棉文", ja: "クメール語", en: "Khmer" }, capital: { "zh-Hant": "金邊", ja: "プノンペン", en: "Phnom Penh" }, tipping: "optional", payment: "cash", plugVoltage: "Type A/C/G, 230V", emergency: "117 (Police) / 119 (Ambulance)" },
+  gb: { dialCode: "+44", drivingSide: "left", language: { "zh-Hant": "英文", ja: "英語", en: "English" }, capital: { "zh-Hant": "倫敦", ja: "ロンドン", en: "London" }, tipping: "expected", tippingNote: "10–12.5%", payment: "card", plugVoltage: "Type G, 230V", emergency: "999 / 112 (All)" },
+  ch: { dialCode: "+41", drivingSide: "right", language: { "zh-Hant": "德文、法文、義大利文、羅曼什文", ja: "ドイツ語・フランス語・イタリア語・ロマンシュ語", en: "German, French, Italian, Romansh" }, capital: { "zh-Hant": "伯恩", ja: "ベルン", en: "Bern" }, tipping: "included", payment: "mixed", plugVoltage: "Type C/J, 230V", emergency: "112 (All) / 117 (Police) / 144 (Ambulance)" },
+  au: { dialCode: "+61", drivingSide: "left", language: { "zh-Hant": "英文", ja: "英語", en: "English" }, capital: { "zh-Hant": "坎培拉", ja: "キャンベラ", en: "Canberra" }, tipping: "none", payment: "card", plugVoltage: "Type I, 230V", emergency: "000 (All)" },
+  nz: { dialCode: "+64", drivingSide: "left", language: { "zh-Hant": "英文、毛利文", ja: "英語・マオリ語", en: "English, Māori" }, capital: { "zh-Hant": "威靈頓", ja: "ウェリントン", en: "Wellington" }, tipping: "none", payment: "card", plugVoltage: "Type I, 230V", emergency: "111 (All)" },
+  tr: { dialCode: "+90", drivingSide: "right", language: { "zh-Hant": "土耳其文", ja: "トルコ語", en: "Turkish" }, capital: { "zh-Hant": "安卡拉", ja: "アンカラ", en: "Ankara" }, tipping: "optional", tippingNote: "5–10%", payment: "mixed", plugVoltage: "Type C/F, 230V", emergency: "112 (All)" },
+  cz: { dialCode: "+420", drivingSide: "right", language: { "zh-Hant": "捷克文", ja: "チェコ語", en: "Czech" }, capital: { "zh-Hant": "布拉格", ja: "プラハ", en: "Prague" }, tipping: "optional", tippingNote: "~10%", payment: "mixed", plugVoltage: "Type C/E, 230V", emergency: "112 (All)" },
+  hu: { dialCode: "+36", drivingSide: "right", language: { "zh-Hant": "匈牙利文", ja: "ハンガリー語", en: "Hungarian" }, capital: { "zh-Hant": "布達佩斯", ja: "ブダペスト", en: "Budapest" }, tipping: "optional", tippingNote: "~10%", payment: "mixed", plugVoltage: "Type C/F, 230V", emergency: "112 (All)" },
+  se: { dialCode: "+46", drivingSide: "right", language: { "zh-Hant": "瑞典文", ja: "スウェーデン語", en: "Swedish" }, capital: { "zh-Hant": "斯德哥爾摩", ja: "ストックホルム", en: "Stockholm" }, tipping: "included", payment: "cashless", plugVoltage: "Type C/F, 230V", emergency: "112 (All)" },
+  no: { dialCode: "+47", drivingSide: "right", language: { "zh-Hant": "挪威文", ja: "ノルウェー語", en: "Norwegian" }, capital: { "zh-Hant": "奧斯陸", ja: "オスロ", en: "Oslo" }, tipping: "included", payment: "cashless", plugVoltage: "Type C/F, 230V", emergency: "112 (Police) / 113 (Ambulance)" },
+  dk: { dialCode: "+45", drivingSide: "right", language: { "zh-Hant": "丹麥文", ja: "デンマーク語", en: "Danish" }, capital: { "zh-Hant": "哥本哈根", ja: "コペンハーゲン", en: "Copenhagen" }, tipping: "included", payment: "cashless", plugVoltage: "Type C/K, 230V", emergency: "112 (All)" },
+  is: { dialCode: "+354", drivingSide: "right", language: { "zh-Hant": "冰島文", ja: "アイスランド語", en: "Icelandic" }, capital: { "zh-Hant": "雷克雅維克", ja: "レイキャビク", en: "Reykjavík" }, tipping: "included", payment: "cashless", plugVoltage: "Type C/F, 230V", emergency: "112 (All)" }
+};
+
+// 點幣別頁標題（例如「日幣區」）彈出的小知識卡：語言／首都／國際電話區碼／
+// 行車方向／小費文化／現金卡片普及度／插座電壓／緊急電話。EUR 沒有單一
+// 國家，另外顯示提示文字；查不到資料的幣別（理論上不會發生，上面
+// COUNTRY_INFO 涵蓋了 CURRENCIES 全部 26 種幣別，這裡防禦一下避免漏填時
+// 整頁報錯）就靜默不彈窗。
+function countryInfoCellHTML(icon, label, value){
+  const esc = (typeof escapeHtml === "function") ? escapeHtml : (s => s);
+  return `
+    <div class="country-info-cell">
+      <div class="country-info-cell-head">
+        <span class="country-info-icon">${icon}</span>
+        <span class="country-info-label">${esc(label)}</span>
+      </div>
+      <div class="country-info-value">${esc(value)}</div>
+    </div>
+  `;
+}
+
+function showCountryInfoDialog(currencyCode){
+  const c = CURRENCIES.find(item => item.code === currencyCode);
+  if(!c || !c.country || typeof showSbDialog !== "function" || typeof t !== "function") return;
+  const lang = (typeof getLang === "function") ? getLang() : "zh-Hant";
+  if(c.country === "eu"){
+    const esc = (typeof escapeHtml === "function") ? escapeHtml : (s => s);
+    showSbDialog({ title: c.label, html: `<p class="country-info-eu-note">${esc(t("country.euNote"))}</p>`, confirmText: null });
+    return;
+  }
+  const info = COUNTRY_INFO[c.country];
+  if(!info) return;
+  const sideLabel = info.drivingSide === "left" ? t("country.drivingLeft") : t("country.drivingRight");
+  const tippingLabel = t("country.tipping." + info.tipping) + (info.tippingNote ? `（${info.tippingNote}）` : "");
+  const paymentLabel = t("country.payment." + info.payment);
+  const cellsHtml = [
+    countryInfoCellHTML("🗣️", t("country.language"), info.language[lang] || info.language["zh-Hant"]),
+    countryInfoCellHTML("🏛️", t("country.capital"), info.capital[lang] || info.capital["zh-Hant"]),
+    countryInfoCellHTML("☎️", t("country.dialCode"), info.dialCode),
+    countryInfoCellHTML("🚗", t("country.drivingSide"), sideLabel),
+    countryInfoCellHTML("💰", t("country.tippingLabel"), tippingLabel),
+    countryInfoCellHTML("💳", t("country.paymentLabel"), paymentLabel),
+    countryInfoCellHTML("🔌", t("country.plugVoltage"), info.plugVoltage),
+    countryInfoCellHTML("🆘", t("country.emergency"), info.emergency)
+  ].join("");
+  showSbDialog({ title: c.label, html: `<div class="country-info-grid">${cellsHtml}</div>`, confirmText: null });
+}
+window.showCountryInfoDialog = showCountryInfoDialog;
+
 function currencyFlagImgHTML(code, sizeClass){
   const c = CURRENCIES.find(item => item.code === code);
   if(!c || !c.country) return (c && c.flag) || "";
@@ -175,7 +265,11 @@ document.addEventListener("click", (e)=>{
 // ============================================================
 // 全站統一優雅自訂彈窗 (取代瀏覽器原生 alert / confirm)
 // ============================================================
-function showSbDialog({ title = t("common.notifyDialogTitle"), message = "", confirmText = t("common.confirm"), cancelText = null }){
+// html：信任呼叫端已經自己組好安全的 HTML（例如目的地小知識卡那種帶
+// icon 的列表），跳過 message 預設的跳脫＋純文字換行處理直接塞進去；
+// 一般呼叫端（sbAlert/sbConfirm 或直接傳 message 字串）不受影響，還是
+// 走原本的跳脫邏輯，避免意外把使用者輸入內容當 HTML 解析。
+function showSbDialog({ title = t("common.notifyDialogTitle"), message = "", html = null, confirmText = t("common.confirm"), cancelText = null }){
   return new Promise(resolve => {
     let modal = document.getElementById("sbDialogModal");
     if(!modal){
@@ -202,8 +296,12 @@ function showSbDialog({ title = t("common.notifyDialogTitle"), message = "", con
 
     if(titleEl) titleEl.textContent = title;
     if(bodyEl){
-      const safeText = String(message ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-      bodyEl.innerHTML = safeText.replace(/\n/g, "<br>");
+      if(html !== null){
+        bodyEl.innerHTML = html;
+      } else {
+        const safeText = String(message ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        bodyEl.innerHTML = safeText.replace(/\n/g, "<br>");
+      }
     }
 
     actionsEl.innerHTML = "";
@@ -219,15 +317,17 @@ function showSbDialog({ title = t("common.notifyDialogTitle"), message = "", con
       actionsEl.appendChild(cancelBtn);
     }
 
-    const confirmBtn = document.createElement("button");
-    confirmBtn.type = "button";
-    confirmBtn.className = "btn small sb-dialog-confirm";
-    confirmBtn.textContent = confirmText;
-    confirmBtn.onclick = () => {
-      modal.classList.remove("show");
-      resolve(true);
-    };
-    actionsEl.appendChild(confirmBtn);
+    if(confirmText){
+      const confirmBtn = document.createElement("button");
+      confirmBtn.type = "button";
+      confirmBtn.className = "btn small sb-dialog-confirm";
+      confirmBtn.textContent = confirmText;
+      confirmBtn.onclick = () => {
+        modal.classList.remove("show");
+        resolve(true);
+      };
+      actionsEl.appendChild(confirmBtn);
+    }
 
     closeBtn.onclick = () => {
       modal.classList.remove("show");

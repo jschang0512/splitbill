@@ -26,16 +26,16 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=827">
-<link rel="stylesheet" href="shared.css?v=827">
+<link rel="stylesheet" href="theme.css?v=838">
+<link rel="stylesheet" href="shared.css?v=838">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-<script src="i18n.js?v=827"></script>
-<script src="currencies.js?v=827"></script>
-<script src="version.js?v=827"></script>
-<script src="shared-ui.js?v=827"></script>
-<script src="theme.js?v=827" defer></script>
-<script src="app-banner.js?v=827" defer></script>
+<script src="i18n.js?v=838"></script>
+<script src="currencies.js?v=838"></script>
+<script src="version.js?v=838"></script>
+<script src="shared-ui.js?v=838"></script>
+<script src="theme.js?v=838" defer></script>
+<script src="app-banner.js?v=838" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -96,6 +96,14 @@ if("serviceWorker" in navigator){
 <div class="wrap">
 
   <div class="app-header">
+    <div class="location-weather-row">
+      <div class="location-weather-badge hidden" id="locationCard">
+        <span id="locationText"></span>
+      </div>
+      <div class="location-weather-badge hidden" id="weatherCard">
+        <span id="weatherText"></span>
+      </div>
+    </div>
     <div class="title-row">
       <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
         <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
@@ -164,7 +172,7 @@ if("serviceWorker" in navigator){
           </div>
           <div class="msg" id="avatarMsg"></div>
 
-          <label data-i18n="login.usernameLabel">全域使用者名稱<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
+          <label data-i18n="login.usernameLabel">登入帳號<button type="button" class="info-btn" data-info-for="infoAccountName" aria-label="說明"><span class="info-btn-i">i</span></button></label>
           <p class="settings-hint hidden" id="infoAccountName" data-i18n="settings.usernameInfo">全站唯一，不能跟別人重複；登入頁可以直接打這個名稱登入，不用記信箱。改了會同步套用到你所有群組的預設顯示名稱——除非某個群組另外設定了暱稱，那個群組會繼續顯示暱稱，不受這裡影響。可以是中文、英文、數字、底線，2~20 個字。</p>
           <div class="settings-field-row">
             <input type="text" id="settingsName" data-i18n-placeholder="settings.usernamePlaceholder" placeholder="例如 小菘、chiasung" maxlength="20">
@@ -245,7 +253,7 @@ if("serviceWorker" in navigator){
           <div class="msg" id="settingsGroupMsg"></div>
 
           <label data-i18n="settings.nicknameLabel">在這個群組顯示的暱稱<button type="button" class="info-btn" data-info-for="infoNickname" aria-label="說明"><span class="info-btn-i">i</span></button></label>
-          <p class="settings-hint hidden" id="infoNickname" data-i18n="settings.nicknameInfo">只影響這個群組看到的名字，不影響「帳號」分頁的全域使用者名稱、也不影響你在其他群組的名字。留空表示不特別設定，跟著全域使用者名稱走。</p>
+          <p class="settings-hint hidden" id="infoNickname" data-i18n="settings.nicknameInfo">只影響這個群組看到的名字，不影響「帳號」分頁的登入帳號、也不影響你在其他群組的名字。留空表示不特別設定，跟著登入帳號走。</p>
           <div class="settings-field-row">
             <input type="text" id="settingsNickname" data-i18n-placeholder="settings.nicknamePlaceholder" placeholder="這個群組看到的名字">
             <button class="btn secondary small" id="saveNicknameBtn" data-i18n="common.save">儲存</button>
@@ -2389,6 +2397,7 @@ if(backBtn){
 
       if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
       if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
+      if(typeof initLocationWeatherWidget === "function") initLocationWeatherWidget().catch(()=>{});
 
       renderSettingsAvatarPreview();
 

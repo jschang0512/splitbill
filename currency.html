@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=827">
-<link rel="stylesheet" href="shared.css?v=827">
+<link rel="stylesheet" href="theme.css?v=838">
+<link rel="stylesheet" href="shared.css?v=838">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="i18n.js?v=827"></script>
-<script src="currencies.js?v=827"></script>
-<script src="version.js?v=827"></script>
-<script src="shared-ui.js?v=827"></script>
-<script src="theme.js?v=827" defer></script>
+<script src="i18n.js?v=838"></script>
+<script src="currencies.js?v=838"></script>
+<script src="version.js?v=838"></script>
+<script src="shared-ui.js?v=838"></script>
+<script src="theme.js?v=838" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -95,13 +95,21 @@ if("serviceWorker" in navigator){
 <div class="wrap">
 
   <div class="app-header">
+    <div class="location-weather-row">
+      <div class="location-weather-badge hidden" id="locationCard">
+        <span id="locationText"></span>
+      </div>
+      <div class="location-weather-badge hidden" id="weatherCard">
+        <span id="weatherText"></span>
+      </div>
+    </div>
     <div class="title-row">
       <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
         <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
         <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
         <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
       </svg>
-      <h1 id="pageH1"></h1>
+      <h1 id="pageH1" class="page-title-clickable" data-i18n-title="currency.countryInfoHint"></h1>
     </div>
     <div class="nav-links" id="navLinks"></div>
     <button type="button" class="exchange-rate-hint hidden" id="exchangeRateHint"></button>
@@ -1151,6 +1159,9 @@ function applyCurrencyPageLabels(){
   }
 }
 applyCurrencyPageLabels();
+document.getElementById("pageH1").addEventListener("click", ()=>{
+  if(typeof showCountryInfoDialog === "function") showCountryInfoDialog(CURRENCY);
+});
 window.addEventListener("resize", ()=>{
   if(typeof window.fitTextToOneLine === "function"){
     const h1El = document.getElementById("pageH1");
@@ -1170,6 +1181,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=827"></script>
+<script src="app.js?v=838"></script>
 </body>
 </html>
