@@ -13,33 +13,47 @@ function currencyDisplayName(code, fallback){
   return (typeof t === "function") ? t("currencyName." + code) : fallback;
 }
 const CURRENCIES = [
-  { code: "TWD", symbol: "NT$",  get label(){ return currencyDisplayName("TWD", "臺幣"); },       flag: "🇹🇼", convert: false, decimals: 0 },
-  { code: "JPY", symbol: "¥",    get label(){ return currencyDisplayName("JPY", "日幣"); },       flag: "🇯🇵", convert: true,  decimals: 0 },
-  { code: "KRW", symbol: "₩",    get label(){ return currencyDisplayName("KRW", "韓幣"); },       flag: "🇰🇷", convert: true,  decimals: 0 },
-  { code: "CNY", symbol: "CN¥",  get label(){ return currencyDisplayName("CNY", "人民幣"); },     flag: "🇨🇳", convert: true,  decimals: 2 },
-  { code: "HKD", symbol: "HK$",  get label(){ return currencyDisplayName("HKD", "港幣"); },       flag: "🇭🇰", convert: true,  decimals: 2 },
-  { code: "MOP", symbol: "MOP$", get label(){ return currencyDisplayName("MOP", "澳門幣"); },     flag: "🇲🇴", convert: true,  decimals: 2 },
-  { code: "USD", symbol: "$",    get label(){ return currencyDisplayName("USD", "美金"); },       flag: "🇺🇸", convert: true,  decimals: 2 },
-  { code: "VND", symbol: "₫",    get label(){ return currencyDisplayName("VND", "越南盾"); },     flag: "🇻🇳", convert: true,  decimals: 0 },
-  { code: "THB", symbol: "฿",    get label(){ return currencyDisplayName("THB", "泰銖"); },       flag: "🇹🇭", convert: true,  decimals: 2 },
-  { code: "PHP", symbol: "₱",    get label(){ return currencyDisplayName("PHP", "菲律賓披索"); }, flag: "🇵🇭", convert: true,  decimals: 2 },
-  { code: "SGD", symbol: "S$",   get label(){ return currencyDisplayName("SGD", "新加坡幣"); },   flag: "🇸🇬", convert: true,  decimals: 2 },
-  { code: "MYR", symbol: "RM",   get label(){ return currencyDisplayName("MYR", "馬來幣"); },     flag: "🇲🇾", convert: true,  decimals: 2 },
-  { code: "IDR", symbol: "Rp",   get label(){ return currencyDisplayName("IDR", "印尼盾"); },     flag: "🇮🇩", convert: true,  decimals: 0 },
-  { code: "KHR", symbol: "៛",    get label(){ return currencyDisplayName("KHR", "柬埔寨瑞爾"); }, flag: "🇰🇭", convert: true,  decimals: 0 },
-  { code: "EUR", symbol: "€",    get label(){ return currencyDisplayName("EUR", "歐元"); },       flag: "🇪🇺", convert: true,  decimals: 2 },
-  { code: "GBP", symbol: "£",    get label(){ return currencyDisplayName("GBP", "英鎊"); },       flag: "🇬🇧", convert: true,  decimals: 2 },
-  { code: "CHF", symbol: "Fr",   get label(){ return currencyDisplayName("CHF", "瑞士法郎"); },   flag: "🇨🇭", convert: true,  decimals: 2 },
-  { code: "AUD", symbol: "A$",   get label(){ return currencyDisplayName("AUD", "澳幣"); },       flag: "🇦🇺", convert: true,  decimals: 2 },
-  { code: "NZD", symbol: "NZ$",  get label(){ return currencyDisplayName("NZD", "紐幣"); },       flag: "🇳🇿", convert: true,  decimals: 2 },
-  { code: "TRY", symbol: "₺",    get label(){ return currencyDisplayName("TRY", "土耳其里拉"); }, flag: "🇹🇷", convert: true,  decimals: 2 },
-  { code: "CZK", symbol: "Kč",   get label(){ return currencyDisplayName("CZK", "捷克克朗"); },   flag: "🇨🇿", convert: true,  decimals: 2 },
-  { code: "HUF", symbol: "Ft",   get label(){ return currencyDisplayName("HUF", "匈牙利福林"); }, flag: "🇭🇺", convert: true,  decimals: 0 },
-  { code: "SEK", symbol: "kr",   get label(){ return currencyDisplayName("SEK", "瑞典克朗"); },   flag: "🇸🇪", convert: true,  decimals: 2 },
-  { code: "NOK", symbol: "kr",   get label(){ return currencyDisplayName("NOK", "挪威克朗"); },   flag: "🇳🇴", convert: true,  decimals: 2 },
-  { code: "DKK", symbol: "kr",   get label(){ return currencyDisplayName("DKK", "丹麥克朗"); },   flag: "🇩🇰", convert: true,  decimals: 2 },
-  { code: "ISK", symbol: "kr",   get label(){ return currencyDisplayName("ISK", "冰島克朗"); },   flag: "🇮🇸", convert: true,  decimals: 0 }
+  { code: "TWD", symbol: "NT$",  get label(){ return currencyDisplayName("TWD", "臺幣"); },       flag: "🇹🇼", country: "tw", convert: false, decimals: 0 },
+  { code: "JPY", symbol: "¥",    get label(){ return currencyDisplayName("JPY", "日幣"); },       flag: "🇯🇵", country: "jp", convert: true,  decimals: 0 },
+  { code: "KRW", symbol: "₩",    get label(){ return currencyDisplayName("KRW", "韓幣"); },       flag: "🇰🇷", country: "kr", convert: true,  decimals: 0 },
+  { code: "CNY", symbol: "CN¥",  get label(){ return currencyDisplayName("CNY", "人民幣"); },     flag: "🇨🇳", country: "cn", convert: true,  decimals: 2 },
+  { code: "HKD", symbol: "HK$",  get label(){ return currencyDisplayName("HKD", "港幣"); },       flag: "🇭🇰", country: "hk", convert: true,  decimals: 2 },
+  { code: "MOP", symbol: "MOP$", get label(){ return currencyDisplayName("MOP", "澳門幣"); },     flag: "🇲🇴", country: "mo", convert: true,  decimals: 2 },
+  { code: "USD", symbol: "$",    get label(){ return currencyDisplayName("USD", "美金"); },       flag: "🇺🇸", country: "us", convert: true,  decimals: 2 },
+  { code: "VND", symbol: "₫",    get label(){ return currencyDisplayName("VND", "越南盾"); },     flag: "🇻🇳", country: "vn", convert: true,  decimals: 0 },
+  { code: "THB", symbol: "฿",    get label(){ return currencyDisplayName("THB", "泰銖"); },       flag: "🇹🇭", country: "th", convert: true,  decimals: 2 },
+  { code: "PHP", symbol: "₱",    get label(){ return currencyDisplayName("PHP", "菲律賓披索"); }, flag: "🇵🇭", country: "ph", convert: true,  decimals: 2 },
+  { code: "SGD", symbol: "S$",   get label(){ return currencyDisplayName("SGD", "新加坡幣"); },   flag: "🇸🇬", country: "sg", convert: true,  decimals: 2 },
+  { code: "MYR", symbol: "RM",   get label(){ return currencyDisplayName("MYR", "馬來幣"); },     flag: "🇲🇾", country: "my", convert: true,  decimals: 2 },
+  { code: "IDR", symbol: "Rp",   get label(){ return currencyDisplayName("IDR", "印尼盾"); },     flag: "🇮🇩", country: "id", convert: true,  decimals: 0 },
+  { code: "KHR", symbol: "៛",    get label(){ return currencyDisplayName("KHR", "柬埔寨瑞爾"); }, flag: "🇰🇭", country: "kh", convert: true,  decimals: 0 },
+  { code: "EUR", symbol: "€",    get label(){ return currencyDisplayName("EUR", "歐元"); },       flag: "🇪🇺", country: "eu", convert: true,  decimals: 2 },
+  { code: "GBP", symbol: "£",    get label(){ return currencyDisplayName("GBP", "英鎊"); },       flag: "🇬🇧", country: "gb", convert: true,  decimals: 2 },
+  { code: "CHF", symbol: "Fr",   get label(){ return currencyDisplayName("CHF", "瑞士法郎"); },   flag: "🇨🇭", country: "ch", convert: true,  decimals: 2 },
+  { code: "AUD", symbol: "A$",   get label(){ return currencyDisplayName("AUD", "澳幣"); },       flag: "🇦🇺", country: "au", convert: true,  decimals: 2 },
+  { code: "NZD", symbol: "NZ$",  get label(){ return currencyDisplayName("NZD", "紐幣"); },       flag: "🇳🇿", country: "nz", convert: true,  decimals: 2 },
+  { code: "TRY", symbol: "₺",    get label(){ return currencyDisplayName("TRY", "土耳其里拉"); }, flag: "🇹🇷", country: "tr", convert: true,  decimals: 2 },
+  { code: "CZK", symbol: "Kč",   get label(){ return currencyDisplayName("CZK", "捷克克朗"); },   flag: "🇨🇿", country: "cz", convert: true,  decimals: 2 },
+  { code: "HUF", symbol: "Ft",   get label(){ return currencyDisplayName("HUF", "匈牙利福林"); }, flag: "🇭🇺", country: "hu", convert: true,  decimals: 0 },
+  { code: "SEK", symbol: "kr",   get label(){ return currencyDisplayName("SEK", "瑞典克朗"); },   flag: "🇸🇪", country: "se", convert: true,  decimals: 2 },
+  { code: "NOK", symbol: "kr",   get label(){ return currencyDisplayName("NOK", "挪威克朗"); },   flag: "🇳🇴", country: "no", convert: true,  decimals: 2 },
+  { code: "DKK", symbol: "kr",   get label(){ return currencyDisplayName("DKK", "丹麥克朗"); },   flag: "🇩🇰", country: "dk", convert: true,  decimals: 2 },
+  { code: "ISK", symbol: "kr",   get label(){ return currencyDisplayName("ISK", "冰島克朗"); },   flag: "🇮🇸", country: "is", convert: true,  decimals: 0 }
 ];
+
+// 📷 真國旗圖片（flagcdn.com，免費、不用金鑰）取代 emoji 國旗——emoji 國旗在
+// Windows 部分瀏覽器/字型組合下顯示不出來，會直接秀成兩個字母代碼（例如
+// 「TW」），這裡改成真的圖片，跨平台外觀一致。萬一圖沒載到（離線、CDN
+// 抽風），onerror 退回原本的 emoji，不會整塊空白。只能用在「一般 HTML」
+// 的地方——瀏覽器原生 <option> 不支援嵌圖，那些地方還是只能用文字。
+function currencyFlagImgHTML(code, sizeClass){
+  const c = CURRENCIES.find(item => item.code === code);
+  if(!c || !c.country) return (c && c.flag) || "";
+  const cls = "currency-flag-img" + (sizeClass ? " " + sizeClass : "");
+  const emoji = c.flag || "";
+  return `<img src="https://flagcdn.com/24x18/${c.country}.png" srcset="https://flagcdn.com/48x36/${c.country}.png 2x" width="18" height="14" alt="" class="${cls}" onerror="this.replaceWith(document.createTextNode('${emoji}'))">`;
+}
+window.currencyFlagImgHTML = currencyFlagImgHTML;
 
 // 依照幣別的「最小法定面額」四捨五入（例如美金到分＝2位小數，臺幣/日幣沒有角分＝整數），
 // 不能一律無條件四捨五入到整數，否則像 1.99 美元這種金額拆分下去會失真。
@@ -89,7 +103,7 @@ function renderSplitbillNav(container, currentCode, shownCodes){
         <div class="nav-dropdown-menu hidden" id="navDropdownMenu">
           ${overflowList.map(c => `
             <a href="currency.html?c=${c.code}" class="nav-dropdown-item${c.code === currentCode ? ' active' : ''}">
-              <span>${c.flag || ''} ${c.label}</span>
+              <span>${currencyFlagImgHTML(c.code)} ${c.label}</span>
               <span class="nav-dropdown-code">${c.code}</span>
             </a>
           `).join("")}

@@ -26,15 +26,15 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=798">
-<link rel="stylesheet" href="shared.css?v=798">
+<link rel="stylesheet" href="theme.css?v=827">
+<link rel="stylesheet" href="shared.css?v=827">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="i18n.js?v=798"></script>
-<script src="currencies.js?v=798"></script>
-<script src="version.js?v=798"></script>
-<script src="shared-ui.js?v=798"></script>
-<script src="theme.js?v=798" defer></script>
-<script src="app-banner.js?v=798" defer></script>
+<script src="i18n.js?v=827"></script>
+<script src="currencies.js?v=827"></script>
+<script src="version.js?v=827"></script>
+<script src="shared-ui.js?v=827"></script>
+<script src="theme.js?v=827" defer></script>
+<script src="app-banner.js?v=827" defer></script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
@@ -91,6 +91,9 @@ if("serviceWorker" in navigator){
 <div class="wrap">
 
   <div class="app-header">
+    <div class="location-weather-badge hidden" id="locationWeatherCard">
+      <span id="locationWeatherText"></span>
+    </div>
     <div class="title-row">
       <svg class="app-logo" viewBox="0 0 512 512" aria-hidden="true">
         <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
@@ -156,6 +159,14 @@ if("serviceWorker" in navigator){
           <p class="filter-hint" data-i18n="common.loading">載入中…</p>
         </div>
       </div>
+    </div>
+
+    <!-- 🔁 本月週期性支出總覽：純粹用 recurring_expenses 現有資料算出來，不用等
+         自動記錄跑過才看得到，一打開總覽就知道每個月固定要繳多少、最近哪幾筆快到期 -->
+    <div class="card hidden" id="recurringOverviewCard">
+      <h2 data-i18n="summary.recurringOverviewTitle">🔁 週期性支出總覽</h2>
+      <div id="recurringOverviewTotals" class="recurring-overview-totals"></div>
+      <div id="recurringOverviewUpcoming" class="recurring-overview-upcoming"></div>
     </div>
 
     <!-- 3. 群組留言：只有同一個群組的人看得到，只能刪自己寫的 -->
@@ -1278,6 +1289,7 @@ renderNavLinks();
 
       // 非核心功能在背景非同步執行
       loadFeedback().catch(e => console.error("loadFeedback error:", e));
+      renderRecurringOverview().catch(e => console.error("renderRecurringOverview error:", e));
       subscribeRealtime();
       ensurePushSubscribed().catch(e => console.error("ensurePushSubscribed error:", e));
       // 背景偵測城市/國家變化
@@ -1288,6 +1300,100 @@ renderNavLinks();
         await forceLogout();
       }
     }
+  }
+
+  // 🔁 週期性支出總覽：純粹用 recurring_expenses 現有資料算出來（依幣別加總金額、
+  // 列出最近幾筆快到期的），不用等自動記錄真的跑過才看得到。資料表可能還沒建
+  // （使用者尚未執行 scripts/recurring_expenses.sql）就整張卡藏起來，不影響其他功能。
+  // 到期日用相對天數講（今天／明天／X 天後），比原始日期直覺；超過一週就
+  // 改回原始日期，不然「13 天後」這種講法反而比看日期更難換算。
+  function formatRelativeDueDate(dateStr, todayStr){
+    const diffDays = Math.round((new Date(dateStr) - new Date(todayStr)) / 86400000);
+    if(diffDays === 0) return t("summary.dueToday");
+    if(diffDays === 1) return t("summary.dueTomorrow");
+    if(diffDays > 1 && diffDays <= 6) return t("summary.dueInDays", { days: diffDays });
+    return dateStr;
+  }
+
+  async function renderRecurringOverview(){
+    const card = document.getElementById("recurringOverviewCard");
+    const totalsEl = document.getElementById("recurringOverviewTotals");
+    const upcomingEl = document.getElementById("recurringOverviewUpcoming");
+    if(!card || !myMember || !myMember.group_id) return;
+
+    const { data: allData, error } = await sb.from("recurring_expenses")
+      .select("*")
+      .eq("group_id", myMember.group_id)
+      .eq("active", true);
+    if(error){
+      console.warn("讀取週期性支出總覽失敗（可能尚未建立 recurring_expenses 資料表）：", error);
+      card.classList.add("hidden");
+      return;
+    }
+
+    // 標題是「我的週期性支出」，只算「我自己有份」的範本（我是付款人或分攤人
+    // 之一）——不是這個群組全部的週期性支出，跟別人設的、與我無關的範本不該
+    // 混在一起算給我看。
+    const data = (allData || []).filter(tmpl =>
+      (tmpl.payers || []).some(p => p.member_id === myMember.id) ||
+      (tmpl.shares || []).some(s => s.member_id === myMember.id)
+    );
+    if(!data.length){
+      card.classList.add("hidden");
+      return;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // 只有 1 筆範本時，「依幣別加總」這格會跟下面「即將到期」那唯一一列的
+    // 金額完全重複，沒有加值，索性不顯示，直接看那一列就好；2 筆以上（不管
+    // 同不同幣別）加總才有意義，看得出來每期固定要準備多少錢。
+    if(totalsEl){
+      if(data.length > 1){
+        const totalsByCurrency = {};
+        data.forEach(tmpl => {
+          totalsByCurrency[tmpl.currency] = (totalsByCurrency[tmpl.currency] || 0) + Number(tmpl.amount);
+        });
+        totalsEl.innerHTML = Object.keys(totalsByCurrency).map(code => {
+          const curObj = CURRENCIES.find(c => c.code === code);
+          const sym = curObj ? curObj.symbol : code;
+          return `<div class="recurring-overview-total-row">
+            <span>${curObj ? escapeHtml(curObj.label) : code}</span>
+            <span class="recurring-overview-total-amt">${sym}${formatAmt(totalsByCurrency[code])}</span>
+          </div>`;
+        }).join("");
+      } else {
+        totalsEl.innerHTML = "";
+      }
+    }
+
+    if(upcomingEl){
+      // 已經過期、還沒被自動記錄處理到的範本（例如很久沒開任何幣別頁）不算
+      // 「即將到期」，硬列出來反而誤導；這種會在下次真的打開那個幣別頁時
+      // 自動補上，這裡先跳過就好。
+      const upcoming = data
+        .filter(tmpl => tmpl.next_due_date >= todayStr)
+        .sort((a, b) => a.next_due_date < b.next_due_date ? -1 : 1)
+        .slice(0, 3);
+      if(upcoming.length){
+        upcomingEl.innerHTML = `<div class="recurring-overview-upcoming-label">${t("summary.recurringUpcomingLabel")}</div>` +
+          upcoming.map(tmpl => {
+            const curObj = CURRENCIES.find(c => c.code === tmpl.currency);
+            const sym = curObj ? curObj.symbol : tmpl.currency;
+            return `<div class="recurring-overview-upcoming-row">
+              <span class="recurring-overview-upcoming-desc">🔁 ${escapeHtml(tmpl.description || "")}</span>
+              <span class="recurring-overview-upcoming-meta">${sym}${formatAmt(tmpl.amount)} · ${formatRelativeDueDate(tmpl.next_due_date, todayStr)}</span>
+            </div>`;
+          }).join("");
+      } else {
+        upcomingEl.innerHTML = "";
+      }
+    }
+
+    // 兩塊都沒東西可顯示的話（例如唯一一筆範本剛好逾期、還沒被任何幣別頁
+    // 處理過），整張卡先藏起來，不要只留一個空盪盪的標題。
+    const hasContent = (totalsEl && totalsEl.innerHTML.trim()) || (upcomingEl && upcomingEl.innerHTML.trim());
+    card.classList.toggle("hidden", !hasContent);
   }
 
   async function loadAndRenderAllBalances(){
@@ -1330,37 +1436,107 @@ renderNavLinks();
   }
 
   // ============================================================
-  // 🌏 GPS 城市/國家變化偵測
+  // 🌏 GPS 城市/國家變化偵測（GPS 拿不到時退而求其次用免費 IP 定位）
   // ============================================================
-  async function detectAndNotifyLocationChange(){
-    if(!navigator.geolocation) return;
+  // IP 定位備援：GPS 沒開權限、使用者拒絕、裝置不支援，或反查失敗時才會用到。
+  // 原本試過 freeipapi.com，實測瀏覽器直接呼叫會被 CORS 擋掉（沒有回
+  // Access-Control-Allow-Origin，這種問題只有真的在瀏覽器裡測才測得出來，
+  // 文件看不出來）。改用 BigDataCloud 的免費 client-side reverse-geocode
+  // API——沒帶經緯度參數呼叫的話，它會自動退回用「這次請求的來源 IP」查
+  // 位置（lookupSource 會回傳 "ip geolocation"），瀏覽器端直接 fetch 測過
+  // 沒有 CORS 問題，一樣免費、不用金鑰。準確度只到城市等級，比 GPS 粗略，
+  // 但總比完全沒有備援、直接放棄自動偵測好。
+  async function getIpBasedLocation(){
     try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 4000);
+      const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=zh", { signal: ctrl.signal });
+      if(!r.ok) return null;
+      const d = await r.json();
+      const cc = (d.countryCode || "").toLowerCase();
+      if(!cc) return null;
+      return { countryCode: cc, city: d.city || d.locality || "", countryName: d.countryName || "", lat: d.latitude, lon: d.longitude };
+    } catch(e){ return null; }
+  }
+
+  // 📍 目的地天氣：Open-Meteo，免費、不用金鑰（非商業用途每天 1 萬次額度，
+  // 個人記帳 App 用量完全用不完），跟定位共用同一組經緯度，不用另外問權限。
+  const WEATHER_ICON_MAP = {
+    0:"☀️", 1:"🌤️", 2:"⛅", 3:"☁️",
+    45:"🌫️", 48:"🌫️",
+    51:"🌦️", 53:"🌦️", 55:"🌦️", 56:"🌧️", 57:"🌧️",
+    61:"🌧️", 63:"🌧️", 65:"🌧️", 66:"🌧️", 67:"🌧️",
+    71:"🌨️", 73:"🌨️", 75:"🌨️", 77:"🌨️",
+    80:"🌦️", 81:"🌧️", 82:"⛈️", 85:"🌨️", 86:"🌨️",
+    95:"⛈️", 96:"⛈️", 99:"⛈️"
+  };
+  async function fetchOpenMeteoWeather(lat, lon){
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 4000);
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`;
+      const r = await fetch(url, { signal: ctrl.signal });
+      if(!r.ok) return null;
+      const d = await r.json();
+      if(!d.current || d.current.temperature_2m === undefined) return null;
+      return { temp: Math.round(d.current.temperature_2m), icon: WEATHER_ICON_MAP[d.current.weather_code] || "🌡️" };
+    } catch(e){ return null; }
+  }
+  function renderLocationWeatherBadge(weather, placeLabel){
+    const card = document.getElementById("locationWeatherCard");
+    const textEl = document.getElementById("locationWeatherText");
+    if(!card || !textEl) return;
+    if(!weather || !placeLabel){ card.classList.add("hidden"); return; }
+    const full = `${weather.icon} ${placeLabel} ${weather.temp}°C`;
+    textEl.textContent = full;
+    card.title = full;
+    card.classList.remove("hidden");
+  }
+
+  async function detectAndNotifyLocationChange(){
+    const CC_MAP = { jp:'JPY', kr:'KRW', th:'THB', sg:'SGD', hk:'HKD', cn:'CNY', gb:'GBP', us:'USD', au:'AUD', vn:'VND', tw:'TWD', fr:'EUR', de:'EUR', it:'EUR', es:'EUR', nl:'EUR', be:'EUR', at:'EUR', pl:'EUR', se:'EUR', my:'MYR', id:'IDR', ph:'PHP', in:'INR' };
+
+    let lat, lon, countryCode = '', city = '', countryName = '';
+    try {
+      if(!navigator.geolocation) throw new Error("no geolocation");
       const pos = await new Promise((res, rej) => {
         navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
       });
-      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      lat = pos.coords.latitude; lon = pos.coords.longitude;
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=5&addressdetails=1&accept-language=zh-TW,zh,en`;
       const r = await fetch(url, { headers: { 'Accept': 'application/json' } }).catch(() => null);
-      if(!r || !r.ok) return;
+      if(!r || !r.ok) throw new Error("reverse geocode failed");
       const d = await r.json();
       const addr = d.address || {};
-      const countryCode = (addr.country_code || '').toLowerCase();
-      const city = addr.city || addr.town || addr.state || '';
-      const CC_MAP = { jp:'JPY', kr:'KRW', th:'THB', sg:'SGD', hk:'HKD', cn:'CNY', gb:'GBP', us:'USD', au:'AUD', vn:'VND', tw:'TWD', fr:'EUR', de:'EUR', it:'EUR', es:'EUR', nl:'EUR', be:'EUR', at:'EUR', pl:'EUR', se:'EUR', my:'MYR', id:'IDR', ph:'PHP', in:'INR' };
-      const detectedCurrency = CC_MAP[countryCode] || null;
-      const lastCountry = localStorage.getItem('sb_last_country_code');
-      localStorage.setItem('sb_last_country_code', countryCode);
-      if(city) localStorage.setItem('sb_last_city', city);
-      if(lastCountry && lastCountry !== countryCode && detectedCurrency){
-        const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
-        const curOk = avail.includes(detectedCurrency);
-        const countryName = addr.country || countryCode.toUpperCase();
-        const cityStr = city ? ` ${city}` : '';
-        if(typeof showToast === 'function'){
-          showToast(t("summary.detectedLocation", {location: countryName + cityStr}), curOk ? t("summary.quickAddWillPreselect", {currency: detectedCurrency}) : t("summary.currencyNotEnabledReminder", {currency: detectedCurrency}), 6000);
-        }
+      countryCode = (addr.country_code || '').toLowerCase();
+      city = addr.city || addr.town || addr.state || '';
+      countryName = addr.country || '';
+    } catch(e){
+      const ipLoc = await getIpBasedLocation();
+      if(!ipLoc) return;
+      lat = ipLoc.lat; lon = ipLoc.lon;
+      countryCode = ipLoc.countryCode; city = ipLoc.city; countryName = ipLoc.countryName;
+    }
+    if(!countryCode) return;
+
+    const detectedCurrency = CC_MAP[countryCode] || null;
+    const lastCountry = localStorage.getItem('sb_last_country_code');
+    localStorage.setItem('sb_last_country_code', countryCode);
+    if(city) localStorage.setItem('sb_last_city', city);
+    if(lastCountry && lastCountry !== countryCode && detectedCurrency){
+      const avail = (shownCurrencies && shownCurrencies.length) ? shownCurrencies : ['TWD'];
+      const curOk = avail.includes(detectedCurrency);
+      const cnLabel = countryName || countryCode.toUpperCase();
+      const cityStr = city ? ` ${city}` : '';
+      if(typeof showToast === 'function'){
+        showToast(t("summary.detectedLocation", {location: cnLabel + cityStr}), curOk ? t("summary.quickAddWillPreselect", {currency: detectedCurrency}) : t("summary.currencyNotEnabledReminder", {currency: detectedCurrency}), 6000);
       }
-    } catch(e){ /* 靜默失敗 */ }
+    }
+
+    if(lat !== undefined && lon !== undefined){
+      const weather = await fetchOpenMeteoWeather(lat, lon);
+      renderLocationWeatherBadge(weather, city || countryName || countryCode.toUpperCase());
+    }
   }
 
   // ============================================================
@@ -1582,7 +1758,7 @@ renderNavLinks();
         nz:'NZD', vn:'VND', tw:'TWD', my:'MYR', id:'IDR', ph:'PHP',
         in:'INR'
       };
-      return new Promise((resolve) => {
+      const gpsResult = await new Promise((resolve) => {
         if(!navigator.geolocation){ resolve(null); return; }
         navigator.geolocation.getCurrentPosition(async (pos) => {
           try {
@@ -1600,6 +1776,14 @@ renderNavLinks();
           } catch(e){ resolve(null); }
         }, () => resolve(null), { enableHighAccuracy: false, timeout: 5000, maximumAge: 120000 });
       });
+      if(gpsResult) return gpsResult;
+
+      // GPS 沒開權限、使用者拒絕、或裝置不支援時，退而求其次用免費 IP 定位
+      // （跟 detectAndNotifyLocationChange 共用同一支 getIpBasedLocation()）。
+      const ipLoc = await getIpBasedLocation();
+      if(!ipLoc) return null;
+      const currency = CC_MAP[ipLoc.countryCode] || null;
+      return currency ? { code: currency, countryCode: ipLoc.countryCode } : { code: null, countryCode: ipLoc.countryCode };
     }
 
     function populateCurrencies(){
@@ -2407,6 +2591,7 @@ renderNavLinks();
           payers, shares, currency, category: cat || "general"
         });
         if(error) throw error;
+
         localStorage.setItem("sb_last_active_currency", currency);
         closeModal();
         const curObj = (typeof CURRENCIES !== "undefined") ? CURRENCIES.find(c => c.code === currency) : null;

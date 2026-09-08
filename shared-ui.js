@@ -616,7 +616,7 @@ async function initNotificationBell(sb, myMember){
     listEl.innerHTML = `<p class="filter-hint">${t("common.loading")}</p>`;
     const { data, error } = await sb
       .from("notifications")
-      .select("id,type,title,body,is_read,created_at")
+      .select("id,type,title,body,is_read,created_at,related_table,related_id")
       .eq("member_id", myMember.id)
       .order("created_at", { ascending: false })
       .limit(30);
@@ -630,7 +630,7 @@ async function initNotificationBell(sb, myMember){
       return;
     }
     listEl.innerHTML = data.map(n => `
-      <div class="notif-item${n.is_read ? "" : " unread"}" data-id="${n.id}">
+      <div class="notif-item${n.is_read ? "" : " unread"}${n.related_table && n.related_id ? " notif-item-linked" : ""}" data-id="${n.id}" data-related-table="${n.related_table || ""}" data-related-id="${n.related_id || ""}">
         <div class="notif-item-main">
           <div class="notif-item-title">${n.is_read ? "" : '<span class="notif-unread-dot"></span>'}${escapeHtml(n.title)}</div>
           <div class="notif-item-body">${escapeHtml(n.body)}</div>
@@ -646,6 +646,19 @@ async function initNotificationBell(sb, myMember){
           item.classList.remove("unread");
           await sb.from("notifications").update({ is_read: true }).eq("id", item.dataset.id);
           refreshBadge();
+        }
+        // related_table/related_id 有值的話，點通知直接跳到對應內容，不用只能
+        // 標已讀、自己再去找是哪一筆——目前只有「週期性支出自動記錄」這個通知
+        // 類型會填這兩欄，其他類型（例如催款提醒）沒有就維持原本單純標已讀的行為。
+        const relatedTable = item.dataset.relatedTable;
+        const relatedId = item.dataset.relatedId;
+        if(relatedTable === "expenses" && relatedId){
+          const { data: exp } = await sb.from("expenses").select("currency").eq("id", relatedId).maybeSingle();
+          if(exp && exp.currency){
+            location.href = `currency.html?c=${encodeURIComponent(exp.currency)}&openExpense=${encodeURIComponent(relatedId)}`;
+          }
+        } else if(relatedTable === "recurring_expenses" && relatedId){
+          location.href = `settings.html?tab=group&editRecurring=${encodeURIComponent(relatedId)}`;
         }
       });
     });

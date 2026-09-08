@@ -395,7 +395,17 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         try {
           const { data, error } = await deps.sb.storage.from("receipts").createSignedUrl(expense.receipt_image_path, 300);
           if(error || !data || !data.signedUrl) throw error || new Error("receipt image not found");
-          window.open(data.signedUrl, "_blank", "noopener");
+          if(typeof window.showReceiptLightbox === "function"){
+            const curObj = (deps.CURRENCIES || []).find(c => c.code === expense.currency);
+            const sym = (curObj && curObj.symbol) || deps.CURRENCY_SYMBOL || "$";
+            window.showReceiptLightbox({
+              imgUrl: data.signedUrl,
+              title: deps.getFirstLineDesc(expense.description || "", expense.note || "") || expense.description || "",
+              meta: `${expense.expense_date || ""}　${sym}${deps.formatAmt(expense.amount)}`
+            });
+          } else {
+            window.open(data.signedUrl, "_blank", "noopener");
+          }
         } catch(err){
           console.error("開啟收據原圖失敗：", err);
           await sbAlert(t("currency.receiptImgExpired"), t("currency.cannotOpenTitle"));
@@ -2273,6 +2283,19 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             if(error) throw error;
 
             closeModal();
+
+            // 編輯時如果把幣別改掉了，這筆紀錄現在屬於別的幣別頁、在目前
+            // 這頁的清單裡會直接消失——問一下要不要順便切過去看，不然
+            // 使用者會以為存檔失敗、東西不見了（跟下面新增分支的邏輯
+            // 一致，先前這裡漏了這個提示）。
+            if(selectedReceiptCurrency !== deps.CURRENCY){
+              const okSwitch = await sbConfirm(t("currency.updateSuccessSwitchPrompt", {title: storeName, label: curLabel}), t("currency.updateSuccessTitle"));
+              if(okSwitch){
+                location.href = "currency.html?c=" + selectedReceiptCurrency;
+                return;
+              }
+            }
+
             await deps.refreshExpenses();
             await sbAlert(t("currency.updateSuccessMsg", {store: storeName}), t("currency.updateSuccessTitle"));
           } else {

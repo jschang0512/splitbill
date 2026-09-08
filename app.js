@@ -237,6 +237,213 @@
     el.classList.remove("hidden");
   }
   fetchConversionRate();
+
+  // 📈 匯率走勢：點「即時匯率」那行文字跳出走勢圖（週/月/年可切換）。歷史匯率用
+  // fawazahmed0/currency-api（本來就是 fetchConversionRate() 的備援來源之一，
+  // 免費、不用 API Key、支援指定日期查詢：把版本號從 "latest" 換成
+  // "YYYY-MM-DD" 就能查那天的匯率）——open.er-api.com 那個主要來源沒有
+  // 免費的歷史查詢，所以走勢圖這裡只用得到後面這兩個 CDN 來源。
+  function fetchHistoricalRate(code, dateStr){
+    const lc = code.toLowerCase();
+    const sources = [
+      `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${dateStr}/v1/currencies/${lc}.json`,
+      `https://${dateStr}.currency-api.pages.dev/v1/currencies/${lc}.json`
+    ];
+    function tryFetch(i){
+      if(i >= sources.length) return Promise.resolve(null);
+      return fetch(sources[i])
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          const rate = data && data[lc] && data[lc].twd;
+          return (rate === undefined || rate === null) ? null : rate;
+        })
+        .catch(()=> tryFetch(i+1));
+    }
+    return tryFetch(0);
+  }
+  // sampleEvery：年區間如果每天都查會是 365 支平行請求，改成每隔幾天抽一筆
+  // （年＝每 7 天一筆，約 52 個點），畫趨勢線夠用、也不用真的發那麼多請求。
+  async function fetchRateHistory(code, days, sampleEvery){
+    sampleEvery = sampleEvery || 1;
+    const dates = [];
+    const now = new Date();
+    for(let i = days - 1; i >= 0; i -= sampleEvery){
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const results = await Promise.all(dates.map(dateStr =>
+      fetchHistoricalRate(code, dateStr).then(rate => ({ date: dateStr, rate }))
+    ));
+    // 抓不到的那天（例如太久以前這個服務還沒開始記錄）直接跳過，不強湊假資料。
+    return results.filter(r => r.rate !== null && r.rate !== undefined && r.rate > 0);
+  }
+
+  const RATE_TREND_RANGE_CONFIG = {
+    week:  { days: 7,   sampleEvery: 1 },
+    month: { days: 30,  sampleEvery: 1 },
+    year:  { days: 365, sampleEvery: 7 }
+  };
+  let rateTrendRange = "month";
+  let rateTrendPoints = []; // 目前畫在圖上的點（含 x/y/date/rate），滑鼠/手指移動時查最近的點用
+
+  function formatTrendDate(dateStr){
+    return dateStr.slice(5).replace("-", "/");
+  }
+
+  function renderRateTrendChart(history){
+    const bodyEl = document.getElementById("exchangeRateTrendBody");
+    if(!bodyEl) return;
+    if(!history.length){
+      bodyEl.innerHTML = `<p class="filter-hint">${t("currency.rateTrendFailed")}</p>`;
+      return;
+    }
+
+    const rateLabel = v => v >= 1
+      ? v.toLocaleString("zh-TW", { maximumFractionDigits: 2 })
+      : v.toLocaleString("zh-TW", { maximumFractionDigits: 4 });
+
+    const rates = history.map(h => h.rate);
+    const min = Math.min(...rates);
+    const max = Math.max(...rates);
+    const range = (max - min) || (max * 0.02) || 1; // min===max（例如只抓到 1 筆）時避免除以零
+
+    const w = 320, h = 140, padX = 6, padTop = 18, padBottom = 24;
+    const plotW = w - padX * 2;
+    const plotH = h - padTop - padBottom;
+    const n = history.length;
+
+    rateTrendPoints = history.map((pt, i) => ({
+      x: n === 1 ? padX + plotW / 2 : padX + (i / (n - 1)) * plotW,
+      y: padTop + plotH - ((pt.rate - min) / range) * plotH,
+      ...pt
+    }));
+    const pathD = rateTrendPoints.map((p, i) => (i === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ");
+    const first = rateTrendPoints[0];
+    const last = rateTrendPoints[rateTrendPoints.length - 1];
+
+    const svg = `<svg viewBox="0 0 ${w} ${h}" class="rate-trend-chart" id="rateTrendSvg" role="img" aria-label="${t("currency.rateTrendAriaLabel")}">
+      <path d="${pathD}" class="rate-trend-line" fill="none"/>
+      <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" class="rate-trend-dot"/>
+      <line id="rateTrendHoverLine" x1="0" y1="${padTop}" x2="0" y2="${padTop + plotH}" class="rate-trend-hover-line" opacity="0"/>
+      <circle id="rateTrendHoverDot" cx="0" cy="0" r="4" class="rate-trend-hover-dot" opacity="0"/>
+      <text x="${first.x.toFixed(1)}" y="${h - 6}" text-anchor="start" class="rate-trend-date-label">${formatTrendDate(first.date)}</text>
+      <text x="${last.x.toFixed(1)}" y="${h - 6}" text-anchor="end" class="rate-trend-date-label">${formatTrendDate(last.date)}</text>
+      <rect id="rateTrendHoverArea" x="0" y="0" width="${w}" height="${h}" fill="transparent"/>
+    </svg>`;
+
+    bodyEl.innerHTML = `
+      <div class="rate-trend-summary">
+        <span class="rate-trend-current" id="rateTrendCurrentLabel">${t("currency.rateTrendCurrent", { rate: rateLabel(last.rate) })}</span>
+        <span class="rate-trend-range">${t("currency.rateTrendRange", { min: rateLabel(min), max: rateLabel(max) })}</span>
+      </div>
+      <div class="rate-trend-chart-wrap">
+        ${svg}
+        <div class="rate-trend-tooltip hidden" id="rateTrendTooltip"></div>
+      </div>
+      <p class="rate-trend-note">${t("currency.rateTrendSourceNote")}</p>
+    `;
+
+    wireRateTrendHover(w, h, rateLabel, last);
+  }
+
+  // 手指拖動／滑鼠移到圖表上，找最接近的資料點，顯示那個點的日期跟匯率——
+  // 用 pointermove（滑鼠、觸控共用同一套事件）即時抓最近點，不用重畫整張
+  // SVG，只更新輔助線/圓點的座標跟提示文字，滑動起來才會滑順。
+  function wireRateTrendHover(viewBoxW, viewBoxH, rateLabel, lastPoint){
+    const svgEl = document.getElementById("rateTrendSvg");
+    const hoverArea = document.getElementById("rateTrendHoverArea");
+    const hoverLine = document.getElementById("rateTrendHoverLine");
+    const hoverDot = document.getElementById("rateTrendHoverDot");
+    const tooltip = document.getElementById("rateTrendTooltip");
+    const currentLabel = document.getElementById("rateTrendCurrentLabel");
+    if(!svgEl || !hoverArea) return;
+
+    function pickNearestPoint(clientX){
+      const rect = svgEl.getBoundingClientRect();
+      const relX = ((clientX - rect.left) / rect.width) * viewBoxW;
+      let nearest = rateTrendPoints[0];
+      let minDist = Infinity;
+      rateTrendPoints.forEach(p => {
+        const dist = Math.abs(p.x - relX);
+        if(dist < minDist){ minDist = dist; nearest = p; }
+      });
+      return nearest;
+    }
+
+    function showPoint(p){
+      hoverLine.setAttribute("x1", p.x.toFixed(1));
+      hoverLine.setAttribute("x2", p.x.toFixed(1));
+      hoverLine.setAttribute("opacity", "1");
+      hoverDot.setAttribute("cx", p.x.toFixed(1));
+      hoverDot.setAttribute("cy", p.y.toFixed(1));
+      hoverDot.setAttribute("opacity", "1");
+      if(currentLabel) currentLabel.textContent = t("currency.rateTrendHoverLabel", { date: formatTrendDate(p.date), rate: rateLabel(p.rate) });
+      if(tooltip){
+        tooltip.textContent = `${formatTrendDate(p.date)} · NT$${rateLabel(p.rate)}`;
+        tooltip.classList.remove("hidden");
+        const rect = svgEl.getBoundingClientRect();
+        const pxX = (p.x / viewBoxW) * rect.width;
+        const pxY = (p.y / viewBoxH) * rect.height;
+        tooltip.style.left = pxX + "px";
+        tooltip.style.top = pxY + "px";
+      }
+    }
+
+    function resetToLast(){
+      hoverLine.setAttribute("opacity", "0");
+      hoverDot.setAttribute("opacity", "0");
+      if(tooltip) tooltip.classList.add("hidden");
+      if(currentLabel) currentLabel.textContent = t("currency.rateTrendCurrent", { rate: rateLabel(lastPoint.rate) });
+    }
+
+    hoverArea.addEventListener("pointermove", (e)=> showPoint(pickNearestPoint(e.clientX)));
+    hoverArea.addEventListener("pointerdown", (e)=> showPoint(pickNearestPoint(e.clientX)));
+    hoverArea.addEventListener("pointerleave", resetToLast);
+    // 手機放開手指後，隔一下再自動回到「今日」的資訊，不要讓使用者以為
+    // 剛剛滑到的那個過去日期的匯率變成現在的即時匯率。
+    hoverArea.addEventListener("pointerup", ()=> setTimeout(resetToLast, 1500));
+  }
+
+  async function loadAndRenderRateTrend(){
+    const bodyEl = document.getElementById("exchangeRateTrendBody");
+    if(bodyEl) bodyEl.innerHTML = `<p class="filter-hint">${t("common.loading")}</p>`;
+    const cfg = RATE_TREND_RANGE_CONFIG[rateTrendRange] || RATE_TREND_RANGE_CONFIG.month;
+    try {
+      const history = await fetchRateHistory(CURRENCY, cfg.days, cfg.sampleEvery);
+      renderRateTrendChart(history);
+    } catch(err){
+      console.error("讀取歷史匯率失敗：", err);
+      if(bodyEl) bodyEl.innerHTML = `<p class="filter-hint">${t("currency.rateTrendFailed")}</p>`;
+    }
+  }
+
+  const exchangeRateHintBtn = document.getElementById("exchangeRateHint");
+  const exchangeRateTrendModal = document.getElementById("exchangeRateTrendModal");
+  const exchangeRateTrendCloseBtn = document.getElementById("exchangeRateTrendCloseBtn");
+  const rateTrendRangeTabs = document.getElementById("rateTrendRangeTabs");
+  if(exchangeRateHintBtn && exchangeRateTrendModal){
+    exchangeRateHintBtn.addEventListener("click", ()=>{
+      exchangeRateTrendModal.classList.add("show");
+      const titleEl = document.getElementById("exchangeRateTrendTitle");
+      if(titleEl) titleEl.textContent = t("currency.rateTrendTitleWithCode", { code: CURRENCY });
+      loadAndRenderRateTrend();
+    });
+  }
+  if(exchangeRateTrendCloseBtn && exchangeRateTrendModal){
+    exchangeRateTrendCloseBtn.addEventListener("click", ()=> exchangeRateTrendModal.classList.remove("show"));
+  }
+  if(rateTrendRangeTabs){
+    rateTrendRangeTabs.querySelectorAll(".donut-scope-tab").forEach(tab => {
+      tab.addEventListener("click", ()=>{
+        rateTrendRangeTabs.querySelectorAll(".donut-scope-tab").forEach(t2 => t2.classList.remove("active"));
+        tab.classList.add("active");
+        rateTrendRange = tab.dataset.range || "month";
+        loadAndRenderRateTrend();
+      });
+    });
+  }
+
   function conversionHintText(amount){
     if(!SHOW_CONVERSION || !conversionRate) return "";
     const converted = (amount * conversionRate).toFixed(0);
@@ -737,8 +944,17 @@
     if(repayDateInp) repayDateInp.value = new Date().toISOString().slice(0,10);
 
     await refreshExpenses();
+    generateDueRecurringExpenses();
     subscribeRealtime();
     ensurePushSubscribed();
+
+    // 從通知夾點「週期性支出已自動記錄」跳過來的（?openExpense=支出id），
+    // 資料載入完直接幫忙開好那筆的明細視窗，不用使用者自己在紀錄裡找。
+    const openExpenseId = new URLSearchParams(location.search).get("openExpense");
+    if(openExpenseId){
+      const targetExp = cachedExpenses.find(e => e.id === openExpenseId);
+      if(targetExp) showExpenseDebtDetail(targetExp);
+    }
 
     // 債務關係表熱圖的顏色是算好直接寫進 inline style，不是純 CSS 變數，
     // 使用者切換深淺模式時 theme.js 會發這個事件，這裡收到後用現有快取
@@ -1778,6 +1994,15 @@
         }
       }
 
+      // 編輯模式下，「記錯幣別」的修正欄位如果有顯示（非跨幣別轉移紀錄）
+      // 就用使用者選的幣別；新增支出、或欄位被隱藏（xcur 紀錄）的情況，
+      // 幣別還是照這一頁本身的 CURRENCY，行為跟改動前完全一樣。
+      const editCurrencyRowEl = document.getElementById("editCurrencyRow");
+      const editCurrencySelectEl = document.getElementById("expEditCurrencySelect");
+      const editedCurrency = (editingExpenseId && editCurrencyRowEl && !editCurrencyRowEl.classList.contains("hidden") && editCurrencySelectEl && editCurrencySelectEl.value)
+        ? editCurrencySelectEl.value
+        : CURRENCY;
+
       const payload = {
         amount,
         description,
@@ -1786,7 +2011,7 @@
         created_by: myMember.id,
         payers,
         shares,
-        currency: CURRENCY,
+        currency: editedCurrency,
         category: selectedExpCategory || "general"
       };
       const { error } = editingExpenseId
@@ -1839,7 +2064,6 @@
       setAddonMode("custom");
       const addonsPreview = document.getElementById("expAddonsPreview");
       if(addonsPreview) addonsPreview.classList.add("hidden");
-
       await resetExpWizardToStep0();
       btn.textContent = wasEditing ? t("currency.updatedCheckmark") : t("currency.addedCheckmark");
       btn.classList.add("btn-success");
@@ -1847,6 +2071,18 @@
         btn.classList.remove("btn-success");
         btn.textContent = t("common.wizardNext");
       }, 1100);
+
+      // 編輯時如果把幣別改掉了，這筆紀錄現在屬於別的幣別頁、在目前這頁
+      // 的清單裡會直接消失——問一下要不要順便切過去看，不然使用者會
+      // 以為存檔失敗、東西不見了。
+      if(wasEditing && editedCurrency !== CURRENCY){
+        const targetLabel = (CURRENCIES.find(c => c.code === editedCurrency) || {}).label || editedCurrency;
+        const okSwitch = await sbConfirm(t("currency.updateSuccessSwitchPrompt", {title: itemTitle, label: targetLabel}), t("currency.updateSuccessTitle"));
+        if(okSwitch){
+          location.href = "currency.html?c=" + editedCurrency;
+          return;
+        }
+      }
 
       await refreshExpenses();
     });
@@ -2085,7 +2321,46 @@
     return { base: Number(rawAmount) || 0, addon: 0, tax: 0, isCustom: false, isAddonOnly: false, hasCalc: false };
   }
 
+  // 🔁 週期性支出自動產生的那一筆，編輯前先問清楚範圍：「只改這一筆」直接照
+  // 平常的編輯流程走；「這筆以後都改」是要調整範本本身（影響以後每一期），
+  // 範本編輯表單獨立在設定頁（見使用者需求：跟一般支出的建立/編輯入口分開），
+  // 這裡只負責導過去、帶著範本 id。
+  function openRecurringEditScopeChoice(e, templateId){
+    const modal = document.getElementById("recurringEditScopeModal");
+    if(!modal){ startEditExpenseDirect(e); return; }
+    const bodyEl = document.getElementById("recurringEditScopeBody");
+    const onlyThisBtn = document.getElementById("recurringEditScopeOnlyThisBtn");
+    const templateBtn = document.getElementById("recurringEditScopeTemplateBtn");
+    const closeBtn = document.getElementById("recurringEditScopeCloseBtn");
+    const { title } = splitExpenseTitleAndNote(e.description || "", e.note || "");
+    if(bodyEl) bodyEl.textContent = t("currency.recurringEditScopeBody", { title: title || e.description || t("currency.expenseDetailFallback") });
+    if(onlyThisBtn){
+      onlyThisBtn.onclick = () => {
+        modal.classList.remove("show");
+        startEditExpenseDirect(e);
+      };
+    }
+    if(templateBtn){
+      templateBtn.onclick = () => {
+        modal.classList.remove("show");
+        location.href = "settings.html?tab=group&editRecurring=" + encodeURIComponent(templateId);
+      };
+    }
+    if(closeBtn) closeBtn.onclick = () => modal.classList.remove("show");
+    modal.classList.add("show");
+  }
+
   function startEditExpense(e){
+    const recurringTemplateId = isRecurringGeneratedStr(e.description) ? extractRecurringTemplateId(e.description)
+      : (isRecurringGeneratedStr(e.note) ? extractRecurringTemplateId(e.note) : null);
+    if(recurringTemplateId){
+      openRecurringEditScopeChoice(e, recurringTemplateId);
+      return;
+    }
+    startEditExpenseDirect(e);
+  }
+
+  function startEditExpenseDirect(e){
     // 🌟 若為 AI 自動拆單產生的紀錄，直接開啟 AI 拆單編輯看板 (Step 3) 讓使用者自由修改品項與金額！
     let aiData = extractAiReceiptData(e, memberRows || MEMBERS || []);
 
@@ -2126,6 +2401,24 @@
     setAddonMode("custom");
     document.getElementById("editBanner").classList.remove("hidden");
     document.getElementById("expFormTitle").textContent = t("currency.editingExpenseTitle");
+
+    // 記錯幣別很常見的手滑，開放編輯模式下直接改幣別修正——跨幣別轉移
+    // 產生的關聯紀錄（xcur，見下面「跨幣別轉移」那組邏輯）牽涉另一邊
+    // 帳本的對應金額，改幣別容易破壞兩邊的關聯，不開放編輯。
+    const editCurrencyRow = document.getElementById("editCurrencyRow");
+    const editCurrencySelect = document.getElementById("expEditCurrencySelect");
+    const isXcurRecordForEdit = isXcurStr(e.description) || isXcurStr(e.note);
+    if(editCurrencyRow && editCurrencySelect){
+      if(isXcurRecordForEdit){
+        editCurrencyRow.classList.add("hidden");
+      } else {
+        editCurrencySelect.innerHTML = CURRENCIES.map(c => `<option value="${c.code}">${c.label} (${c.code})</option>`).join("");
+        editCurrencySelect.value = e.currency || CURRENCY;
+        enhanceSelect(editCurrencySelect);
+        editCurrencyRow.classList.remove("hidden");
+      }
+    }
+
     resetExpWizardToStep0();
 
     const expAmtInp = document.getElementById("expAmount");
@@ -2232,6 +2525,8 @@
     editingExpenseId = null;
     editingExpenseOriginal = null;
     document.getElementById("editBanner").classList.add("hidden");
+    const editCurrencyRow = document.getElementById("editCurrencyRow");
+    if(editCurrencyRow) editCurrencyRow.classList.add("hidden");
     document.getElementById("expFormTitle").textContent = t("currency.expFormTitleDefault");
     const expAmtInp = document.getElementById("expAmount");
     if(expAmtInp){ expAmtInp.value = ""; clearRowCalc(expAmtInp); }
@@ -2285,7 +2580,13 @@
       if(from_member === to_member){ msg.textContent = t("currency.repayFromToSame"); msg.className = "msg error"; return; }
       if(!amount || amount <= 0){ msg.textContent = t("currency.amountInvalid"); msg.className = "msg error"; return; }
 
-      const payload = { from_member, to_member, amount, note: note || null, payment_date, created_by: myMember.id, currency: CURRENCY };
+      const repayEditCurrencyRowEl = document.getElementById("repayEditCurrencyRow");
+      const repayEditCurrencySelectEl = document.getElementById("repayEditCurrencySelect");
+      const editedRepayCurrency = (editingRepaymentId && repayEditCurrencyRowEl && !repayEditCurrencyRowEl.classList.contains("hidden") && repayEditCurrencySelectEl && repayEditCurrencySelectEl.value)
+        ? repayEditCurrencySelectEl.value
+        : CURRENCY;
+
+      const payload = { from_member, to_member, amount, note: note || null, payment_date, created_by: myMember.id, currency: editedRepayCurrency };
       const { error } = editingRepaymentId
         ? await sb.from("repayments").update(payload).eq("id", editingRepaymentId)
         : await sb.from("repayments").insert(payload);
@@ -2303,6 +2604,19 @@
       if(wasEditing) exitEditRepaymentMode();
       document.getElementById("repayAmount").value = "";
       document.getElementById("repayNote").value = "";
+
+      // 編輯時如果把幣別改掉了，這筆紀錄現在屬於別的幣別頁，問一下要不要
+      // 順便切過去看（跟支出編輯同一套邏輯）。
+      if(wasEditing && editedRepayCurrency !== CURRENCY){
+        const targetLabel = (CURRENCIES.find(c => c.code === editedRepayCurrency) || {}).label || editedRepayCurrency;
+        const repayTitle = `${memberById[from_member] || "?"} → ${memberById[to_member] || "?"}`;
+        const okSwitch = await sbConfirm(t("currency.updateSuccessSwitchPrompt", {title: repayTitle, label: targetLabel}), t("currency.updateSuccessTitle"));
+        if(okSwitch){
+          location.href = "currency.html?c=" + editedRepayCurrency;
+          return;
+        }
+      }
+
       await refreshExpenses();
     });
   }
@@ -2316,6 +2630,22 @@
     document.getElementById("repayEditBanner").classList.remove("hidden");
     document.getElementById("repayFormTitle").textContent = t("currency.editingRepaymentTitle");
     document.getElementById("addRepaymentBtn").textContent = t("currency.updateRepaymentSubmit");
+
+    // 跟支出編輯一樣，記錯幣別可以直接在這裡修正；跨幣別轉移產生的
+    // 關聯還款紀錄（xcur）不開放編輯，避免弄壞兩邊帳本的連動關係。
+    const repayEditCurrencyRow = document.getElementById("repayEditCurrencyRow");
+    const repayEditCurrencySelect = document.getElementById("repayEditCurrencySelect");
+    const isXcurRepayment = isXcurStr(r.note) || isXcurStr(r.offset_group);
+    if(repayEditCurrencyRow && repayEditCurrencySelect){
+      if(isXcurRepayment){
+        repayEditCurrencyRow.classList.add("hidden");
+      } else {
+        repayEditCurrencySelect.innerHTML = CURRENCIES.map(c => `<option value="${c.code}">${c.label} (${c.code})</option>`).join("");
+        repayEditCurrencySelect.value = r.currency || CURRENCY;
+        enhanceSelect(repayEditCurrencySelect);
+        repayEditCurrencyRow.classList.remove("hidden");
+      }
+    }
 
     ensureSelectOption(document.getElementById("repayFrom"), r.from_member);
     ensureSelectOption(document.getElementById("repayTo"), r.to_member);
@@ -2334,6 +2664,8 @@
   function exitEditRepaymentMode(){
     editingRepaymentId = null;
     document.getElementById("repayEditBanner").classList.add("hidden");
+    const repayEditCurrencyRow = document.getElementById("repayEditCurrencyRow");
+    if(repayEditCurrencyRow) repayEditCurrencyRow.classList.add("hidden");
     document.getElementById("repayFormTitle").textContent = t("currency.repayFormTitleDefault");
     clearTempEditOptions();
   }
@@ -2425,12 +2757,150 @@
       applyFiltersAndRenderBoth();
     }
     await renderBalances(expenses, repayments, { data: balRows, error: balError });
+    if(!balError) renderSettleReminder(repayments, balRows);
 
     // 如果「往來紀錄」視窗目前開著（例如別人在同一時間新增/編輯了帳目），
     // 用最新資料重新畫一次，數字才不會停在剛打開當下那一刻的舊快照。
     const openPairEl = document.getElementById("matrixDetail");
     if(currentPairDetail && openPairEl && openPairEl.style.display === "block"){
       showPairDetail(currentPairDetail.debtorId, currentPairDetail.creditorId, expenses, repayments);
+    }
+  }
+
+  // ---------- 固定／週期性支出：到期自動記錄 ----------
+  // 算「下一次」到期日：從給定的日期往後推一整個週期。月週期固定在
+  // interval_day 號（建立範本時已限制 1~28，不會有月底天數不一致的問題），
+  // 週週期單純加 7 天（範本的 next_due_date 本來就已經落在正確的星期幾上）。
+  // 這個函式同時用在「建立範本」（算第一次到期日）跟「產生完這期後算下一期」，
+  // 邏輯完全一樣，不用寫兩份。
+  function computeNextDueDate(intervalUnit, intervalDay, fromDateStr){
+    const [y, m, d] = fromDateStr.split("-").map(Number);
+    let dt;
+    if(intervalUnit === "weekly"){
+      dt = new Date(y, m - 1, d + 7);
+    } else {
+      dt = new Date(y, m, intervalDay); // m（1-based 的當月）在 0-based 月份索引裡剛好就是下個月
+    }
+    return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+  }
+
+  function renderRecurringAutoBanner(items){
+    const banner = document.getElementById("recurringAutoBanner");
+    if(!banner) return;
+    banner.innerHTML = items.map(({ expense, template }) => {
+      const { title } = splitExpenseTitleAndNote(expense.description || "", expense.note || "");
+      const label = title || expense.description || t("currency.expenseDetailFallback");
+      return `<div class="card recurring-auto-banner-item" data-expense-id="${expense.id}">
+        <span class="recurring-auto-banner-text">${t("currency.recurringAutoBannerText", { title: escapeHtml(label), amount: SYM + formatAmt(expense.amount) })}</span>
+        <span class="recurring-auto-banner-actions">
+          <button type="button" class="link-btn recurring-auto-banner-view" data-expense-id="${expense.id}">${t("currency.recurringAutoBannerViewBtn")}</button>
+          <button type="button" class="recurring-auto-banner-close" aria-label="${t("common.close")}">✕</button>
+        </span>
+      </div>`;
+    }).join("");
+
+    banner.querySelectorAll(".recurring-auto-banner-view").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const exp = cachedExpenses.find(e => e.id === btn.dataset.expenseId);
+        if(exp) showExpenseDebtDetail(exp);
+      });
+    });
+    banner.querySelectorAll(".recurring-auto-banner-close").forEach(btn=>{
+      btn.addEventListener("click", ()=>{ btn.closest(".recurring-auto-banner-item").remove(); });
+    });
+  }
+
+  // 每次登入／重新整理任何一個幣別頁都會跑一次；多人同時開頁也安全——
+  // 用「條件式 UPDATE（WHERE next_due_date 仍然到期）+ .select()」當搶號鎖，
+  // 只有真的搶到（回傳陣列非空）的那個客戶端才會繼續往下記錄這一期，
+  // 其餘客戶端會發現條件已經不成立（別人已經先更新過 next_due_date 了）
+  // 而跳過，不會重複記兩筆帳。
+  async function generateDueRecurringExpenses(){
+    if(!myMember || !myMember.group_id) return;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const { data: dueTemplates, error } = await sb
+      .from("recurring_expenses")
+      .select("*")
+      .eq("group_id", myMember.group_id)
+      .eq("active", true)
+      .lte("next_due_date", todayStr);
+    if(error){
+      // 資料表可能還沒建立（使用者尚未執行 scripts/recurring_expenses.sql），
+      // 靜靜跳過即可，不影響其他既有功能正常使用。
+      console.warn("讀取週期性支出範本失敗（可能尚未建立 recurring_expenses 資料表）：", error);
+      return;
+    }
+    if(!dueTemplates || !dueTemplates.length) return;
+
+    const generatedForThisCurrency = [];
+
+    for(const tmpl of dueTemplates){
+      const nextDate = computeNextDueDate(tmpl.interval_unit, tmpl.interval_day, tmpl.next_due_date);
+      const { data: claimed, error: claimErr } = await sb
+        .from("recurring_expenses")
+        .update({ next_due_date: nextDate, last_generated_date: todayStr })
+        .eq("id", tmpl.id)
+        .lte("next_due_date", todayStr)
+        .select();
+      if(claimErr || !claimed || !claimed.length) continue; // 搶輸了，別人已經處理過這筆
+
+      // note 裡塞 [recurring:範本id] 標記，讓歷史紀錄/明細畫面認得出這筆是週期性
+      // 支出自動產生的（見 isRecurringGeneratedStr()/extractRecurringTemplateId()），
+      // 使用者編輯這筆帳時才知道要跳「只改這一筆／這筆以後都改」的選擇。
+      const payload = {
+        group_id: tmpl.group_id,
+        description: tmpl.description,
+        category: tmpl.category,
+        amount: tmpl.amount,
+        currency: tmpl.currency,
+        payers: tmpl.payers,
+        shares: tmpl.shares,
+        expense_date: tmpl.next_due_date,
+        created_by: tmpl.created_by,
+        note: `[recurring:${tmpl.id}]`
+      };
+      const { data: insertedExp, error: insertErr } = await sb.from("expenses").insert(payload).select().single();
+      if(insertErr || !insertedExp){
+        console.error("週期性支出自動記錄失敗：", insertErr);
+        continue;
+      }
+
+      const { title: tmplTitle } = splitExpenseTitleAndNote(tmpl.description || "", "");
+      const curObj = CURRENCIES.find(c => c.code === tmpl.currency);
+      const notifTitle = t("notif.recurringGeneratedTitle");
+      const notifBody = t("notif.recurringGeneratedBody", {
+        title: tmplTitle || tmpl.description,
+        amount: (curObj ? curObj.symbol : tmpl.currency) + formatAmt(tmpl.amount)
+      });
+      // notifications 的 RLS 不允許直接幫「其他成員」insert（跟 members/expenses
+      // 一樣，任何人都不能代寫別人的資料列）——跟催款提醒（send_debt_reminder）
+      // 同一套做法，改叫一支 SECURITY DEFINER RPC，在資料庫端確認呼叫者真的是
+      // 這個群組的成員後，才幫忙寫通知。只通知「這筆週期性支出實際牽涉到的人」
+      // （付款人＋分攤人），不相干的其他群組成員不會收到——沒道理讓一個跟這筆
+      // 帳完全沒關係的人也收到通知。
+      const involvedMemberIds = Array.from(new Set([
+        ...(tmpl.payers || []).map(p => p.member_id),
+        ...(tmpl.shares || []).map(s => s.member_id)
+      ]));
+      const { error: notifErr } = await sb.rpc("notify_recurring_generated", {
+        p_group_id: tmpl.group_id,
+        p_member_ids: involvedMemberIds,
+        p_title: notifTitle,
+        p_body: notifBody,
+        p_related_table: "expenses",
+        p_related_id: insertedExp.id
+      });
+      if(notifErr) console.warn("寫入週期性支出通知失敗（可能尚未執行 scripts/recurring_expenses_notify_fn.sql）：", notifErr);
+
+      if(tmpl.currency === CURRENCY){
+        generatedForThisCurrency.push({ expense: insertedExp, template: tmpl });
+      }
+    }
+
+    if(generatedForThisCurrency.length){
+      await refreshExpenses();
+      renderRecurringAutoBanner(generatedForThisCurrency);
+      if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
     }
   }
 
@@ -2750,6 +3220,9 @@
       );
       if(!hasAddons) return false;
     }
+    if(activeMultiFilters.has("recurring")){
+      if(!(isRecurringGeneratedStr(e.description) || isRecurringGeneratedStr(e.note))) return false;
+    }
 
     // 💰 金額區間篩選
     const amt = Number(e.amount) || 0;
@@ -2927,7 +3400,12 @@
   }
 
   // 🎛️ 多維度快捷 Chips 事件綁定（常駐區的「與我相關」+ 進階篩選區的其餘 Chips）
-  document.querySelectorAll(".multi-chip").forEach(chip => {
+  // 一定要限定 [data-quick] 才綁——「🔍 篩選」「📷 收據牆」這幾顆按鈕純粹是外觀
+  // 借用同一顆 .multi-chip 樣式，本身不是快捷篩選 chip，之前沒加這個限定條件，
+  // 點「🔍 篩選」開進階篩選視窗時會被這裡誤判成「切換一個 data-quick 是
+  // undefined 的篩選」，把它也算進 activeMultiFilters 裡，篩選數量 / 結果統計列
+  // 因此無緣無故顯示「已篩選」，即使使用者根本沒設定任何條件。
+  document.querySelectorAll(".multi-chip[data-quick]").forEach(chip => {
     chip.addEventListener("click", ()=>{
       const quick = chip.dataset.quick;
       if(activeMultiFilters.has(quick)){
@@ -3061,6 +3539,141 @@
       <div class="debt-empty-text">${text}</div>
     </div>`;
   }
+
+  // ---------- 收據圖片總覽牆 ----------
+  // 資料直接重用 cachedExpenses（已經是「目前這個幣別」的支出清單，且已按日期新到舊排序），
+  // 不用另外打一次 API；縮圖網址是 receipts 這個私有 bucket 的簽名網址，一次簽 300 秒，
+  // 開牆時才批次簽、簽過的存 receiptGallerySignedUrlCache 快取，避免縮圖跟燈箱重複簽兩次。
+  const RECEIPT_GALLERY_PAGE_SIZE = 20;
+  let receiptGalleryItems = [];
+  let receiptGalleryShown = 0;
+  let receiptGallerySignedUrlCache = {};
+
+  function renderReceiptGalleryEmpty(){
+    const grid = document.getElementById("receiptGalleryGrid");
+    const loadMoreBtn = document.getElementById("receiptGalleryLoadMoreBtn");
+    if(grid) grid.innerHTML = emptyStateHTML("📷", t("currency.receiptGalleryEmpty"), t("currency.receiptGalleryEmptyDesc"));
+    if(loadMoreBtn) loadMoreBtn.classList.add("hidden");
+  }
+
+  async function loadReceiptGalleryPage(){
+    const grid = document.getElementById("receiptGalleryGrid");
+    const loadMoreBtn = document.getElementById("receiptGalleryLoadMoreBtn");
+    if(!grid) return;
+    const batch = receiptGalleryItems.slice(receiptGalleryShown, receiptGalleryShown + RECEIPT_GALLERY_PAGE_SIZE);
+    if(!batch.length) return;
+
+    batch.forEach(e => {
+      const thumb = document.createElement("div");
+      thumb.className = "receipt-gallery-thumb";
+      thumb.dataset.expenseId = e.id;
+      thumb.innerHTML = `<span class="receipt-gallery-thumb-loading">⏳</span>`;
+      thumb.addEventListener("click", () => openReceiptLightbox(e.id));
+      grid.appendChild(thumb);
+    });
+    receiptGalleryShown += batch.length;
+    if(loadMoreBtn){
+      if(receiptGalleryShown < receiptGalleryItems.length) loadMoreBtn.classList.remove("hidden");
+      else loadMoreBtn.classList.add("hidden");
+    }
+
+    await Promise.all(batch.map(async e => {
+      const thumb = grid.querySelector(`.receipt-gallery-thumb[data-expense-id="${e.id}"]`);
+      try {
+        let signedUrl = receiptGallerySignedUrlCache[e.id];
+        if(!signedUrl){
+          const { data, error } = await sb.storage.from("receipts").createSignedUrl(e.receipt_image_path, 300);
+          if(error || !data || !data.signedUrl) throw error || new Error("receipt image not found");
+          signedUrl = data.signedUrl;
+          receiptGallerySignedUrlCache[e.id] = signedUrl;
+        }
+        if(thumb){
+          const { title } = splitExpenseTitleAndNote(e.description || "", e.note || "");
+          thumb.innerHTML = `<img src="${signedUrl}" alt="${escapeHtml(title || e.description || "")}"><div class="receipt-gallery-thumb-amt">${SYM}${formatAmt(e.amount)}</div>`;
+        }
+      } catch(err){
+        console.error("載入收據縮圖失敗：", err);
+        if(thumb) thumb.innerHTML = `<span class="receipt-gallery-thumb-loading" style="animation:none;opacity:.35;">🚫</span>`;
+      }
+    }));
+  }
+
+  function openReceiptGallery(){
+    const modal = document.getElementById("receiptGalleryModal");
+    const grid = document.getElementById("receiptGalleryGrid");
+    if(!modal || !grid) return;
+    grid.innerHTML = "";
+    receiptGalleryShown = 0;
+    receiptGalleryItems = cachedExpenses.filter(e => e.receipt_image_path);
+    modal.classList.add("show");
+    if(!receiptGalleryItems.length){
+      renderReceiptGalleryEmpty();
+      return;
+    }
+    loadReceiptGalleryPage();
+  }
+
+  // 共用的收據燈箱——收據牆縮圖、AI 拆單編輯看板的「查看收據原圖」都走這裡，
+  // 兩個地方點開收據照片的體驗（原地放大看、不是跳新分頁）才會一致。
+  // onView 沒給的話（例如從 AI 拆單編輯看板開的，本來就已經在編輯這筆帳了，
+  // 沒有「查看支出明細」的必要）就把那顆按鈕藏起來。
+  window.showReceiptLightbox = function({ imgUrl, title, meta, onView }){
+    const modal = document.getElementById("receiptLightboxModal");
+    const img = document.getElementById("receiptLightboxImg");
+    const descEl = document.getElementById("receiptLightboxDesc");
+    const metaEl = document.getElementById("receiptLightboxMeta");
+    const viewBtn = document.getElementById("receiptLightboxViewBtn");
+    if(!modal || !img) return;
+    img.src = imgUrl || "";
+    if(descEl) descEl.textContent = title || "";
+    if(metaEl) metaEl.textContent = meta || "";
+    if(viewBtn){
+      if(typeof onView === "function"){
+        viewBtn.classList.remove("hidden");
+        viewBtn.onclick = () => { modal.classList.remove("show"); onView(); };
+      } else {
+        viewBtn.classList.add("hidden");
+        viewBtn.onclick = null;
+      }
+    }
+    modal.classList.add("show");
+  };
+
+  function openReceiptLightbox(expenseId){
+    const e = cachedExpenses.find(x => x.id === expenseId);
+    if(!e) return;
+    const { title } = splitExpenseTitleAndNote(e.description || "", e.note || "");
+    window.showReceiptLightbox({
+      imgUrl: receiptGallerySignedUrlCache[e.id] || "",
+      title: title || e.description || t("currency.expenseDetailFallback"),
+      meta: `${e.expense_date || ""}　${SYM}${formatAmt(e.amount)}`,
+      onView: () => {
+        const galleryModal = document.getElementById("receiptGalleryModal");
+        if(galleryModal) galleryModal.classList.remove("show");
+        showExpenseDebtDetail(e);
+      }
+    });
+  }
+
+  const receiptGalleryOpenBtn = document.getElementById("receiptGalleryOpenBtn");
+  const receiptGalleryModal = document.getElementById("receiptGalleryModal");
+  const receiptGalleryCloseBtn = document.getElementById("receiptGalleryCloseBtn");
+  const receiptGalleryLoadMoreBtn = document.getElementById("receiptGalleryLoadMoreBtn");
+  const receiptLightboxModal = document.getElementById("receiptLightboxModal");
+  const receiptLightboxCloseBtn = document.getElementById("receiptLightboxCloseBtn");
+  if(receiptGalleryOpenBtn){
+    receiptGalleryOpenBtn.addEventListener("click", openReceiptGallery);
+  }
+  if(receiptGalleryCloseBtn && receiptGalleryModal){
+    receiptGalleryCloseBtn.addEventListener("click", ()=> receiptGalleryModal.classList.remove("show"));
+  }
+  if(receiptGalleryLoadMoreBtn){
+    receiptGalleryLoadMoreBtn.addEventListener("click", loadReceiptGalleryPage);
+  }
+  if(receiptLightboxCloseBtn && receiptLightboxModal){
+    receiptLightboxCloseBtn.addEventListener("click", ()=> receiptLightboxModal.classList.remove("show"));
+  }
+
   // 誰能編輯／刪除：改成「這筆帳的債務關係人」都能動，不再限定當初新增的人。
   // 支出：付款人或分攤人都算；還款：付錢方或收錢方都算。
   function isExpenseParty(e, userId){
@@ -3110,6 +3723,19 @@
     return legacyMatch ? legacyMatch[0] : null;
   }
 
+  // 週期性支出自動產生的那一筆，用 [recurring:範本id] 這種標記塞進 description/note
+  // 裡（見 generateDueRecurringExpenses()），跟 xcur 是同一套「隱藏標記」做法——
+  // 標記本身會被 splitExpenseTitleAndNote() 從顯示用的標題/備註裡拿掉，編輯存檔時
+  // 又會自動黏回新的 description 後面，所以編輯這筆帳不會不小心弄丟這個標記。
+  function isRecurringGeneratedStr(str){
+    return Boolean(str && String(str).includes("[recurring:"));
+  }
+  function extractRecurringTemplateId(str){
+    if(!str) return null;
+    const m = String(str).match(/\[recurring:([^\]]+)\]/i);
+    return m ? m[1] : null;
+  }
+
   function splitExpenseTitleAndNote(fullDesc, explicitNote){
     const metaMatches = [];
     const extractMeta = (s) => {
@@ -3118,6 +3744,7 @@
         .replace(/<!--[\s\S]*?-->/gi, (m) => { metaMatches.push(m); return ""; })
         .replace(/AI_RECEIPT_DATA:[\s\S]*/gi, "")
         .replace(/\s*\[xcur[:_][^\]]+\]/gi, (m) => { metaMatches.push(m.trim()); return ""; })
+        .replace(/\s*\[recurring:[^\]]+\]/gi, (m) => { metaMatches.push(m.trim()); return ""; })
         .trim();
     };
 
@@ -3256,6 +3883,7 @@
         const canEdit = isExpenseParty(e, myId) || e.created_by === myId;
         const isXcur = isXcurStr(e.description) || isXcurStr(e.note);
         const xcurId = isXcur ? (extractXcurId(e.description) || extractXcurId(e.note)) : null;
+        const isRecurringGenerated = isRecurringGeneratedStr(e.description) || isRecurringGeneratedStr(e.note);
         const isAiSplit = Boolean((e.description && (e.description.includes("<!--AI_RECEIPT_DATA:") || e.description.includes("(AI自動拆單)") || e.description.includes("📋 品項明細"))) || (e.note && e.note.includes("<!--AI_RECEIPT_DATA:")));
         const catMeta = (window.getCategoryMeta && window.getCategoryMeta(title || e.description, e.note, e.category)) || { icon: "🧾", type: "general", name: t("currency.categoryGeneralFallback") };
         const icon = catMeta.icon;
@@ -3270,7 +3898,7 @@
         return `<div class="exp-item" data-id="${e.id}" title="${t("currency.clickToViewDebtDetail")}">
           <div class="exp-cat-badge exp-cat-${catMeta.type}" title="${catMeta.name}">${icon}</div>
           <div class="exp-main">
-            <div class="exp-desc">${highlightedTitle}${isAiSplit ? `<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">${t("currency.aiSplitBadge")}</span>` : ""}${isXcur ? `<span class="xcur-badge">${t("currency.xcurBadge")}</span>` : ""}</div>
+            <div class="exp-desc">${highlightedTitle}${isAiSplit ? `<span class="ai-split-badge" style="font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:color-mix(in srgb, var(--btn-primary) 14%, var(--paper));color:var(--btn-primary);margin-left:5px;">${t("currency.aiSplitBadge")}</span>` : ""}${isXcur ? `<span class="xcur-badge">${t("currency.xcurBadge")}</span>` : ""}${isRecurringGenerated ? `<span class="recurring-badge">${t("currency.recurringBadge")}</span>` : ""}</div>
             <div class="exp-meta">
               ${firstLineNote ? `<span class="exp-meta-line" style="color:var(--ink);font-weight:600;opacity:0.9;">${t("currency.notePrefix")}${highlightedNote}</span>` : ""}
               <span class="exp-meta-line">${t("currency.timePrefix")}${e.expense_date}${formatTime(e.created_at, e.expense_date) ? " " + formatTime(e.created_at, e.expense_date) : ""}（${highlightSearchMatch(memberById[e.created_by] || "?", searchKw)}）</span>
@@ -3840,12 +4468,73 @@
     chartRepaymentsCache = repayments;
     updateSpendChart();
     renderCategoryDonutChart(expenses);
+    renderSpendingInsights(expenses);
 
     // 這兩個畫面用的是同一份債務資料，算一次共用，不用各自重算一遍
     // buildDebtMatrix()（要重新掃過全部支出/還款，資料一多會是浪費）。
     const owedForRender = buildDebtMatrix(expenses, repayments);
     renderSettlement(expenses, repayments, owedForRender);
     renderDebtMatrix(expenses, repayments, owedForRender);
+  }
+
+  // 💸 結算提醒：太久沒還款、但這個幣別還有未結清的餘額時，主動提示一下——
+  // 純粹用既有的 repayments 最新日期 + member_balances 算出來，不用另外記錄
+  // 「上次結清時間」。跟催款提醒（send_debt_reminder，針對特定一對人）不同，
+  // 這個是「整個幣別帳都放很久沒人處理」的整體提醒，一天最多看到一次（用
+  // localStorage 記當天有沒有關掉過，跟 matrixShowOnlyMine 同一種輕量作法）。
+  const SETTLE_REMINDER_THRESHOLD_DAYS = 30;
+  function renderSettleReminder(repayments, balRows){
+    const banner = document.getElementById("settleReminderBanner");
+    if(!banner) return;
+
+    const hasOutstanding = (balRows || []).some(row => row.currency === CURRENCY && Math.abs(Number(row.balance)) > 0.5);
+    if(!hasOutstanding){
+      banner.innerHTML = "";
+      return;
+    }
+
+    const dismissKey = "sb_settle_reminder_dismissed_" + CURRENCY;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if(localStorage.getItem(dismissKey) === todayStr){
+      banner.innerHTML = "";
+      return;
+    }
+
+    const relevantRepayments = (repayments || []).filter(r => r.currency === CURRENCY);
+    if(!relevantRepayments.length){
+      // 從來沒還款紀錄，沒有「上次」可以算，不硬湊一個天數出來誤導使用者。
+      banner.innerHTML = "";
+      return;
+    }
+    const lastDateStr = relevantRepayments.reduce((max, r) => r.payment_date > max ? r.payment_date : max, relevantRepayments[0].payment_date);
+    const daysSince = Math.floor((new Date(todayStr) - new Date(lastDateStr)) / 86400000);
+    if(daysSince < SETTLE_REMINDER_THRESHOLD_DAYS){
+      banner.innerHTML = "";
+      return;
+    }
+
+    banner.innerHTML = `<div class="card recurring-auto-banner-item">
+      <span class="recurring-auto-banner-text">${t("currency.settleReminderText", {days: daysSince})}</span>
+      <span class="recurring-auto-banner-actions">
+        <button type="button" class="link-btn" id="settleReminderGoBtn">${t("currency.settleReminderGoBtn")}</button>
+        <button type="button" class="recurring-auto-banner-close" aria-label="${t("common.close")}">✕</button>
+      </span>
+    </div>`;
+
+    const goBtn = document.getElementById("settleReminderGoBtn");
+    if(goBtn){
+      goBtn.addEventListener("click", ()=>{
+        const repayTab = document.querySelector('.app-tab[data-tab="repay"]');
+        if(repayTab) repayTab.click();
+      });
+    }
+    const closeBtn = banner.querySelector(".recurring-auto-banner-close");
+    if(closeBtn){
+      closeBtn.addEventListener("click", ()=>{
+        localStorage.setItem(dismissKey, todayStr);
+        banner.innerHTML = "";
+      });
+    }
   }
 
   // ==========================================================
@@ -3877,6 +4566,35 @@
       return { from: fromEl ? fromEl.value : "", to: toEl ? toEl.value : "" };
     }
     return { from: "", to: "" }; // all
+  }
+
+  // 📈 花費分析加強：最常記的品項排行——同一批 cachedExpenses 資料換角度呈現，
+  // 不用多打一次 API。放在花費類別分佈圖旁邊，跟圖表共用同一個「全團支出／
+  // 我的支出」範圍開關（donutScope），使用者切了圖表範圍，這裡也要跟著切。
+  function renderSpendingInsights(expenses){
+    const wrap = document.getElementById("spendingInsights");
+    if(!wrap) return;
+    const myId = myMember && myMember.id;
+    const scoped = donutScope === "my"
+      ? (expenses || []).filter(e => (e.shares || []).some(s => s.member_id === myId))
+      : (expenses || []);
+    if(!scoped.length){
+      wrap.innerHTML = "";
+      return;
+    }
+
+    const titleCounts = {};
+    scoped.forEach(e => {
+      const { title } = splitExpenseTitleAndNote(e.description || "", e.note || "");
+      const key = (title || "").trim();
+      if(key) titleCounts[key] = (titleCounts[key] || 0) + 1;
+    });
+
+    const topTitles = Object.entries(titleCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    wrap.innerHTML = topTitles.length ? `<div class="spending-insight-row spending-insight-row-top">
+      <span class="spending-insight-label">${t("currency.insightTopItemsLabel")}</span>
+      <span class="spending-insight-top-list">${topTitles.map(([title, count]) => `<span class="spending-insight-top-chip">${escapeHtml(title)} ×${count}</span>`).join("")}</span>
+    </div>` : "";
   }
 
   function renderCategoryDonutChart(expenses){
@@ -4178,6 +4896,7 @@
         tab.classList.add("active");
         donutScope = tab.dataset.scope || "all";
         renderCategoryDonutChart(chartExpensesCache);
+        renderSpendingInsights(chartExpensesCache);
       });
     });
   }
@@ -5493,7 +6212,10 @@ function showExpenseDebtDetail(e){
 
   const icon = getCategoryIcon(title || e.description || "", e.category);
   if(iconEl) iconEl.textContent = icon;
-  if(titleName) titleName.textContent = cleanTitle;
+  if(titleName){
+    const isRecurringGenerated = isRecurringGeneratedStr(e.description) || isRecurringGeneratedStr(e.note);
+    titleName.innerHTML = escapeHtml(cleanTitle) + (isRecurringGenerated ? `<span class="recurring-badge">${t("currency.recurringBadge")}</span>` : "");
+  }
 
   const debts = computeExpenseDebts(e);
 
@@ -5884,7 +6606,12 @@ function showExpenseDebtDetail(e){
         try {
           const { data, error } = await sb.storage.from("receipts").createSignedUrl(e.receipt_image_path, 300);
           if(error || !data || !data.signedUrl) throw error || new Error("receipt image not found");
-          window.open(data.signedUrl, "_blank", "noopener");
+          const { title: receiptTitle } = splitExpenseTitleAndNote(e.description || "", e.note || "");
+          window.showReceiptLightbox({
+            imgUrl: data.signedUrl,
+            title: receiptTitle || e.description || t("currency.expenseDetailFallback"),
+            meta: `${e.expense_date || ""}　${SYM}${formatAmt(e.amount)}`
+          });
         } catch(err){
           console.error("開啟收據原圖失敗：", err);
           await sbAlert(t("currency.receiptImgExpired"), t("currency.cannotOpenTitle"));
@@ -7119,9 +7846,13 @@ function showPairDetail(
       lines.push(t("currency.csvExpenseSection"));
       lines.push(toCSVRow(t("currency.csvExpenseHeaders", {sym: SYM}).split(",")));
       expenses.forEach(e=>{
+        // e.description 可能夾帶 [xcur:...]／[recurring:...]／AI_RECEIPT_DATA 這類隱藏標記
+        // （尤其編輯過的週期性支出，標記會被搬進 description，見 splitExpenseTitleAndNote()
+        // 的說明）——匯出用乾淨過的標題，不要讓這些內部標記露在使用者看得到的 CSV 裡。
+        const { title: cleanTitle } = splitExpenseTitleAndNote(e.description, e.note);
         const payerText = (e.payers || []).map(p => `${memberById[p.member_id] || "?"}${SYM}${p.amount}${p.calc ? `(${p.calc})` : ""}`).join("；");
         const shareText = (e.shares || []).map(s => `${memberById[s.member_id] || "?"}${SYM}${s.amount}${s.calc ? `(${s.calc})` : ""}`).join("；");
-        lines.push(toCSVRow([e.expense_date, e.description, e.amount, payerText, shareText, memberById[e.created_by] || "?"]));
+        lines.push(toCSVRow([e.expense_date, cleanTitle || e.description, e.amount, payerText, shareText, memberById[e.created_by] || "?"]));
       });
 
       lines.push("");

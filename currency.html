@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=798">
-<link rel="stylesheet" href="shared.css?v=798">
+<link rel="stylesheet" href="theme.css?v=827">
+<link rel="stylesheet" href="shared.css?v=827">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="i18n.js?v=798"></script>
-<script src="currencies.js?v=798"></script>
-<script src="version.js?v=798"></script>
-<script src="shared-ui.js?v=798"></script>
-<script src="theme.js?v=798" defer></script>
+<script src="i18n.js?v=827"></script>
+<script src="currencies.js?v=827"></script>
+<script src="version.js?v=827"></script>
+<script src="shared-ui.js?v=827"></script>
+<script src="theme.js?v=827" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -104,7 +104,7 @@ if("serviceWorker" in navigator){
       <h1 id="pageH1"></h1>
     </div>
     <div class="nav-links" id="navLinks"></div>
-    <div class="exchange-rate-hint hidden" id="exchangeRateHint"></div>
+    <button type="button" class="exchange-rate-hint hidden" id="exchangeRateHint"></button>
   </div>
 
   <div id="configWarning" class="card hidden">
@@ -134,6 +134,9 @@ if("serviceWorker" in navigator){
       <span class="email-reminder-text" data-i18n="currency.emailReminder">⚠️ 你還沒設定電子信箱，忘記密碼會沒辦法用</span>
       <button type="button" class="link-btn" id="emailReminderBtn" data-i18n="currency.goToSettings">去設定</button>
     </div>
+
+    <div class="recurring-auto-banner" id="recurringAutoBanner"></div>
+    <div class="recurring-auto-banner" id="settleReminderBanner"></div>
 
     <div class="my-balance" id="myBalance">
           <div class="my-balance-label" id="myBalanceLabel"></div>
@@ -211,6 +214,7 @@ if("serviceWorker" in navigator){
                   <div id="categoryDonutWrap" class="category-donut-wrap">
                     <p class="filter-hint" data-i18n="common.loading">載入中…</p>
                   </div>
+                  <div id="spendingInsights" class="spending-insights"></div>
                 </div>
               </div>
 
@@ -245,6 +249,12 @@ if("serviceWorker" in navigator){
         </div>
         <div class="edit-banner hidden" id="editBanner">
           <span data-i18n="currency.editMode">✎ 編輯模式</span> <button type="button" class="link-btn" id="cancelEditBtn" data-i18n="currency.cancelEdit">取消編輯</button>
+        </div>
+        <div class="exp-edit-currency-row hidden" id="editCurrencyRow">
+          <label for="expEditCurrencySelect" data-i18n="currency.editCurrencyLabel">記錯幣別了？在這裡直接改成正確的</label>
+          <div class="select-wrap">
+            <select id="expEditCurrencySelect"></select>
+          </div>
         </div>
 
         <div class="form-wizard-progress" id="expWizardProgress">
@@ -418,6 +428,12 @@ if("serviceWorker" in navigator){
         <div class="edit-banner hidden" id="repayEditBanner">
           <span data-i18n="currency.editMode">✎ 編輯模式</span> <button type="button" class="link-btn" id="cancelRepayEditBtn" data-i18n="currency.cancelEdit">取消編輯</button>
         </div>
+        <div class="exp-edit-currency-row hidden" id="repayEditCurrencyRow">
+          <label for="repayEditCurrencySelect" data-i18n="currency.editCurrencyLabel">記錯幣別了？在這裡直接改成正確的</label>
+          <div class="select-wrap">
+            <select id="repayEditCurrencySelect"></select>
+          </div>
+        </div>
         <label data-i18n="currency.repayFromLabel">誰還錢</label>
         <select id="repayFrom"></select>
         <label data-i18n="currency.repayToLabel">誰收錢</label>
@@ -444,20 +460,25 @@ if("serviceWorker" in navigator){
 
         <!-- 🔍 歷史紀錄即時搜尋與多維度快捷 Chips -->
         <div class="history-quick-filter-bar" id="historyQuickFilterBar">
-          <div class="history-live-search-wrap">
-            <span class="search-icon">🔍</span>
-            <input type="text" class="search-inp" id="historyLiveSearch" data-i18n-placeholder="currency.searchPlaceholder" placeholder="搜尋項目、店家、備註、金額或成員...">
-            <button type="button" class="search-clear-btn hidden" id="historyLiveSearchClear" data-i18n-title="currency.clearSearch" aria-label="清除搜尋">✕</button>
+          <div class="history-search-row">
+            <div class="history-live-search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" class="search-inp" id="historyLiveSearch" data-i18n-placeholder="currency.searchPlaceholder" placeholder="搜尋項目、店家、備註、金額或成員...">
+              <button type="button" class="search-clear-btn hidden" id="historyLiveSearchClear" data-i18n-title="currency.clearSearch" aria-label="清除搜尋">✕</button>
+            </div>
+            <button type="button" class="multi-chip history-filter-btn" id="historyFilterOpenBtn"><span data-i18n="currency.filterBtn">🔍 篩選</span> <span class="filter-count-badge hidden" id="filterCountBadge">0</span></button>
           </div>
 
           <div class="history-chips-row">
-            <!-- 🎛️ 常駐快捷 Chip：其餘篩選已收進「進階篩選」 -->
+            <!-- 🎛️ 常駐快捷 Chip：真正的篩選開關才放這裡，其餘篩選已收進「進階篩選」。
+                 「收據牆」是動作按鈕（點了開新視窗），不是篩選開關，跟右邊「每頁幾筆」
+                 這類顯示/動作控制放一起，不跟真正的篩選 chip 混在同一排。 -->
             <div class="history-multi-chips" id="historyMultiChips">
               <button type="button" class="multi-chip" data-quick="involved" data-i18n="currency.matrixFilterMe">👤 與我相關</button>
-              <button type="button" class="multi-chip" id="historyFilterOpenBtn"><span data-i18n="currency.filterBtn">🔍 篩選</span> <span class="filter-count-badge hidden" id="filterCountBadge">0</span></button>
             </div>
 
             <div class="history-pagesize-wrap">
+              <button type="button" class="multi-chip" id="receiptGalleryOpenBtn" data-i18n="currency.receiptGalleryBtn">📷 收據牆</button>
               <span class="history-pagesize-label" data-i18n="currency.perPageLabel">每頁</span>
               <select class="history-pagesize-select" id="historyPageSizeSelect">
                 <option value="5" data-i18n="currency.perPage5">5 筆</option>
@@ -624,6 +645,7 @@ if("serviceWorker" in navigator){
       <div class="history-multi-chips" id="filterQuickChips">
         <button type="button" class="multi-chip" data-quick="payer_me" data-i18n="currency.quickPayerMe">💳 我代墊的</button>
         <button type="button" class="multi-chip" data-quick="addons" data-i18n="currency.quickAddons">🍽️ 有個人自付</button>
+        <button type="button" class="multi-chip" data-quick="recurring" data-i18n="currency.recurringBadge">🔁 週期性支出</button>
       </div>
 
       <div id="filterExpenseFields">
@@ -679,6 +701,63 @@ if("serviceWorker" in navigator){
       <button type="button" class="btn secondary small" id="settlementImgCopyBtn" data-i18n="currency.copyImage">📋 複製圖片</button>
       <button type="button" class="btn secondary small" id="settlementImgShareBtn" data-i18n="currency.shareOrSave">📤 分享 / 儲存</button>
       <button type="button" class="btn small" id="settlementImgDownloadBtn" data-i18n="currency.downloadImage">⬇️ 下載圖片</button>
+    </div>
+  </div>
+</div>
+
+<div class="calc-modal" id="receiptGalleryModal">
+  <div class="calc-card card receipt-gallery-modal-card">
+    <div class="calc-header">
+      <div class="avatar-modal-title" data-i18n="currency.receiptGalleryTitle">📷 收據牆</div>
+      <button type="button" class="calc-close" id="receiptGalleryCloseBtn">✕</button>
+    </div>
+    <div class="receipt-gallery-grid" id="receiptGalleryGrid"></div>
+    <button type="button" class="btn secondary small hidden" id="receiptGalleryLoadMoreBtn" data-i18n="currency.loadMore">載入更多</button>
+  </div>
+</div>
+
+<div class="calc-modal" id="receiptLightboxModal">
+  <div class="calc-card card receipt-lightbox-card">
+    <button type="button" class="calc-close receipt-lightbox-close" id="receiptLightboxCloseBtn">✕</button>
+    <img id="receiptLightboxImg" class="receipt-lightbox-img" alt="">
+    <div class="receipt-lightbox-info">
+      <div class="receipt-lightbox-desc" id="receiptLightboxDesc"></div>
+      <div class="receipt-lightbox-meta" id="receiptLightboxMeta"></div>
+    </div>
+    <button type="button" class="btn small" id="receiptLightboxViewBtn" data-i18n="currency.viewFullDetail">查看支出明細</button>
+  </div>
+</div>
+
+<!-- 📈 即時匯率走勢：點頁面最上面那行「即時匯率」文字跳出來，用既有的免費
+     fawazahmed0/currency-api（本來就已經是匯率來源的備援之一）查近 30 天歷史匯率 -->
+<div class="calc-modal" id="exchangeRateTrendModal">
+  <div class="calc-card card exchange-rate-trend-card">
+    <div class="calc-header">
+      <span class="calc-header-name" id="exchangeRateTrendTitle" data-i18n="currency.rateTrendTitle">📈 匯率走勢</span>
+      <button type="button" class="calc-close" id="exchangeRateTrendCloseBtn">✕</button>
+    </div>
+    <div class="donut-scope-tabs rate-trend-range-tabs" id="rateTrendRangeTabs">
+      <button type="button" class="donut-scope-tab" data-range="week" data-i18n="currency.rateTrendRangeWeek">週</button>
+      <button type="button" class="donut-scope-tab active" data-range="month" data-i18n="currency.rateTrendRangeMonth">月</button>
+      <button type="button" class="donut-scope-tab" data-range="year" data-i18n="currency.rateTrendRangeYear">年</button>
+    </div>
+    <div id="exchangeRateTrendBody">
+      <p class="filter-hint" data-i18n="common.loading">載入中…</p>
+    </div>
+  </div>
+</div>
+
+<!-- 🔁 週期性支出：編輯自動產生的那一筆時，先問「只改這一筆」還是「這筆以後都改」 -->
+<div class="calc-modal" id="recurringEditScopeModal">
+  <div class="calc-card card recurring-edit-scope-card">
+    <div class="calc-header">
+      <div class="avatar-modal-title" data-i18n="currency.recurringEditScopeTitle">這是週期性支出的其中一筆</div>
+      <button type="button" class="calc-close" id="recurringEditScopeCloseBtn">✕</button>
+    </div>
+    <p class="recurring-edit-scope-body" id="recurringEditScopeBody"></p>
+    <div class="recurring-edit-scope-actions">
+      <button type="button" class="btn secondary" id="recurringEditScopeOnlyThisBtn" data-i18n="currency.recurringEditScopeOnlyThis">只改這一筆</button>
+      <button type="button" class="btn" id="recurringEditScopeTemplateBtn" data-i18n="currency.recurringEditScopeTemplate">這筆以後都改（前往設定）</button>
     </div>
   </div>
 </div>
@@ -1091,6 +1170,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=798"></script>
+<script src="app.js?v=827"></script>
 </body>
 </html>
