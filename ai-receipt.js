@@ -31,6 +31,36 @@
   // 自動跳過上傳。
   let currentReceiptImageBase64 = null;
 
+  // 📤 分享目標（share_target）：手機相簿/相機分享收據照片進來時，Service
+  // Worker 已經把檔案存進 IndexedDB（見 sw.js 攔截 POST /share-receipt.html
+  // 的邏輯）。這裡讀出來就順便刪掉，避免下次開頁又重複觸發跳進裁切畫面。
+  // 跟 i18n.js 的 syncLangToServiceWorker() 共用同一個 IndexedDB
+  // （splitbill-prefs / kv），只是多存一個 key，不用另開資料庫。
+  function readAndClearSharedReceiptFile(){
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open("splitbill-prefs", 1);
+        req.onupgradeneeded = () => {
+          if(!req.result.objectStoreNames.contains("kv")) req.result.createObjectStore("kv");
+        };
+        req.onsuccess = () => {
+          try {
+            const tx = req.result.transaction("kv", "readwrite");
+            const store = tx.objectStore("kv");
+            const getReq = store.get("sharedReceiptFile");
+            getReq.onsuccess = () => {
+              const file = getReq.result;
+              if(file) store.delete("sharedReceiptFile");
+              resolve(file || null);
+            };
+            getReq.onerror = () => resolve(null);
+          } catch(e){ resolve(null); }
+        };
+        req.onerror = () => resolve(null);
+      } catch(e){ resolve(null); }
+    });
+  }
+
   function compressImageForAI(file, maxDimension = 2048, quality = 0.92){
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -2302,6 +2332,25 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
             const keepImageChk = document.getElementById("aiReceiptKeepImageChk");
             const shouldKeepImage = !!(keepImageChk && keepImageChk.checked && currentReceiptImageBase64);
 
+            // 防手滑：跟手動新增支出表單同一套邏輯（10 分鐘內金額、店家都
+            // 一樣就跳確認），避免同一張收據不小心按了兩次「直接存檔」。
+            // 只在跟目前頁面同一個幣別時才檢查——cachedExpenses 只有這頁
+            // 的快取資料，這筆存到別的幣別頁的話本地沒有足夠資訊比對，
+            // 不硬檢查、直接放行。
+            if(selectedReceiptCurrency === deps.CURRENCY && typeof deps.getCachedExpenses === "function"){
+              const cachedExpenses = deps.getCachedExpenses() || [];
+              const now = Date.now();
+              const dup = cachedExpenses.find(e =>
+                Math.abs(Number(e.amount) - finalTotal) < 0.01 &&
+                deps.getFirstLineDesc(e.description, e.note).toLowerCase() === storeName.toLowerCase() &&
+                e.created_at && (now - new Date(e.created_at).getTime()) < 10 * 60 * 1000
+              );
+              if(dup){
+                const ok = await sbConfirm(t("currency.dupExpenseConfirm", {title: storeName, amount: curSym+deps.formatAmt(finalTotal)}), t("currency.dupExpenseTitle"));
+                if(!ok) return;
+              }
+            }
+
             const { data: insertedRow, error } = await deps.sb.from("expenses").insert(payload).select("id").single();
             if(error) throw error;
 
@@ -2333,4 +2382,10 @@ CRITICAL TRANSLATION & NAMING GUIDELINES:
         }
       });
     }
+
+    // 頁面一載入就檢查一次有沒有從系統分享選單分享進來、還沒處理的收據
+    // 照片，有的話直接跳進裁切畫面，不用使用者自己再選一次檔案。
+    readAndClearSharedReceiptFile().then((file) => {
+      if(file) loadReceiptImageForCrop(file);
+    });
   }

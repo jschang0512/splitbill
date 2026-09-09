@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("splitbill-theme");
+    if(t !== "dark" && t !== "light"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Splitbill</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7A6B9E">
+<link rel="stylesheet" href="theme.css?v=842">
+<link rel="stylesheet" href="shared.css?v=842">
+<script src="i18n.js?v=842"></script>
+<script src="version.js?v=842"></script>
+<script src="theme.js?v=842" defer></script>
+</head>
+<body>
+<svg class="svg-defs-hidden" aria-hidden="true">
+  <defs>
+    <linearGradient id="logoGrad" x1="90" y1="90" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop class="logo-stop-a" offset="0%"/>
+      <stop class="logo-stop-b" offset="100%"/>
+    </linearGradient>
+  </defs>
+</svg>
+<div id="pwaSplash" class="pwa-splash pwa-splash-visible">
+  <div class="pwa-splash-content">
+    <svg class="pwa-splash-logo" viewBox="0 0 512 512" aria-hidden="true">
+      <path class="s1" d="M256,238 L118.5,138.1 A170,170 0 0,1 393.5,138.1 Z"/>
+      <path class="s2" d="M271.6,265 L426.9,195.9 A170,170 0 0,1 289.4,434.1 Z"/>
+      <path class="s3" d="M240.4,265 L222.6,434.1 A170,170 0 0,1 85.1,195.9 Z"/>
+    </svg>
+    <div class="pwa-splash-title" data-i18n="shared.sharedReceiptLoading">正在準備收據拆單…</div>
+  </div>
+</div>
+<script>
+// 從系統分享選單分享照片進來的（見 manifest.json 的 share_target 設定，
+// 實際攔截 POST、把檔案存進 IndexedDB 的邏輯在 sw.js）。這個頁面只負責
+// 轉導到幣別頁——真正把圖片從 IndexedDB 撈出來、跳進 AI 拆單裁切畫面
+// 的邏輯在 ai-receipt.js 的 setupAiReceiptModal() 裡，那邊每次載入都
+// 會檢查一次有沒有待處理的分享圖片，不用靠 URL 參數傳過去，也不用
+// 額外呼叫 aiReceiptBtn.click()（不然會先閃一下上傳畫面才跳進裁切畫面）。
+(function(){
+  var shownCurrencies = [];
+  try { shownCurrencies = JSON.parse(localStorage.getItem("splitbill-shown-currencies") || "null") || []; } catch(e){}
+  var targetCurrency = shownCurrencies[0] || "TWD";
+  location.replace("currency.html?c=" + encodeURIComponent(targetCurrency));
+})();
+</script>
+</body>
+</html>

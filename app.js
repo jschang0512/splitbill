@@ -827,6 +827,7 @@
 
     if(typeof initDesktopShortcuts === "function") initDesktopShortcuts();
     if(typeof initNotificationBell === "function") initNotificationBell(sb, myMember);
+    if(typeof initOfflineBanner === "function") initOfflineBanner();
 
     window.memberRows = memberRows;
     initFilterMultiSelects(memberRows);
@@ -908,7 +909,14 @@
     const aiReceiptDeps = {
       sb, CURRENCY, CURRENCY_SYMBOL, CURRENCIES, showLeftMembers, refreshExpenses,
       emailToName, getFirstLineDesc, formatTime, formatAmt,
-      getState: () => ({ myMember, MEMBERS, memberById })
+      getState: () => ({ myMember, MEMBERS, memberById }),
+      // 重複支出偵測用：手動新增支出表單本來就會比對 cachedExpenses（見
+      // 下面 addExpBtn 那段的「防手滑」邏輯），AI 拆單直接存檔原本沒有
+      // 做同一件事，兩邊行為不一致——這裡傳個 getter 進去（不是傳當下
+      // 那份陣列快照，因為 aiReceiptDeps 在登入流程一開始就建立好了，
+      // 這時 cachedExpenses 可能還是空的；用 getter 確保 ai-receipt.js
+      // 拿到的永遠是「呼叫當下」最新的那份）。
+      getCachedExpenses: () => cachedExpenses
     };
     const aiReceiptModule = await import("./ai-receipt.js?v=" + APP_VERSION);
     aiReceiptModule.setupAiReceiptModal(aiReceiptDeps);

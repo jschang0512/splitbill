@@ -17,6 +17,23 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+// 📴 離線提示：斷線時在畫面上方跳出提示，避免使用者在網路不穩（漫遊、
+// 飯店 wifi）時新增支出/還款，Supabase 呼叫悄悄失敗卻不知道，以為存
+// 進去了其實沒有。純狀態顯示，不攔截、不阻擋任何操作——只是讓使用者
+// 自己判斷要不要等網路穩定再操作。summary/currency/settings 三頁都有
+// #offlineBanner 這個容器才會顯示，沒有的頁面呼叫也不會出錯。
+function initOfflineBanner(){
+  const banner = document.getElementById("offlineBanner");
+  if(!banner) return;
+  function update(){
+    banner.classList.toggle("hidden", navigator.onLine);
+  }
+  window.addEventListener("online", update);
+  window.addEventListener("offline", update);
+  update();
+}
+window.initOfflineBanner = initOfflineBanner;
+
 // ---------- Topbar「姓名 (群組)」：如果這個帳號同時在一個以上的群組裡，
 // 把群組名稱換成跟全站其他下拉選單同一套外觀的小圓角選單（用 enhanceSelect
 // 套上去，不是原生 <select> 那種瀏覽器預設樣式），選別的群組就直接呼叫
@@ -810,6 +827,15 @@ function renderWeatherBadge(weather){
   card.classList.remove("hidden");
 }
 
+// 城市/天氣結果快取：20 分鐘內在總覽/幣別頁/設定頁之間切來切去，直接沿用
+// 同一份結果，不用每切一次頁就重打一次 GPS 定位＋Nominatim 反查＋Open-
+// Meteo（使用者反映切頁會一直重抓，體感也比較耗電/耗流量）。20 分鐘夠
+// 涵蓋「開 App 逛一輪」的正常使用情境，真的移動到別的城市時也不會等太久
+// 才更新。存在 localStorage（不是 sessionStorage）是因為就算把分頁關掉、
+// 過一下子重開，只要還在這 20 分鐘內，人通常還在原地，一樣不用重抓。
+const LOCATION_WEATHER_CACHE_KEY = "sb_location_weather_cache";
+const LOCATION_WEATHER_CACHE_MS = 20 * 60 * 1000;
+
 // onDetected(info)：選用 callback，帶回 {lat, lon, countryCode, city,
 // district, countryName}，讓 summary.html 這類需要額外邏輯（例如切換國家
 // 時跳出「建議切換幣別」提示）的頁面自己接著處理；currency.html/
@@ -817,11 +843,24 @@ function renderWeatherBadge(weather){
 // #weatherCard 容器的頁面（不在 summary/currency/settings 範圍內）呼叫這
 // 支函式也不會出錯，只是徽章不會顯示（renderXxxBadge 內部會做 null 檢查）。
 async function initLocationWeatherWidget(onDetected){
+  try {
+    const cachedRaw = localStorage.getItem(LOCATION_WEATHER_CACHE_KEY);
+    if(cachedRaw){
+      const cached = JSON.parse(cachedRaw);
+      if(cached && cached.ts && (Date.now() - cached.ts < LOCATION_WEATHER_CACHE_MS) && cached.info){
+        renderLocationBadge(composeLocationLabel(cached.info.city, cached.info.district));
+        renderWeatherBadge(cached.weather || null);
+        if(typeof onDetected === "function") onDetected(cached.info);
+        return cached.info;
+      }
+    }
+  } catch(e){}
+
   let lat, lon, countryCode = '', city = '', district = '', countryName = '';
   try {
     if(!navigator.geolocation) throw new Error("no geolocation");
     const pos = await new Promise((res, rej) => {
-      navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+      navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 });
     });
     lat = pos.coords.latitude; lon = pos.coords.longitude;
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&addressdetails=1&accept-language=zh-TW,zh,en`;
@@ -842,12 +881,17 @@ async function initLocationWeatherWidget(onDetected){
   if(!countryCode) return null;
 
   renderLocationBadge(composeLocationLabel(city, district));
+  let weather = null;
   if(lat !== undefined && lon !== undefined){
-    const weather = await fetchOpenMeteoWeather(lat, lon);
+    weather = await fetchOpenMeteoWeather(lat, lon);
     renderWeatherBadge(weather);
   }
 
   const info = { lat, lon, countryCode, city, district, countryName };
+  try {
+    localStorage.setItem(LOCATION_WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), weather, info }));
+  } catch(e){}
+
   if(typeof onDetected === "function") onDetected(info);
   return info;
 }

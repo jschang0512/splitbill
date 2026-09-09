@@ -17,6 +17,7 @@ const APP_SHELL = [
   "about.html",
   "privacy.html",
   "terms.html",
+  "share-receipt.html",
   "currencies.js",
   "shared.css",
   "theme.css",
@@ -48,9 +49,47 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// 📤 分享目標（share_target，見 manifest.json）：手機相簿/相機把收據照片
+// 分享進來時，作業系統會直接對這裡 POST 一個 multipart/form-data。靜態
+// 網站沒有後端能接 POST，所以在 Service Worker 攔截這個請求、把檔案讀
+// 出來存進 IndexedDB，再用 303 redirect 轉成一般 GET，讓瀏覽器正常導向
+// share-receipt.html（那邊的頁面腳本會再轉去幣別頁）。跟 splitbillReadLangFromDB()
+// 共用同一個 IndexedDB（splitbill-prefs / kv），多一個 key 而已，不用另開資料庫。
+function splitbillStoreSharedFile(file){
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open("splitbill-prefs", 1);
+      req.onupgradeneeded = () => {
+        if(!req.result.objectStoreNames.contains("kv")) req.result.createObjectStore("kv");
+      };
+      req.onsuccess = () => {
+        try {
+          const tx = req.result.transaction("kv", "readwrite");
+          tx.objectStore("kv").put(file, "sharedReceiptFile");
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch(e){ resolve(false); }
+      };
+      req.onerror = () => resolve(false);
+    } catch(e){ resolve(false); }
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
+
+  if(req.method === "POST" && url.pathname.endsWith("/share-receipt.html")){
+    event.respondWith((async () => {
+      try {
+        const formData = await req.formData();
+        const file = formData.get("receipt");
+        if(file) await splitbillStoreSharedFile(file);
+      } catch(e){}
+      return Response.redirect("./share-receipt.html?shared=1", 303);
+    })());
+    return;
+  }
 
   // 只處理同網域的 GET 請求（app 自己的檔案），其他一律讓瀏覽器照正常方式處理
   if(req.method !== "GET" || url.origin !== self.location.origin){

@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=838">
-<link rel="stylesheet" href="shared.css?v=838">
+<link rel="stylesheet" href="theme.css?v=842">
+<link rel="stylesheet" href="shared.css?v=842">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="i18n.js?v=838"></script>
-<script src="currencies.js?v=838"></script>
-<script src="version.js?v=838"></script>
-<script src="shared-ui.js?v=838"></script>
-<script src="theme.js?v=838" defer></script>
+<script src="i18n.js?v=842"></script>
+<script src="currencies.js?v=842"></script>
+<script src="version.js?v=842"></script>
+<script src="shared-ui.js?v=842"></script>
+<script src="theme.js?v=842" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -136,6 +136,10 @@ if("serviceWorker" in navigator){
         <a class="icon-btn" id="settingsBtn" href="settings.html" data-i18n-title="common.settings" title="設定" aria-label="設定">⚙️</a>
         <button class="btn secondary small" id="logoutBtn" data-i18n="common.logout">登出</button>
       </div>
+    </div>
+
+    <div class="offline-banner hidden" id="offlineBanner">
+      <span class="offline-banner-text" data-i18n="shared.offlineBannerText">📴 目前離線，部分功能可能無法使用</span>
     </div>
 
     <div class="card email-reminder hidden" id="emailReminderCard">
@@ -1181,6 +1185,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=838"></script>
+<script src="app.js?v=842"></script>
 </body>
 </html>

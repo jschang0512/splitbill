@@ -18,6 +18,16 @@
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icon-mono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "monochrome" }
   ],
+  "share_target": {
+    "action": "share-receipt.html",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        { "name": "receipt", "accept": ["image/*"] }
+      ]
+    }
+  },
   "shortcuts": [
     {
       "name": "新增支出",

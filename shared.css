@@ -1097,6 +1097,17 @@ button.dd-btn {
 .email-reminder-text{ font-size:12.5px; color:var(--ink); }
 .email-reminder .link-btn{ flex:0 0 auto; white-space:nowrap; }
 
+.offline-banner{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  background:var(--paper);
+  border:1px solid var(--line);
+  padding:var(--sp-3) var(--sp-4);
+}
+.offline-banner-text{ font-size:12.5px; font-weight:600; color:var(--ink-soft); text-align:center; }
+
 .recurring-auto-banner{ display:flex; flex-direction:column; gap:8px; }
 .recurring-auto-banner:empty{ display:none; }
 .recurring-auto-banner-item{
