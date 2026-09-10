@@ -26,14 +26,14 @@
 <meta name="apple-mobile-web-app-title" content="Splitbill">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Noto+Sans+TC:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="theme.css?v=843">
-<link rel="stylesheet" href="shared.css?v=843">
+<link rel="stylesheet" href="theme.css?v=846">
+<link rel="stylesheet" href="shared.css?v=846">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="i18n.js?v=843"></script>
-<script src="currencies.js?v=843"></script>
-<script src="version.js?v=843"></script>
-<script src="shared-ui.js?v=843"></script>
-<script src="theme.js?v=843" defer></script>
+<script src="i18n.js?v=846"></script>
+<script src="currencies.js?v=846"></script>
+<script src="version.js?v=846"></script>
+<script src="shared-ui.js?v=846"></script>
+<script src="theme.js?v=846" defer></script>
 <script src="app-banner.js" defer></script>
 <script>
 if("serviceWorker" in navigator){
@@ -584,11 +584,11 @@ if("serviceWorker" in navigator){
     </div>
 
     <div class="twd-settle-actions twd-settle-actions-wrap">
-      <button type="button" class="btn twd-settle-direct-clear-btn" id="twdSettleDirectClearBtn" data-i18n="currency.settleAndClear">
-        在此一鍵結清 (欠款歸零)
-      </button>
-      <button type="button" class="btn secondary small" id="twdSettleGoTwdBtn" data-i18n="currency.convertToTwdDebt">
+      <button type="button" class="btn twd-settle-direct-clear-btn" id="twdSettleGoTwdBtn" data-i18n="currency.convertToTwdDebt">
         轉為臺幣欠款
+      </button>
+      <button type="button" class="btn secondary small" id="twdSettleDirectClearBtn" data-i18n="currency.settleAndClear">
+        在此一鍵結清 (欠款歸零)
       </button>
     </div>
 
@@ -1185,6 +1185,6 @@ window.renderNavLinks = function(){
 };
 window.renderNavLinks();
 </script>
-<script src="app.js?v=843"></script>
+<script src="app.js?v=846"></script>
 </body>
 </html>
